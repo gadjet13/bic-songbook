@@ -1,0 +1,37 @@
+import { useEffect, useState, type ReactNode } from 'react'
+
+type Preference = 'system' | 'light' | 'dark'
+const storageKey = 'bic-songbook-theme'
+function initialPreference(): Preference {
+  try {
+    const saved = localStorage.getItem(storageKey)
+    if (saved === 'light' || saved === 'dark') return saved
+  } catch { /* Use the device preference if storage is unavailable. */ }
+  return 'system'
+}
+
+export default function ThemePreference({ children }: { children: ReactNode }) {
+  const [preference, setPreference] = useState<Preference>(initialPreference)
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    const apply = () => {
+      document.documentElement.dataset.theme = preference === 'system'
+        ? media.matches ? 'dark' : 'light' : preference
+    }
+    apply()
+    try { localStorage.setItem(storageKey, preference) } catch { /* Keep working without persistence. */ }
+    media.addEventListener('change', apply)
+    return () => media.removeEventListener('change', apply)
+  }, [preference])
+  return <>
+    <div className="theme-toolbar">
+      <label htmlFor="theme-preference">Appearance</label>
+      <select id="theme-preference" value={preference} onChange={event => setPreference(event.target.value as Preference)}>
+        <option value="system">Use device setting</option>
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
+    </div>
+    {children}
+  </>
+}

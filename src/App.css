@@ -78,3 +78,29 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, .import-label
 .member-panel { max-width: 860px; margin: 16px auto; padding: 16px; background: white; }
 .member-panel select { min-height: 44px; }
 button:disabled { opacity: .6; cursor: wait; }
+
+/* Appearance applies to the sign-in screen and every songbook view. */
+:root { color-scheme: light; --page: #f6f3fa; --surface: #fff; --text: #222; --muted: #736981; --border: #d9cfe9; --accent: #51408b; --soft: #eae3f7; --hover: #f0ebf6; --song: #fafafa; --danger: #b00020; }
+:root[data-theme='dark'] { color-scheme: dark; --page: #17141e; --surface: #24202e; --text: #f2eef8; --muted: #bcb2cc; --border: #51465f; --accent: #c7adff; --soft: #342a47; --hover: #3b324a; --song: #1c1825; --danger: #ff9cae; }
+:root, body, .app { background: var(--page); color: var(--text); }
+header, .song-view, .add-song-form, .auth-panel, .member-panel, .transpose { background: var(--surface); color: var(--text); border-color: var(--border); }
+header h1, a { color: var(--accent); }
+header p, .song-item span, .song-category, .editor-help, .storage-note, .back-button { color: var(--muted); }
+button, input, textarea, select, .import-label,
+main > input[type='text'], label input, label textarea,
+.song-item, .library-tools button, .song-actions button, .incoming button,
+.auth-panel button, .account-bar button, .member-panel button { background: var(--surface); color: var(--text); border-color: var(--border); }
+button:hover, .song-item:hover, .edit-button:hover, .delete-button:hover, .cancel-button:hover, .transpose button:hover { background: var(--hover); }
+.back-button, .notice button { background: transparent; }
+.song-display { background: var(--song); color: var(--text); border-color: var(--border); }
+.chord { color: var(--accent); }
+.notice, .incoming, .account-bar { background: var(--soft); color: var(--text); }
+.delete-button, .song-actions .delete-button { color: var(--danger); }
+.save-button, .install-button { background: var(--accent); color: var(--page); }
+.save-button:hover, .install-button:hover { background: var(--accent); filter: brightness(.9); }
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
+.theme-toolbar { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 10px; padding: 10px 20px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.theme-toolbar label { display: block; margin: 0; font-size: 14px; }
+.theme-toolbar select { min-height: 44px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font: inherit; }
+select:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
+@media print { .theme-toolbar { display: none; } :root, body, .app, .song-view, .song-display { background: white; color: black; } .chord { color: black; } }
