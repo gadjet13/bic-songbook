@@ -86,7 +86,7 @@ export default function SharedApp() {
       <label>Friend’s account email<input type="email" required value={memberEmail} onChange={e=>setMemberEmail(e.target.value)}/></label>
       <label>Permission<select value={memberRole} onChange={e=>setMemberRole(e.target.value)}><option value="viewer">View songs</option><option value="editor">Add, edit and delete songs</option><option value="remove">Remove access</option></select></label>
       <button disabled={busy}>Update access</button></form></details>}
-    {role && <App key={session.user.id} library={{songs,canEdit:role==='owner'||role==='editor',
+    {role && <App key={session.user.id} library={{userId:session.user.id,songs,canEdit:role==='owner'||role==='editor',
       add:async rows=>{const saved=await insertSongs(rows);setSongs(current=>[...current,...saved]);return saved},
       update:async song=>{const saved=await updateSong(song);setSongs(current=>current.map(s=>s.id===saved.id?saved:s));return saved},
       remove:async song=>{await removeSong(song);setSongs(current=>current.filter(s=>s.id!==song.id))}

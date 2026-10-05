@@ -4,6 +4,7 @@ import './App.css'
 import { parseSongFile, downloadSongs, makeSongLink, readSongLink } from './lib/sharing'
 import { InstallHelp } from './InstallHelp'
 import SongPages from './SongPages'
+import SongOrganization, { useFavorites } from './SongOrganization'
 
 export type Song = {
   revision?: number
@@ -72,6 +73,7 @@ function getCurrentKey(
 }
 
 export type SharedLibrary = {
+  userId: string
   songs: Song[]
   canEdit: boolean
   add: (songs: Song[]) => Promise<Song[]>
@@ -79,6 +81,10 @@ export type SharedLibrary = {
   remove: (song: Song) => Promise<void>
 }
 function App({library}: {library: SharedLibrary}) {
+  const {favorites,toggle:toggleFavorite,error:favoriteError,busy:favoriteBusy}=useFavorites(library.userId)
+  const [favoritesOnly,setFavoritesOnly]=useState(false)
+  const [setlistQueue,setSetlistQueue]=useState<Song[]>([])
+  const [queueIndex,setQueueIndex]=useState(0)
   const [readingMode, setReadingMode] = useState(false)
   const [fontSize, setFontSize] = useState(() => {
     try { const saved = Number(localStorage.getItem('bic-songbook-font-size')); return saved >= 16 && saved <= 32 ? saved : 18 } catch { return 18 }
@@ -171,6 +177,7 @@ function App({library}: {library: SharedLibrary}) {
   }
 
   const filteredSongs = songList.filter((song) =>
+    (!favoritesOnly || favorites.includes(song.id)) &&
     `${song.title} ${song.artist} ${song.category}`
       .toLowerCase()
       .includes(search.toLowerCase()),
@@ -284,6 +291,8 @@ function App({library}: {library: SharedLibrary}) {
           <label className="import-label" hidden={!library.canEdit}>Import songs<input type="file" accept=".json,application/json" onChange={event => { void importFile(event.target.files?.[0]); event.target.value = '' }} /></label>
         </div>
         <p className="storage-note">Shared library · Changes save online. Export a backup whenever you need one.</p>
+        {!selectedSong && !isAddingSong && <SongOrganization songs={songList} canEdit={library.canEdit} onOpen={songs=>{if(songs.length){setSetlistQueue(songs);setQueueIndex(0);selectSong(songs[0])}}}/>}
+        {favoriteError && <p role="status" className="notice">{favoriteError}</p>}
         {notice && <p role="status" className="notice">{notice}<button aria-label="Dismiss notification" onClick={() => setNotice('')}>×</button></p>}
         {incoming && <section className="incoming"><h2>A friend shared “{incoming.title}”</h2><p>{incoming.artist} · Key: {incoming.key}</p><button disabled={!library.canEdit} onClick={async () => { try { const [song] = await library.add([incoming]); selectSong(song); setIncoming(null); history.replaceState(null, '', location.pathname + location.search) } catch (error) { setNotice(String(error instanceof Error ? error.message : error)) } }}>Add to shared library</button><button onClick={() => {setIncoming(null); history.replaceState(null, '', location.pathname + location.search)}}>Dismiss</button></section>}
 
@@ -415,13 +424,14 @@ function App({library}: {library: SharedLibrary}) {
               </button>
 
               {filteredSongs.length === 0 && <p>No songs found. Try another search or add a song.</p>}
+              <button className="favorite-filter" aria-pressed={favoritesOnly} onClick={()=>setFavoritesOnly(!favoritesOnly)}>{favoritesOnly?'★ Favorites only — show all':'☆ Show my favorites'}</button>
               <div className="song-list">
                 {filteredSongs.map((song) => (
                   <button
                     key={song.id}
                     className="song-item"
                     onClick={() =>
-                      selectSong(song)
+                      {setSetlistQueue([]);selectSong(song)}
                     }
                   >
                     <strong>
@@ -432,6 +442,7 @@ function App({library}: {library: SharedLibrary}) {
                       {song.artist} ·{' '}
                       {song.category} · Key:{' '}
                       {song.key}
+                      {favorites.includes(song.id) ? ' · ★ Favorite' : ''}
                     </span>
                   </button>
                 ))}
@@ -446,12 +457,15 @@ function App({library}: {library: SharedLibrary}) {
                 setSelectedSong(null)
                 setIsEditing(false)
                 setReadingMode(false)
+                setSetlistQueue([])
               }}
             >
               ← Back to songs
             </button>
 
             <h2>{selectedSong.title}</h2>
+            {!isEditing && !readingMode && <button className="favorite-filter" disabled={favoriteBusy} aria-pressed={favorites.includes(selectedSong.id)} onClick={()=>void toggleFavorite(selectedSong.id)}>{favorites.includes(selectedSong.id)?'★ Remove favorite':'☆ Add to my favorites'}</button>}
+            {!!setlistQueue.length && !isEditing && <nav className="setlist-navigation" aria-label="Setlist songs"><button disabled={queueIndex===0} onClick={()=>{setQueueIndex(queueIndex-1);selectSong(setlistQueue[queueIndex-1]);setReadingMode(readingMode)}}>← Previous song</button><span>Song {queueIndex+1} of {setlistQueue.length}</span><button disabled={queueIndex===setlistQueue.length-1} onClick={()=>{setQueueIndex(queueIndex+1);selectSong(setlistQueue[queueIndex+1]);setReadingMode(readingMode)}}>Next song →</button></nav>}
 
             <p>{selectedSong.artist}</p>
 
