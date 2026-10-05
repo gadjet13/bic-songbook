@@ -120,6 +120,22 @@ select:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
 .song-reading-mode main { width: min(1100px, calc(100% - 24px)); margin: 12px auto; }
 .song-reading-mode .song-view { border: 0; }
 .song-reading-mode .transpose { box-shadow: 0 4px 8px #00000012; }
+.song-reading-mode .song-view h2 { margin: 8px 0 4px; font-size: 20px; }
+.song-reading-mode .song-view > p { display: none; }
+.song-reading-mode .transpose { margin: 8px 0; padding: 6px 0; }
+.song-reading-mode .reading-tools { margin-bottom: 8px; }
+.book-viewport { overflow: hidden; background: var(--song); border: 1px solid var(--border); border-radius: 8px; touch-action: pan-y; }
+.book-columns { column-count: 1; column-gap: 24px; column-fill: auto; padding: 0; }
+.book-columns .song-line { min-height: 3em; white-space: normal; break-inside: avoid; }
+.book-columns .chord { height: 1.5em; }
+.book-columns .song-section { font-size: 1em; break-after: avoid; margin-top: 12px; }
+.book-columns .song-segment { max-width: 100%; }
+.book-columns .lyrics { white-space: pre-wrap; overflow-wrap: anywhere; }
+.book-navigation { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; font-size: 14px; }
+.book-navigation button { padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
+.book-navigation button:disabled { cursor: default; }
+@media screen and (min-width: 768px) { .book-columns { column-count: 2; } }
+@media print { .book-viewport { height: auto !important; overflow: visible; border: 0; } .book-columns { height: auto !important; columns: auto; } .book-navigation { display: none; } }
 @media screen and (min-width: 768px) {
   .song-reading-mode .song-display { column-count: 2; column-gap: 32px; column-rule: 1px solid var(--border); overflow-x: auto; }
   .song-reading-mode .song-line { white-space: normal; break-inside: avoid; }

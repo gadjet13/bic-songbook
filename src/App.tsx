@@ -3,6 +3,7 @@ import { transposeChord } from './lib/chord/transpose'
 import './App.css'
 import { parseSongFile, downloadSongs, makeSongLink, readSongLink } from './lib/sharing'
 import { InstallHelp } from './InstallHelp'
+import SongPages from './SongPages'
 
 export type Song = {
   revision?: number
@@ -87,6 +88,7 @@ function App({library}: {library: SharedLibrary}) {
   }, [fontSize])
   useEffect(() => {
     document.body.classList.toggle('song-reading-mode', readingMode)
+    if (readingMode) window.scrollTo(0, 0)
     const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') setReadingMode(false) }
     window.addEventListener('keydown', escape)
     return () => { document.body.classList.remove('song-reading-mode'); window.removeEventListener('keydown', escape) }
@@ -621,7 +623,7 @@ function App({library}: {library: SharedLibrary}) {
                 <output aria-live="polite">{fontSize}px</output>
                 <button aria-label="Increase song text size" disabled={fontSize >= 32} onClick={() => setFontSize(size => Math.min(32, size + 2))}>A+</button>
               </div>
-              <div className="song-display" style={{fontSize: `${fontSize}px`}} tabIndex={0} aria-label="Song lyrics and chords">
+              {readingMode ? <SongPages fontSize={fontSize}>{displaySong(selectedSong.content, transpose, getCurrentKey(selectedSong.key, transpose))}</SongPages> : <div className="song-display" style={{fontSize: `${fontSize}px`}} tabIndex={0} aria-label="Song lyrics and chords">
                 {displaySong(
                   selectedSong.content,
                   transpose,
@@ -630,7 +632,7 @@ function App({library}: {library: SharedLibrary}) {
                     transpose,
                   ),
                 )}
-              </div>
+              </div>}
               </>
             )}
           </div>

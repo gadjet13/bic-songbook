@@ -1,0 +1,50 @@
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+
+export default function SongPages({ children, fontSize }: { children: ReactNode; fontSize: number }) {
+  const viewport = useRef<HTMLDivElement>(null)
+  const start = useRef<{x: number; y: number} | null>(null)
+  const [page, setPage] = useState(0)
+  const [pages, setPages] = useState(1)
+  const [height, setHeight] = useState(300)
+  useEffect(() => {
+    const element = viewport.current!
+    const layout = () => {
+      setHeight(Math.max(120, window.innerHeight - element.getBoundingClientRect().top - 76))
+      setPage(0)
+    }
+    layout()
+    const observer = new ResizeObserver(layout)
+    observer.observe(element)
+    window.addEventListener('resize', layout)
+    return () => { observer.disconnect(); window.removeEventListener('resize', layout) }
+  }, [])
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      const element = viewport.current!
+      setPages(Math.max(1, Math.ceil((element.scrollWidth + 24) / (element.clientWidth + 24))))
+      setPage(0)
+      element.scrollLeft = 0
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [children, fontSize, height])
+  const turn = (direction: number) => {
+    const next = Math.max(0, Math.min(pages - 1, page + direction))
+    setPage(next)
+    const element = viewport.current!
+    element.scrollLeft = next * (element.clientWidth + 24)
+  }
+  return <section className="song-book" aria-label="Paged song reader">
+    <div ref={viewport} className="book-viewport" style={{height, fontSize}}
+      tabIndex={0} aria-label="Lyrics. Use left and right arrow keys or swipe to turn pages."
+      onKeyDown={event => { if(event.key === 'ArrowRight' || event.key === 'ArrowLeft') {event.preventDefault(); turn(event.key === 'ArrowRight' ? 1 : -1)} }}
+      onTouchStart={event => { const touch=event.touches[0]; start.current={x:touch.clientX,y:touch.clientY} }}
+      onTouchEnd={event => { const touch=event.changedTouches[0]; const previous=start.current; start.current=null; if(previous && Math.abs(touch.clientX-previous.x)>50 && Math.abs(touch.clientX-previous.x)>Math.abs(touch.clientY-previous.y)) turn(touch.clientX<previous.x ? 1 : -1) }}>
+      <div className="book-columns" style={{height}}>{children}</div>
+    </div>
+    <nav className="book-navigation" aria-label="Song pages">
+      <button disabled={page===0} onClick={()=>turn(-1)} aria-label="Previous page">← Previous</button>
+      <span aria-live="polite">Page {page+1} of {pages}</span>
+      <button disabled={page===pages-1} onClick={()=>turn(1)} aria-label="Next page">Next →</button>
+    </nav>
+  </section>
+}
