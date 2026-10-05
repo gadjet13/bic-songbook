@@ -103,4 +103,35 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .theme-toolbar label { display: block; margin: 0; font-size: 14px; }
 .theme-toolbar select { min-height: 44px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font: inherit; }
 select:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
+.reading-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 14px; color: var(--muted); }
+.reading-tools button { min-width: 44px; border: 1px solid var(--border); border-radius: 8px; padding: 8px; cursor: pointer; }
+.reading-tools button:disabled { cursor: default; }
+.transpose { flex-wrap: wrap; }
+.transpose .reading-toggle { width: auto; font-size: 14px; padding: 8px 12px; margin-left: auto; }
+.song-display .chord { height: 1.5em; }
+.song-display .song-line { min-height: 3em; }
+.song-display .song-section { font-size: 1em; }
+.song-display:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
+.song-reading-mode .theme-toolbar, .song-reading-mode .account-bar, .song-reading-mode .member-panel,
+.song-reading-mode header, .song-reading-mode .library-tools, .song-reading-mode .storage-note,
+.song-reading-mode .song-actions { display: none; }
+.song-reading-mode main { width: min(1100px, calc(100% - 24px)); margin: 12px auto; }
+.song-reading-mode .song-view { border: 0; }
+.song-reading-mode .transpose { box-shadow: 0 4px 8px #00000012; }
+@media (max-width: 600px) {
+  .theme-toolbar, .account-bar { padding: 10px; }
+  .auth-panel { padding: 18px; }
+  input, textarea, select { font-size: 16px; }
+  .member-panel { margin: 12px 10px; border-radius: 10px; }
+  .account-bar span { flex-basis: 100%; }
+  .song-actions { gap: 8px; }
+  .song-actions button { flex: 1 1 130px; }
+  .song-view h2 { overflow-wrap: anywhere; }
+  .song-item strong, .song-item span { overflow-wrap: anywhere; }
+  .transpose { gap: 8px; }
+  .transpose .reading-toggle { margin-left: 0; flex-basis: 100%; }
+  .song-reading-mode main { width: calc(100% - 12px); }
+  .song-reading-mode .song-view { padding: 10px; }
+}
+@media print { .reading-tools { display: none; } .song-reading-mode main { width: 100%; margin: 0; } }
 @media print { .theme-toolbar { display: none; } :root, body, .app, .song-view, .song-display { background: white; color: black; } .chord { color: black; } }

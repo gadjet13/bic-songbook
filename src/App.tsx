@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { transposeChord } from './lib/chord/transpose'
 import './App.css'
 import { parseSongFile, downloadSongs, makeSongLink, readSongLink } from './lib/sharing'
@@ -78,6 +78,19 @@ export type SharedLibrary = {
   remove: (song: Song) => Promise<void>
 }
 function App({library}: {library: SharedLibrary}) {
+  const [readingMode, setReadingMode] = useState(false)
+  const [fontSize, setFontSize] = useState(() => {
+    try { const saved = Number(localStorage.getItem('bic-songbook-font-size')); return saved >= 16 && saved <= 32 ? saved : 18 } catch { return 18 }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('bic-songbook-font-size', String(fontSize)) } catch { /* Keep the current size when storage is unavailable. */ }
+  }, [fontSize])
+  useEffect(() => {
+    document.body.classList.toggle('song-reading-mode', readingMode)
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') setReadingMode(false) }
+    window.addEventListener('keydown', escape)
+    return () => { document.body.classList.remove('song-reading-mode'); window.removeEventListener('keydown', escape) }
+  }, [readingMode])
   const [notice, setNotice] = useState('')
   const [incoming, setIncoming] = useState<Song | null>(() => readSongLink())
   const songList = library.songs
@@ -162,6 +175,7 @@ function App({library}: {library: SharedLibrary}) {
   )
 
   const selectSong = (song: Song) => {
+    setReadingMode(false)
     setSelectedSong(song)
     setTranspose(0)
 
@@ -429,6 +443,7 @@ function App({library}: {library: SharedLibrary}) {
               onClick={() => {
                 setSelectedSong(null)
                 setIsEditing(false)
+                setReadingMode(false)
               }}
             >
               ← Back to songs
@@ -573,6 +588,7 @@ function App({library}: {library: SharedLibrary}) {
 
             <div className="transpose">
               <button
+                aria-label="Transpose down one semitone"
                 onClick={() =>
                   changeTranspose(-1)
                 }
@@ -587,16 +603,25 @@ function App({library}: {library: SharedLibrary}) {
               </span>
 
               <button
+                aria-label="Transpose up one semitone"
                 onClick={() =>
                   changeTranspose(1)
                 }
               >
                 +
               </button>
+              {!isEditing && <button className="reading-toggle" aria-pressed={readingMode} onClick={() => setReadingMode(!readingMode)}>{readingMode ? 'Exit reading mode' : 'Reading mode'}</button>}
             </div>
 
             {!isEditing && (
-              <div className="song-display">
+              <>
+              <div className="reading-tools" role="group" aria-label="Song text size">
+                <span>Text size</span>
+                <button aria-label="Decrease song text size" disabled={fontSize <= 16} onClick={() => setFontSize(size => Math.max(16, size - 2))}>A−</button>
+                <output aria-live="polite">{fontSize}px</output>
+                <button aria-label="Increase song text size" disabled={fontSize >= 32} onClick={() => setFontSize(size => Math.min(32, size + 2))}>A+</button>
+              </div>
+              <div className="song-display" style={{fontSize: `${fontSize}px`}} tabIndex={0} aria-label="Song lyrics and chords">
                 {displaySong(
                   selectedSong.content,
                   transpose,
@@ -606,6 +631,7 @@ function App({library}: {library: SharedLibrary}) {
                   ),
                 )}
               </div>
+              </>
             )}
           </div>
         )}
