@@ -637,7 +637,7 @@ function App({library}: {library: SharedLibrary}) {
                 <output aria-live="polite">{fontSize}px</output>
                 <button aria-label="Increase song text size" disabled={fontSize >= 32} onClick={() => setFontSize(size => Math.min(32, size + 2))}>A+</button>
               </div>
-              {readingMode ? <SongPages fontSize={fontSize}>{displaySong(selectedSong.content, transpose, getCurrentKey(selectedSong.key, transpose))}</SongPages> : <div className="song-display" style={{fontSize: `${fontSize}px`}} tabIndex={0} aria-label="Song lyrics and chords">
+              {readingMode ? <SongPages key={selectedSong.id+'-'+queueIndex} fontSize={fontSize} onNextSong={queueIndex < setlistQueue.length - 1 ? () => {setQueueIndex(queueIndex+1);selectSong(setlistQueue[queueIndex+1]);setReadingMode(true)} : undefined}>{displaySong(selectedSong.content, transpose, getCurrentKey(selectedSong.key, transpose))}</SongPages> : <div className="song-display" style={{fontSize: `${fontSize}px`}} tabIndex={0} aria-label="Song lyrics and chords">
                 {displaySong(
                   selectedSong.content,
                   transpose,

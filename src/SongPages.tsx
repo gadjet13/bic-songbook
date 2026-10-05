@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 
-export default function SongPages({ children, fontSize }: { children: ReactNode; fontSize: number }) {
+export default function SongPages({ children, fontSize, onNextSong }: { children: ReactNode; fontSize: number; onNextSong?: () => void }) {
   const viewport = useRef<HTMLDivElement>(null)
   const start = useRef<{x: number; y: number} | null>(null)
   const [page, setPage] = useState(0)
@@ -28,6 +28,10 @@ export default function SongPages({ children, fontSize }: { children: ReactNode;
     return () => cancelAnimationFrame(frame)
   }, [children, fontSize, height])
   const turn = (direction: number) => {
+    if (direction > 0 && page === pages - 1 && onNextSong) {
+      onNextSong()
+      return
+    }
     const next = Math.max(0, Math.min(pages - 1, page + direction))
     setPage(next)
     const element = viewport.current!
@@ -44,7 +48,7 @@ export default function SongPages({ children, fontSize }: { children: ReactNode;
     <nav className="book-navigation" aria-label="Song pages">
       <button disabled={page===0} onClick={()=>turn(-1)} aria-label="Previous page">← Previous</button>
       <span aria-live="polite">Page {page+1} of {pages}</span>
-      <button disabled={page===pages-1} onClick={()=>turn(1)} aria-label="Next page">Next →</button>
+      <button disabled={page===pages-1 && !onNextSong} onClick={()=>turn(1)} aria-label={page===pages-1 && onNextSong ? 'Next song' : 'Next page'}>{page===pages-1 && onNextSong ? 'Next song →' : 'Next →'}</button>
     </nav>
   </section>
 }
