@@ -1,0 +1,25 @@
+{
+  "id": "/",
+  "name": "Song Database",
+  "short_name": "Songbook",
+  "description": "Your offline songbook with chord transposition and sharing.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f6f3fa",
+  "theme_color": "#51408b",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
