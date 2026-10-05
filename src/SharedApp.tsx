@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import App from './App'
+import { MenuSection } from './ThemePreference'
 import { cloud, loadSongs, insertSongs, updateSong, removeSong } from './lib/cloud'
 import type { CloudSong } from './lib/cloud'
 
@@ -75,17 +76,19 @@ export default function SharedApp() {
     <p role="status">{notice}</p><p>New accounts need the owner’s approval before viewing the library.</p>
   </main>
   return <>
+    <MenuSection>
     <div className="account-bar"><span>{session.user.email} · {role ?? 'Awaiting access'}</span>
     <button disabled={loading} onClick={()=>void refresh()}>Refresh library</button>
     <button disabled={busy} onClick={()=>void action(async()=>{const {error}=await cloud!.auth.signOut();if(error)throw error;setRecovery(false)})}>Sign out</button></div>
-    {notice && <p role="status" className="notice">{notice}</p>}
-    {loading && <p className="storage-note">Loading library…</p>}
-    {!role && !loading && <main><h1>Welcome!</h1><p>Ask the songbook owner to approve your account’s email address, then press Refresh library.</p></main>}
     {role==='owner' && <details className="member-panel"><summary>Manage friends’ access</summary><p>Ask your friend to create an account first. Giving access does not send an email.</p>
       <form onSubmit={event=>{event.preventDefault();void action(async()=>{const {error}=await cloud!.rpc('set_songbook_member',{email_address:memberEmail,member_role:memberRole});if(error)throw error;setNotice('Access updated. Your friend can refresh their library.');setMemberEmail('')})}}>
       <label>Friend’s account email<input type="email" required value={memberEmail} onChange={e=>setMemberEmail(e.target.value)}/></label>
       <label>Permission<select value={memberRole} onChange={e=>setMemberRole(e.target.value)}><option value="viewer">View songs</option><option value="editor">Add, edit and delete songs</option><option value="remove">Remove access</option></select></label>
       <button disabled={busy}>Update access</button></form></details>}
+    </MenuSection>
+    {notice && <p role="status" className="notice">{notice}</p>}
+    {loading && <p className="storage-note">Loading library…</p>}
+    {!role && !loading && <main><h1>Welcome!</h1><p>Ask the songbook owner to approve your account’s email address, then press Refresh library.</p></main>}
     {role && <App key={session.user.id} library={{userId:session.user.id,songs,canEdit:role==='owner'||role==='editor',
       add:async rows=>{const saved=await insertSongs(rows);setSongs(current=>[...current,...saved]);return saved},
       update:async song=>{const saved=await updateSong(song);setSongs(current=>current.map(s=>s.id===saved.id?saved:s));return saved},

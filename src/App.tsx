@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { transposeChord } from './lib/chord/transpose'
 import './App.css'
 import { parseSongFile, downloadSongs, makeSongLink, readSongLink } from './lib/sharing'
-import { InstallHelp } from './InstallHelp'
+import { MenuSection } from './ThemePreference'
 import SongPages from './SongPages'
 import SongOrganization, { useFavorites } from './SongOrganization'
 
@@ -85,6 +85,7 @@ function App({library}: {library: SharedLibrary}) {
   const [favoritesOnly,setFavoritesOnly]=useState(false)
   const [setlistQueue,setSetlistQueue]=useState<Song[]>([])
   const [queueIndex,setQueueIndex]=useState(0)
+  const [startOnLastPage,setStartOnLastPage]=useState(false)
   const [readingMode, setReadingMode] = useState(false)
   const [fontSize, setFontSize] = useState(() => {
     try { const saved = Number(localStorage.getItem('bic-songbook-font-size')); return saved >= 16 && saved <= 32 ? saved : 18 } catch { return 18 }
@@ -184,6 +185,7 @@ function App({library}: {library: SharedLibrary}) {
   )
 
   const selectSong = (song: Song) => {
+    setStartOnLastPage(false)
     setReadingMode(false)
     setSelectedSong(song)
     setTranspose(0)
@@ -282,15 +284,14 @@ function App({library}: {library: SharedLibrary}) {
       <header>
         <h1>🎵 Song Database</h1>
         <p>Your songs, in every key. Wherever you play.</p>
-        <InstallHelp />
       </header>
 
       <main>
-        <div className="library-tools">
+        <MenuSection><div className="library-tools">
           <button onClick={() => downloadSongs(songList)}>Export backup</button>
           <label className="import-label" hidden={!library.canEdit}>Import songs<input type="file" accept=".json,application/json" onChange={event => { void importFile(event.target.files?.[0]); event.target.value = '' }} /></label>
         </div>
-        <p className="storage-note">Shared library · Changes save online. Export a backup whenever you need one.</p>
+        <p className="storage-note">Shared library · Changes save online. Export a backup whenever you need one.</p></MenuSection>
         {!selectedSong && !isAddingSong && <SongOrganization songs={songList} canEdit={library.canEdit} onOpen={songs=>{if(songs.length){setSetlistQueue(songs);setQueueIndex(0);selectSong(songs[0])}}}/>}
         {favoriteError && <p role="status" className="notice">{favoriteError}</p>}
         {notice && <p role="status" className="notice">{notice}<button aria-label="Dismiss notification" onClick={() => setNotice('')}>×</button></p>}
@@ -637,7 +638,7 @@ function App({library}: {library: SharedLibrary}) {
                 <output aria-live="polite">{fontSize}px</output>
                 <button aria-label="Increase song text size" disabled={fontSize >= 32} onClick={() => setFontSize(size => Math.min(32, size + 2))}>A+</button>
               </div>
-              {readingMode ? <SongPages key={selectedSong.id+'-'+queueIndex} fontSize={fontSize} onNextSong={queueIndex < setlistQueue.length - 1 ? () => {setQueueIndex(queueIndex+1);selectSong(setlistQueue[queueIndex+1]);setReadingMode(true)} : undefined}>{displaySong(selectedSong.content, transpose, getCurrentKey(selectedSong.key, transpose))}</SongPages> : <div className="song-display" style={{fontSize: `${fontSize}px`}} tabIndex={0} aria-label="Song lyrics and chords">
+              {readingMode ? <SongPages key={selectedSong.id+'-'+queueIndex} fontSize={fontSize} startOnLastPage={startOnLastPage} onPreviousSong={queueIndex > 0 && setlistQueue.length ? () => {setQueueIndex(queueIndex-1);selectSong(setlistQueue[queueIndex-1]);setStartOnLastPage(true);setReadingMode(true)} : undefined} onNextSong={queueIndex < setlistQueue.length - 1 ? () => {setQueueIndex(queueIndex+1);selectSong(setlistQueue[queueIndex+1]);setReadingMode(true)} : undefined}>{displaySong(selectedSong.content, transpose, getCurrentKey(selectedSong.key, transpose))}</SongPages> : <div className="song-display" style={{fontSize: `${fontSize}px`}} tabIndex={0} aria-label="Song lyrics and chords">
                 {displaySong(
                   selectedSong.content,
                   transpose,

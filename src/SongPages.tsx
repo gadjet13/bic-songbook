@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 
-export default function SongPages({ children, fontSize, onNextSong }: { children: ReactNode; fontSize: number; onNextSong?: () => void }) {
+export default function SongPages({ children, fontSize, onNextSong, onPreviousSong, startOnLastPage=false }: { children: ReactNode; fontSize: number; onNextSong?: () => void; onPreviousSong?: () => void; startOnLastPage?: boolean }) {
   const viewport = useRef<HTMLDivElement>(null)
   const start = useRef<{x: number; y: number} | null>(null)
   const [page, setPage] = useState(0)
@@ -21,13 +21,19 @@ export default function SongPages({ children, fontSize, onNextSong }: { children
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
       const element = viewport.current!
-      setPages(Math.max(1, Math.ceil((element.scrollWidth + 24) / (element.clientWidth + 24))))
-      setPage(0)
-      element.scrollLeft = 0
+      const count = Math.max(1, Math.ceil((element.scrollWidth + 24) / (element.clientWidth + 24)))
+      const initial = startOnLastPage ? count - 1 : 0
+      setPages(count)
+      setPage(initial)
+      element.scrollLeft = initial * (element.clientWidth + 24)
     })
     return () => cancelAnimationFrame(frame)
-  }, [children, fontSize, height])
+  }, [children, fontSize, height, startOnLastPage])
   const turn = (direction: number) => {
+    if (direction < 0 && page === 0 && onPreviousSong) {
+      onPreviousSong()
+      return
+    }
     if (direction > 0 && page === pages - 1 && onNextSong) {
       onNextSong()
       return
@@ -46,7 +52,7 @@ export default function SongPages({ children, fontSize, onNextSong }: { children
       <div className="book-columns" style={{height}}>{children}</div>
     </div>
     <nav className="book-navigation" aria-label="Song pages">
-      <button disabled={page===0} onClick={()=>turn(-1)} aria-label="Previous page">← Previous</button>
+      <button disabled={page===0 && !onPreviousSong} onClick={()=>turn(-1)} aria-label={page===0 && onPreviousSong ? 'Previous song' : 'Previous page'}>{page===0 && onPreviousSong ? '← Previous song' : '← Previous'}</button>
       <span aria-live="polite">Page {page+1} of {pages}</span>
       <button disabled={page===pages-1 && !onNextSong} onClick={()=>turn(1)} aria-label={page===pages-1 && onNextSong ? 'Next song' : 'Next page'}>{page===pages-1 && onNextSong ? 'Next song →' : 'Next →'}</button>
     </nav>

@@ -1,4 +1,12 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
+import { InstallHelp } from './InstallHelp'
+
+export function MenuSection({children}: {children: ReactNode}) {
+  const [target,setTarget]=useState<HTMLElement|null>(null)
+  useEffect(()=>{setTarget(document.getElementById('songbook-menu-content'))},[])
+  return target ? createPortal(children,target) : null
+}
 
 type Preference = 'system' | 'light' | 'dark'
 const storageKey = 'bic-songbook-theme'
@@ -24,6 +32,9 @@ export default function ThemePreference({ children }: { children: ReactNode }) {
     return () => media.removeEventListener('change', apply)
   }, [preference])
   return <>
+    <details className="settings-menu">
+    <summary>☰ Menu</summary>
+    <div id="songbook-menu-content">
     <div className="theme-toolbar">
       <label htmlFor="theme-preference">Appearance</label>
       <select id="theme-preference" value={preference} onChange={event => setPreference(event.target.value as Preference)}>
@@ -32,6 +43,9 @@ export default function ThemePreference({ children }: { children: ReactNode }) {
         <option value="dark">Dark</option>
       </select>
     </div>
+    <div className="menu-install"><InstallHelp /><p><a href="/privacy.html">Privacy policy</a></p></div>
+    </div>
+    </details>
     {children}
   </>
 }

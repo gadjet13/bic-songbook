@@ -145,6 +145,17 @@ select:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
 .setlist-songs li span { display: block; overflow-wrap: anywhere; }
 .setlist-navigation { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px; font-size: 14px; }
 .favorite-filter[aria-pressed='true'] { background: var(--soft); color: var(--accent); }
+.settings-menu { background: var(--surface); color: var(--text); border-bottom: 1px solid var(--border); }
+.settings-menu > summary { padding: 12px 20px; min-height: 44px; cursor: pointer; font-weight: 600; text-align: right; }
+#songbook-menu-content { padding: 0 16px 16px; max-width: 900px; margin: auto; }
+.settings-menu .theme-toolbar { justify-content: flex-start; padding: 10px 0; }
+.settings-menu .account-bar { border-radius: 8px; padding: 10px; }
+.settings-menu .member-panel { margin: 12px 0; border: 1px solid var(--border); border-radius: 8px; }
+.settings-menu .library-tools { margin-top: 12px; }
+.menu-install { padding: 8px 0; }
+.menu-install .install-help { margin: 12px 0; }
+.song-reading-mode .settings-menu { display: none; }
+@media print { .settings-menu { display: none; } }
 @media print { .setlist-navigation, .favorite-filter, .setlist-panel { display: none; } }
 @media screen and (min-width: 768px) { .book-columns { column-count: 2; } }
 @media print { .book-viewport { height: auto !important; overflow: visible; border: 0; } .book-columns { height: auto !important; columns: auto; } .book-navigation { display: none; } }
