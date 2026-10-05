@@ -108,6 +108,8 @@ select:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
 .reading-tools button:disabled { cursor: default; }
 .transpose { flex-wrap: wrap; }
 .transpose .reading-toggle { width: auto; font-size: 14px; padding: 8px 12px; margin-left: auto; }
+.transpose button { background: var(--surface); color: var(--text); border-color: var(--border); }
+.transpose button:hover { background: var(--hover); }
 .song-display .chord { height: 1.5em; }
 .song-display .song-line { min-height: 3em; }
 .song-display .song-section { font-size: 1em; }
@@ -118,6 +120,13 @@ select:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
 .song-reading-mode main { width: min(1100px, calc(100% - 24px)); margin: 12px auto; }
 .song-reading-mode .song-view { border: 0; }
 .song-reading-mode .transpose { box-shadow: 0 4px 8px #00000012; }
+@media screen and (min-width: 768px) {
+  .song-reading-mode .song-display { column-count: 2; column-gap: 32px; column-rule: 1px solid var(--border); overflow-x: auto; }
+  .song-reading-mode .song-line { white-space: normal; break-inside: avoid; }
+  .song-reading-mode .song-segment { max-width: 100%; }
+  .song-reading-mode .lyrics { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .song-reading-mode .song-section { break-after: avoid; }
+}
 @media (max-width: 600px) {
   .theme-toolbar, .account-bar { padding: 10px; }
   .auth-panel { padding: 18px; }
