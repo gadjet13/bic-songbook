@@ -88,7 +88,7 @@ function App({library}: {library: SharedLibrary}) {
   const [startOnLastPage,setStartOnLastPage]=useState(false)
   const [readingMode, setReadingMode] = useState(false)
   const [fontSize, setFontSize] = useState(() => {
-    try { const saved = Number(localStorage.getItem('bic-songbook-font-size')); return saved >= 16 && saved <= 32 ? saved : 18 } catch { return 18 }
+    try { const saved = Number(localStorage.getItem('bic-songbook-font-size')); return saved >= 6 && saved <= 32 ? saved : 18 } catch { return 18 }
   })
   useEffect(() => {
     try { localStorage.setItem('bic-songbook-font-size', String(fontSize)) } catch { /* Keep the current size when storage is unavailable. */ }
@@ -363,11 +363,11 @@ function App({library}: {library: SharedLibrary}) {
 
                 <textarea
                   className="song-editor"
-                  placeholder={`# Verse 1
-[G]Amazing grace, [D]how sweet the sound
+                  placeholder={`[Verse 1]
+{G}Amazing grace, {D}how sweet the sound
 
-# Chorus
-[C]Amazing grace`}
+[Chorus]
+{C}Amazing grace`}
                   value={newSongContent}
                   onChange={(event) =>
                     setNewSongContent(
@@ -377,10 +377,7 @@ function App({library}: {library: SharedLibrary}) {
                 />
 
                 <small className="editor-help">
-                  Use <strong># </strong> for section
-                  headings, such as{' '}
-                  <strong># Verse 1</strong> or{' '}
-                  <strong># Chorus</strong>.
+                  Use <strong>[Verse 1]</strong>, <strong>[Chorus]</strong> or <strong>[Tag]</strong> for sections. Use <strong>{'{C}'}</strong> and <strong>{'{G/B}'}</strong> for chords. Existing # headings and [C] chords still work.
                 </small>
               </label>
 
@@ -464,9 +461,9 @@ function App({library}: {library: SharedLibrary}) {
               ← Back to songs
             </button>
 
-            <h2>{selectedSong.title}</h2>
+            <div className="song-heading"><h2 title={selectedSong.title}>{selectedSong.title}</h2>
             {!isEditing && !readingMode && <button className="favorite-filter" disabled={favoriteBusy} aria-pressed={favorites.includes(selectedSong.id)} onClick={()=>void toggleFavorite(selectedSong.id)}>{favorites.includes(selectedSong.id)?'★ Remove favorite':'☆ Add to my favorites'}</button>}
-            {!!setlistQueue.length && !isEditing && <nav className="setlist-navigation" aria-label="Setlist songs"><button disabled={queueIndex===0} onClick={()=>{setQueueIndex(queueIndex-1);selectSong(setlistQueue[queueIndex-1]);setReadingMode(readingMode)}}>← Previous song</button><span>Song {queueIndex+1} of {setlistQueue.length}</span><button disabled={queueIndex===setlistQueue.length-1} onClick={()=>{setQueueIndex(queueIndex+1);selectSong(setlistQueue[queueIndex+1]);setReadingMode(readingMode)}}>Next song →</button></nav>}
+            {!!setlistQueue.length && !isEditing && <nav className="setlist-navigation" aria-label="Setlist songs"><button disabled={queueIndex===0} onClick={()=>{setQueueIndex(queueIndex-1);selectSong(setlistQueue[queueIndex-1]);setStartOnLastPage(readingMode);setReadingMode(readingMode)}}>← Previous song</button><span>Song {queueIndex+1} of {setlistQueue.length}</span><button disabled={queueIndex===setlistQueue.length-1} onClick={()=>{setQueueIndex(queueIndex+1);selectSong(setlistQueue[queueIndex+1]);setReadingMode(readingMode)}}>Next song →</button></nav>}</div>
 
             <p>{selectedSong.artist}</p>
 
@@ -555,11 +552,7 @@ function App({library}: {library: SharedLibrary}) {
                   />
 
                   <small className="editor-help">
-                    Use <strong># </strong> for section
-                    headings, such as{' '}
-                    <strong># Verse 1</strong>,{' '}
-                    <strong># Chorus</strong>,{' '}
-                    <strong># Bridge</strong>, etc.
+                    Use <strong>[Verse 1]</strong>, <strong>[Chorus]</strong> or <strong>[Tag]</strong> for sections. Use <strong>{'{C}'}</strong> and <strong>{'{G/B}'}</strong> for chords. Existing # headings and [C] chords still work.
                   </small>
                 </label>
 
@@ -603,7 +596,7 @@ function App({library}: {library: SharedLibrary}) {
               </div>
             )}
 
-            <div className="transpose">
+            <div className="reader-controls"><div className="transpose">
               <button
                 aria-label="Transpose down one semitone"
                 onClick={() =>
@@ -629,15 +622,14 @@ function App({library}: {library: SharedLibrary}) {
               </button>
               {!isEditing && <button className="reading-toggle" aria-pressed={readingMode} onClick={() => setReadingMode(!readingMode)}>{readingMode ? 'Exit reading mode' : 'Reading mode'}</button>}
             </div>
-
-            {!isEditing && (
-              <>
-              <div className="reading-tools" role="group" aria-label="Song text size">
+            {!isEditing && <div className="reading-tools" role="group" aria-label="Song text size">
                 <span>Text size</span>
-                <button aria-label="Decrease song text size" disabled={fontSize <= 16} onClick={() => setFontSize(size => Math.max(16, size - 2))}>A−</button>
+                <button aria-label="Decrease song text size" disabled={fontSize <= 6} onClick={() => setFontSize(size => Math.max(6, size - 2))}>A−</button>
                 <output aria-live="polite">{fontSize}px</output>
                 <button aria-label="Increase song text size" disabled={fontSize >= 32} onClick={() => setFontSize(size => Math.min(32, size + 2))}>A+</button>
-              </div>
+              </div>}
+            </div>
+            {!isEditing && (<>
               {readingMode ? <SongPages key={selectedSong.id+'-'+queueIndex} fontSize={fontSize} startOnLastPage={startOnLastPage} onPreviousSong={queueIndex > 0 && setlistQueue.length ? () => {setQueueIndex(queueIndex-1);selectSong(setlistQueue[queueIndex-1]);setStartOnLastPage(true);setReadingMode(true)} : undefined} onNextSong={queueIndex < setlistQueue.length - 1 ? () => {setQueueIndex(queueIndex+1);selectSong(setlistQueue[queueIndex+1]);setReadingMode(true)} : undefined}>{displaySong(selectedSong.content, transpose, getCurrentKey(selectedSong.key, transpose))}</SongPages> : <div className="song-display" style={{fontSize: `${fontSize}px`}} tabIndex={0} aria-label="Song lyrics and chords">
                 {displaySong(
                   selectedSong.content,
@@ -664,52 +656,27 @@ function displaySong(
 ) {
   const useFlats = currentKey.includes('b')
 
-  return content
-    .split('\n')
-    .map((line, lineIndex) => {
-      const trimmedLine = line.trim()
-
-      if (trimmedLine.startsWith('# ')) {
-        return (
-          <div
-            className="song-section"
-            key={lineIndex}
-          >
-            {trimmedLine.slice(2)}
-          </div>
-        )
-      }
-
-      const segments = parseLine(
-        line,
-        transpose,
-        useFlats,
-      )
-
-      return (
-        <div
-          className="song-line"
-          key={lineIndex}
-        >
-          {segments.map(
-            (segment, segmentIndex) => (
-              <span
-                className="song-segment"
-                key={segmentIndex}
-              >
-                <span className="chord">
-                  {segment.chord}
-                </span>
-
-                <span className="lyrics">
-                  {segment.lyrics}
-                </span>
-              </span>
-            ),
-          )}
-        </div>
-      )
-    })
+  const groups: { heading?: string; lines: string[] }[] = []
+  for (const line of content.split('\n')) {
+    const trimmed = line.trim()
+    // A chord-only line such as [C] must remain a legacy chord, not a section.
+    const bracket = trimmed.match(/^\[([^\]]+)\]$/)
+    const legacyChord = bracket && /^[A-G](?:#|b)?(?:m|maj|min|dim|aug|sus|add|\d|#|b|[-+()])*(?:\/[A-G](?:#|b)?)?$/.test(bracket[1])
+    const heading = trimmed.startsWith('# ') ? trimmed.slice(2) : bracket && !legacyChord ? bracket[1] : undefined
+    if (heading !== undefined) groups.push({ heading, lines: [] })
+    else {
+      if (!groups.length) groups.push({ lines: [] })
+      groups[groups.length - 1].lines.push(line)
+    }
+  }
+  return groups.map((group, index) => <div className="song-block" key={index}>
+    {group.heading && <div className="song-section">{group.heading}</div>}
+    {group.lines.map((line, lineIndex) => <div className="song-line" key={lineIndex}>
+      {parseLine(line, transpose, useFlats).map((segment, segmentIndex) => <span className="song-segment" key={segmentIndex}>
+        <span className="chord">{segment.chord}</span><span className="lyrics">{segment.lyrics}</span>
+      </span>)}
+    </div>)}
+  </div>)
 }
 
 function parseLine(
@@ -718,7 +685,7 @@ function parseLine(
   useFlats: boolean,
 ) {
   const chordRegex =
-    /\[([A-G](?:#|b)?[^/\]\s]*(?:\/[A-G](?:#|b)?)?)\]/g
+    /\[([A-G](?:#|b)?[^/\]\s]*(?:\/[A-G](?:#|b)?)?)\]|\{([A-G](?:#|b)?[^/}\s]*(?:\/[A-G](?:#|b)?)?)\}/g
 
   const matches = [
     ...line.matchAll(chordRegex),
@@ -749,7 +716,7 @@ function parseLine(
   }
 
   matches.forEach((match, index) => {
-    const chord = match[1]
+    const chord = match[1] || match[2]
 
     const start =
       match.index! + match[0].length

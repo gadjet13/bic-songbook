@@ -183,3 +183,37 @@ select:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
 }
 @media print { .reading-tools { display: none; } .song-reading-mode main { width: 100%; margin: 0; } }
 @media print { .theme-toolbar { display: none; } :root, body, .app, .song-view, .song-display { background: white; color: black; } .chord { color: black; } }
+
+/* Compact reader: title/navigation and controls each occupy one row. */
+.song-reading-mode .back-button { display: none; }
+.song-reading-mode .song-heading { display: flex; align-items: center; gap: 10px; }
+.song-reading-mode .song-heading h2 { flex: 1; min-width: 0; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.song-reading-mode .setlist-navigation { flex-wrap: nowrap; flex-shrink: 0; justify-content: flex-start; }
+.song-reading-mode .setlist-navigation span { display: none; }
+.song-reading-mode .reader-controls { display: flex; align-items: center; gap: 12px; flex-wrap: nowrap; overflow-x: auto; margin: 6px 0; }
+.song-reading-mode .transpose, .song-reading-mode .reading-tools { flex-wrap: nowrap; flex-shrink: 0; margin: 0; padding: 0; box-shadow: none; gap: 6px; }
+.song-reading-mode .transpose span { min-width: 0; white-space: nowrap; font-size: 13px; }
+.song-reading-mode .transpose .reading-toggle { flex-basis: auto; margin: 0; white-space: nowrap; }
+.song-reading-mode .reading-tools { font-size: 13px; }
+.song-reading-mode .reading-tools > span { display: none; }
+.book-navigation { justify-content: flex-start; flex-wrap: wrap; padding-right: 12px; }
+.book-navigation span { margin-left: 8px; }
+.book-measure { position: fixed; left: -100000px; top: 0; visibility: hidden; pointer-events: none; }
+.book-spread { display: grid; gap: 24px; height: 100%; }
+.book-column { min-width: 0; }
+.book-piece, .song-block { display: flow-root; }
+.book-measure, .book-spread { font-family: Arial, sans-serif; }
+.book-measure .song-line, .book-spread .song-line { min-height: 3em; white-space: normal; }
+.book-measure .chord, .book-spread .chord { height: 1.5em; }
+.book-measure .song-section, .book-spread .song-section { font-size: 1em; margin: 0; padding: .65em 0 .35em; }
+.book-measure .song-segment, .book-spread .song-segment { max-width: 100%; }
+.book-measure .lyrics, .book-spread .lyrics { white-space: pre-wrap; overflow-wrap: anywhere; }
+@media(max-width:600px) {
+  .song-reading-mode .song-heading { gap: 4px; }
+  .song-reading-mode .song-heading h2 { font-size: 16px; }
+  .song-reading-mode .setlist-navigation button { padding: 6px; font-size: 11px; margin: 0; }
+  .song-reading-mode .reader-controls { gap: 6px; }
+  .song-reading-mode .transpose button, .song-reading-mode .reading-tools button { min-width: 32px; width: 32px; padding: 4px; }
+  .song-reading-mode .transpose .reading-toggle { width: auto; font-size: 11px; padding: 4px; }
+}
+@media print { .book-measure { display: none; } }
