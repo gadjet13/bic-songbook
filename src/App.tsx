@@ -503,7 +503,7 @@ function App({library}: {library: SharedLibrary}) {
 
             {!isEditing && !readingMode && library.copyToPersonal && <button onClick={async()=>{try{await library.copyToPersonal!(selectedSong);setNotice('Copied to My songbook. You can edit your copy there.')}catch(error){setNotice(String(error instanceof Error?error.message:error))}}}>Copy to My songbook</button>}
             {!isEditing && !readingMode && library.ownerId && <label>Folder<select value={selectedSong.folder_id??''} onChange={async event=>{try{const saved=await library.update({...selectedSong,folder_id:event.target.value||null});setSelectedSong(saved)}catch(error){setNotice(String(error instanceof Error?error.message:error))}}}><option value="">Unfiled</option>{folderNames.map(folder=><option key={folder.id} value={folder.id}>{folder.name}</option>)}</select></label>}
-            {!isEditing && !readingMode && library.ownerId && library.canEdit && <button className="save-key-button" disabled={savingKey||transpose===0||!/^([A-G](?:#|b)?)(m|maj|min)?$/.test(selectedSong.key)} onClick={()=>void saveInCurrentKey()}>{savingKey?'Saving…':`Save in ${getCurrentKey(selectedSong.key,transpose)} as base key`}</button>}
+
             <p>{selectedSong.artist}</p>
 
             <p className="song-category">
@@ -661,6 +661,7 @@ function App({library}: {library: SharedLibrary}) {
               >
                 +
               </button>
+              {!isEditing && library.ownerId && library.canEdit && <button className="save-key-button" disabled={savingKey||transpose===0||!/^([A-G](?:#|b)?)(m|maj|min)?$/.test(selectedSong.key)} onClick={()=>void saveInCurrentKey()}>{savingKey?'Saving…':`Save in ${getCurrentKey(selectedSong.key,transpose)} as base key`}</button>}
               {!isEditing && <button className="reading-toggle" aria-pressed={readingMode} onClick={() => setReadingMode(!readingMode)}>{readingMode ? 'Exit reading mode' : 'Reading mode'}</button>}
             </div>
             {!isEditing && <div className="reading-tools" role="group" aria-label="Song text size">
@@ -713,7 +714,7 @@ function displaySong(
   return groups.map((group, index) => <div className="song-block" key={index}>
     {group.heading && <div className="song-section">{group.heading}</div>}
     {group.lines.map((line, lineIndex) => <div className="song-line" key={lineIndex}>
-      {parseLine(line, transpose, useFlats).map((segment, segmentIndex) => <span className="song-segment" key={segmentIndex}>
+      {parseLine(line, transpose, useFlats).map((segment, segmentIndex) => <span className={segment.chord && !segment.lyrics ? "song-segment chord-only" : "song-segment"} key={segmentIndex}>
         <span className="chord">{segment.chord}</span><span className="lyrics">{segment.lyrics}</span>
       </span>)}
     </div>)}
@@ -772,9 +773,6 @@ function parseLine(
       end,
     )
 
-    if (lyrics.startsWith(' ')) {
-      lyrics = lyrics.slice(1)
-    }
 
     segments.push({
       chord: transposeChord(
