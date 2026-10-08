@@ -217,3 +217,15 @@ select:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
   .song-reading-mode .transpose .reading-toggle { width: auto; font-size: 11px; padding: 4px; }
 }
 @media print { .book-measure { display: none; } }
+.songbook-cards { display: grid; grid-template-columns: repeat(auto-fit,minmax(230px,1fr)); gap: 16px; }
+.songbook-cards button { display: flex; flex-direction: column; gap: 12px; padding: 24px; text-align: left; border: 1px solid var(--border); border-radius: 12px; cursor: pointer; }
+.songbook-cards strong { font-size: 20px; color: var(--accent); }
+.songbook-cards span { color: var(--muted); }
+.songbook-location { display: flex; align-items: center; gap: 12px; padding: 10px 16px; }
+.songbook-location button, .folder-tools button, .setlist-search-results button { padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
+.folder-tools { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; }
+.folder-tools form { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; }
+.setlist-search-results { display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow: auto; }
+.song-reading-mode .songbook-location { display: none; }
+.save-key-button { margin: 8px 0; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
+.save-key-button:disabled { cursor: default; }

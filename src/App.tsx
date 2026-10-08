@@ -1,12 +1,16 @@
-import { useEffect, useState } from 'react'
-import { transposeChord } from './lib/chord/transpose'
+import { useEffect, useRef, useState } from 'react'
+import { transposeChord, transposeSongContent } from './lib/chord/transpose'
 import './App.css'
 import { parseSongFile, downloadSongs, makeSongLink, readSongLink } from './lib/sharing'
 import { MenuSection } from './ThemePreference'
 import SongPages from './SongPages'
+import SongFolders from './SongFolders'
 import SongOrganization, { useFavorites } from './SongOrganization'
 
 export type Song = {
+  folder_id?: string | null
+  source_song_id?: number | null
+  owner_id?: string | null
   revision?: number
   id: number
   title: string
@@ -58,8 +62,10 @@ function getCurrentKey(
   originalKey: string,
   semitones: number,
 ) {
-  const normalizedKey =
-    FLAT_TO_SHARP[originalKey] ?? originalKey
+  const match = originalKey.match(/^([A-G](?:#|b)?)(m|maj|min)?$/)
+  if (!match) return originalKey
+  const root = match[1]
+  const normalizedKey = FLAT_TO_SHARP[root] ?? root
 
   const index = NOTES.indexOf(normalizedKey)
 
@@ -69,10 +75,14 @@ function getCurrentKey(
 
   return DISPLAY_NOTES[
     (index + semitones + 12) % 12
-  ]
+  ] + (match[2] ?? '')
 }
 
 export type SharedLibrary = {
+  ownerId: string | null
+  refresh: ()=>Promise<void>
+  bookName: string
+  copyToPersonal?: (song:Song)=>Promise<void>
   userId: string
   songs: Song[]
   canEdit: boolean
@@ -82,6 +92,8 @@ export type SharedLibrary = {
 }
 function App({library}: {library: SharedLibrary}) {
   const {favorites,toggle:toggleFavorite,error:favoriteError,busy:favoriteBusy}=useFavorites(library.userId)
+  const [folder,setFolder]=useState('all')
+  const [folderNames,setFolderNames]=useState<{id:string;name:string}[]>([])
   const [favoritesOnly,setFavoritesOnly]=useState(false)
   const [setlistQueue,setSetlistQueue]=useState<Song[]>([])
   const [queueIndex,setQueueIndex]=useState(0)
@@ -107,6 +119,9 @@ function App({library}: {library: SharedLibrary}) {
   const [selectedSong, setSelectedSong] =
     useState<Song | null>(null)
 
+  const currentSongId = useRef<number | null>(null)
+  currentSongId.current = selectedSong?.id ?? null
+  const [savingKey,setSavingKey]=useState(false)
   const [transpose, setTranspose] = useState(0)
 
   const [isEditing, setIsEditing] = useState(false)
@@ -154,6 +169,24 @@ function App({library}: {library: SharedLibrary}) {
     }
   }
 
+  async function saveInCurrentKey() {
+    if (!selectedSong || !library.ownerId || !library.canEdit || !transpose || savingKey) return
+    const key = getCurrentKey(selectedSong.key,transpose)
+    setSavingKey(true)
+    try {
+      const saved = await library.update({...selectedSong,key,content:transposeSongContent(selectedSong.content,transpose,key.includes('b'))})
+      setSetlistQueue(queue=>queue.map(song=>song.id===saved.id?saved:song))
+      if (currentSongId.current===saved.id) {
+        setSelectedSong(saved)
+        setTranspose(0)
+        setEditedKey(saved.key)
+        setEditedContent(saved.content)
+      }
+      setNotice(`Saved your personal version in ${key}. The church copy is unchanged.`)
+    } catch(error) {setNotice(String(error instanceof Error?error.message:error))}
+    finally {setSavingKey(false)}
+  }
+
   async function importFile(file?: File) {
     if (!file) return
     try {
@@ -178,6 +211,7 @@ function App({library}: {library: SharedLibrary}) {
   }
 
   const filteredSongs = songList.filter((song) =>
+    (folder==='all'||(folder==='unfiled'?!song.folder_id:song.folder_id===folder)) &&
     (!favoritesOnly || favorites.includes(song.id)) &&
     `${song.title} ${song.artist} ${song.category}`
       .toLowerCase()
@@ -226,6 +260,7 @@ function App({library}: {library: SharedLibrary}) {
 
     const newSong: Song = {
       id: Date.now(),
+      folder_id: folderNames.some(item=>item.id===folder)?folder:null,
       title: newSongTitle.trim(),
       artist: newSongArtist.trim(),
       key: newSongKey.trim() || 'C',
@@ -282,7 +317,7 @@ function App({library}: {library: SharedLibrary}) {
   return (
     <div className="app">
       <header>
-        <h1>🎵 Song Database</h1>
+        <h1>🎵 {library.bookName}</h1>
         <p>Your songs, in every key. Wherever you play.</p>
       </header>
 
@@ -291,16 +326,17 @@ function App({library}: {library: SharedLibrary}) {
           <button onClick={() => downloadSongs(songList)}>Export backup</button>
           <label className="import-label" hidden={!library.canEdit}>Import songs<input type="file" accept=".json,application/json" onChange={event => { void importFile(event.target.files?.[0]); event.target.value = '' }} /></label>
         </div>
-        <p className="storage-note">Shared library · Changes save online. Export a backup whenever you need one.</p></MenuSection>
-        {!selectedSong && !isAddingSong && <SongOrganization songs={songList} canEdit={library.canEdit} onOpen={songs=>{if(songs.length){setSetlistQueue(songs);setQueueIndex(0);selectSong(songs[0])}}}/>}
+        <p className="storage-note">{library.bookName} · Changes save online. Export a backup whenever you need one.</p></MenuSection>
+        {!selectedSong && !isAddingSong && <SongOrganization ownerId={library.ownerId} songs={songList} canEdit={library.canEdit} onOpen={songs=>{if(songs.length){setSetlistQueue(songs);setQueueIndex(0);selectSong(songs[0])}}}/>}
+        {!selectedSong && !isAddingSong && library.ownerId && <SongFolders userId={library.userId} selected={folder} onSelect={setFolder} onFolders={setFolderNames} onChanged={library.refresh}/>}
         {favoriteError && <p role="status" className="notice">{favoriteError}</p>}
         {notice && <p role="status" className="notice">{notice}<button aria-label="Dismiss notification" onClick={() => setNotice('')}>×</button></p>}
-        {incoming && <section className="incoming"><h2>A friend shared “{incoming.title}”</h2><p>{incoming.artist} · Key: {incoming.key}</p><button disabled={!library.canEdit} onClick={async () => { try { const [song] = await library.add([incoming]); selectSong(song); setIncoming(null); history.replaceState(null, '', location.pathname + location.search) } catch (error) { setNotice(String(error instanceof Error ? error.message : error)) } }}>Add to shared library</button><button onClick={() => {setIncoming(null); history.replaceState(null, '', location.pathname + location.search)}}>Dismiss</button></section>}
+        {incoming && <section className="incoming"><h2>A friend shared “{incoming.title}”</h2><p>{incoming.artist} · Key: {incoming.key}</p><button disabled={!library.canEdit} onClick={async () => { try { const [song] = await library.add([incoming]); selectSong(song); setIncoming(null); history.replaceState(null, '', location.pathname + location.search) } catch (error) { setNotice(String(error instanceof Error ? error.message : error)) } }}>Add to this songbook</button><button onClick={() => {setIncoming(null); history.replaceState(null, '', location.pathname + location.search)}}>Dismiss</button></section>}
 
         {!selectedSong ? (
           isAddingSong ? (
             <div className="add-song-form">
-              <h2>Add New Song</h2>
+              <h2>Add New Song</h2>{library.ownerId && <p className="storage-note">The first saved version also goes to the church songbook. Later edits stay in your personal songbook.</p>}
 
               <label>
                 Song Title
@@ -465,6 +501,9 @@ function App({library}: {library: SharedLibrary}) {
             {!isEditing && !readingMode && <button className="favorite-filter" disabled={favoriteBusy} aria-pressed={favorites.includes(selectedSong.id)} onClick={()=>void toggleFavorite(selectedSong.id)}>{favorites.includes(selectedSong.id)?'★ Remove favorite':'☆ Add to my favorites'}</button>}
             {!!setlistQueue.length && !isEditing && <nav className="setlist-navigation" aria-label="Setlist songs"><button disabled={queueIndex===0} onClick={()=>{setQueueIndex(queueIndex-1);selectSong(setlistQueue[queueIndex-1]);setStartOnLastPage(readingMode);setReadingMode(readingMode)}}>← Previous song</button><span>Song {queueIndex+1} of {setlistQueue.length}</span><button disabled={queueIndex===setlistQueue.length-1} onClick={()=>{setQueueIndex(queueIndex+1);selectSong(setlistQueue[queueIndex+1]);setReadingMode(readingMode)}}>Next song →</button></nav>}</div>
 
+            {!isEditing && !readingMode && library.copyToPersonal && <button onClick={async()=>{try{await library.copyToPersonal!(selectedSong);setNotice('Copied to My songbook. You can edit your copy there.')}catch(error){setNotice(String(error instanceof Error?error.message:error))}}}>Copy to My songbook</button>}
+            {!isEditing && !readingMode && library.ownerId && <label>Folder<select value={selectedSong.folder_id??''} onChange={async event=>{try{const saved=await library.update({...selectedSong,folder_id:event.target.value||null});setSelectedSong(saved)}catch(error){setNotice(String(error instanceof Error?error.message:error))}}}><option value="">Unfiled</option>{folderNames.map(folder=><option key={folder.id} value={folder.id}>{folder.name}</option>)}</select></label>}
+            {!isEditing && !readingMode && library.ownerId && library.canEdit && <button className="save-key-button" disabled={savingKey||transpose===0||!/^([A-G](?:#|b)?)(m|maj|min)?$/.test(selectedSong.key)} onClick={()=>void saveInCurrentKey()}>{savingKey?'Saving…':`Save in ${getCurrentKey(selectedSong.key,transpose)} as base key`}</button>}
             <p>{selectedSong.artist}</p>
 
             <p className="song-category">
@@ -598,6 +637,7 @@ function App({library}: {library: SharedLibrary}) {
 
             <div className="reader-controls"><div className="transpose">
               <button
+                disabled={savingKey}
                 aria-label="Transpose down one semitone"
                 onClick={() =>
                   changeTranspose(-1)
@@ -613,6 +653,7 @@ function App({library}: {library: SharedLibrary}) {
               </span>
 
               <button
+                disabled={savingKey}
                 aria-label="Transpose up one semitone"
                 onClick={() =>
                   changeTranspose(1)

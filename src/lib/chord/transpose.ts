@@ -18,3 +18,17 @@ export function transposeChord(chord: string, semitones: number, useFlats = fals
   const newBass = bass ? transposeNote(bass, semitones, useFlats) : null
   return newBass ? `${newRoot}${quality}/${newBass}` : `${newRoot}${quality}`
 }
+
+/** Bake a displayed transposition into song text without changing section labels or lyrics. */
+export function transposeSongContent(content: string, semitones: number, useFlats = false): string {
+  return content.split('\n').map(line => {
+    if (line.trim().startsWith('# ')) return line
+    return line.replace(/\[([^\]\r\n]+)\]|\{([^}\r\n]+)\}/g, (token, legacy: string | undefined, modern: string | undefined) => {
+      const chord = legacy ?? modern!
+      // Bracketed section names such as [Chorus], [Bridge] and [Ending] aren't chords.
+      if (!/^[A-G](?:#|b)?(?:(?:maj|min|dim|aug|sus|add|omit|no|m|M)|\d|[#b()+-])*(?:\/[A-G](?:#|b)?)?$/.test(chord)) return token
+      const transposed = transposeChord(chord, semitones, useFlats)
+      return legacy !== undefined ? `[${transposed}]` : `{${transposed}}`
+    })
+  }).join('\n')
+}

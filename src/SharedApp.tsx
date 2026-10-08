@@ -9,6 +9,7 @@ export default function SharedApp() {
   const [session,setSession]=useState<Session|null>(null)
   const [ready,setReady]=useState(false)
   const [role,setRole]=useState<string|null>(null)
+  const [book,setBook]=useState<'home'|'personal'|'church'>('home')
   const [songs,setSongs]=useState<CloudSong[]>([])
   const [email,setEmail]=useState('')
   const [password,setPassword]=useState('')
@@ -25,7 +26,7 @@ export default function SharedApp() {
     if(!cloud) {setReady(true);return}
     const {data:{subscription}}=cloud!.auth.onAuthStateChange((event,newSession)=>{
       const id=newSession?.user.id ?? null
-      if(activeUser.current!==id) {generation.current++;setSongs([]);setRole(null);setLoading(false);setNotice('');activeUser.current=id}
+      if(activeUser.current!==id) {generation.current++;setBook('home');setSongs([]);setRole(null);setLoading(false);setNotice('');activeUser.current=id}
       setSession(newSession);setReady(true)
       if(event==='PASSWORD_RECOVERY') setRecovery(true)
     })
@@ -39,7 +40,7 @@ export default function SharedApp() {
       const {data,error}=await cloud.from('songbook_members').select('role').eq('user_id',session.user.id).maybeSingle()
       if(error) throw error
       const next=data?.role ?? null
-      const rows=next ? await loadSongs() : []
+      const rows=next && book!=='home' ? await loadSongs(book==='personal'?session.user.id:null) : []
       if(generation.current!==current) return
       setRole(next);setSongs(rows)
     } catch(error) {
@@ -51,7 +52,7 @@ export default function SharedApp() {
     const focus=()=>{void refresh()}
     window.addEventListener('focus',focus)
     return ()=>window.removeEventListener('focus',focus)
-  },[session?.user.id])
+  },[session?.user.id,book])
   async function action(fn:()=>Promise<void>) {
     setBusy(true);setNotice('')
     try {await fn()} catch(error){setNotice(message(error))} finally{setBusy(false)}
@@ -83,16 +84,21 @@ export default function SharedApp() {
     {role==='owner' && <details className="member-panel"><summary>Manage friends’ access</summary><p>Ask your friend to create an account first. Giving access does not send an email.</p>
       <form onSubmit={event=>{event.preventDefault();void action(async()=>{const {error}=await cloud!.rpc('set_songbook_member',{email_address:memberEmail,member_role:memberRole});if(error)throw error;setNotice('Access updated. Your friend can refresh their library.');setMemberEmail('')})}}>
       <label>Friend’s account email<input type="email" required value={memberEmail} onChange={e=>setMemberEmail(e.target.value)}/></label>
-      <label>Permission<select value={memberRole} onChange={e=>setMemberRole(e.target.value)}><option value="viewer">View songs</option><option value="editor">Add, edit and delete songs</option><option value="remove">Remove access</option></select></label>
+      <label>Permission<select value={memberRole} onChange={e=>setMemberRole(e.target.value)}><option value="viewer">View church songs + manage personal songbook</option><option value="editor">Also edit church songs</option><option value="remove">Remove access</option></select></label>
       <button disabled={busy}>Update access</button></form></details>}
     </MenuSection>
     {notice && <p role="status" className="notice">{notice}</p>}
     {loading && <p className="storage-note">Loading library…</p>}
     {!role && !loading && <main><h1>Welcome!</h1><p>Ask the songbook owner to approve your account’s email address, then press Refresh library.</p></main>}
-    {role && <App key={session.user.id} library={{userId:session.user.id,songs,canEdit:role==='owner'||role==='editor',
-      add:async rows=>{const saved=await insertSongs(rows);setSongs(current=>[...current,...saved]);return saved},
+    {role && book==='home' && <main className="songbook-home"><h1>Your songbooks</h1><p>Choose a songbook to visit.</p><div className="songbook-cards">
+      <button onClick={()=>{generation.current++;setSongs([]);setBook('personal')}}><strong>My songbook</strong><span>Your versions, folders, and personal setlists.</span></button>
+      <button onClick={()=>{generation.current++;setSongs([]);setBook('church')}}><strong>Bukchon International Chapel</strong><span>Visit the church songbook · Shared with approved members.</span></button>
+    </div></main>}
+    {role && book!=='home' && <><div className="songbook-location"><button onClick={()=>{generation.current++;setSongs([]);setBook('home')}}>← Songbooks</button><strong>{book==='personal'?'My songbook':'Bukchon International Chapel'}</strong></div>
+    {<App key={session.user.id+'-'+book} library={{userId:session.user.id,refresh,ownerId:book==='personal'?session.user.id:null,bookName:book==='personal'?'My songbook':'Church songbook',songs,canEdit:book==='personal'||role==='owner'||role==='editor',copyToPersonal:book==='church'?async song=>{await insertSongs([{...song,folder_id:null,source_song_id:song.id}],session.user.id)}:undefined,
+      add:async rows=>{const saved=await insertSongs(rows,book==='personal'?session.user.id:null);setSongs(current=>[...current,...saved]);return saved},
       update:async song=>{const saved=await updateSong(song);setSongs(current=>current.map(s=>s.id===saved.id?saved:s));return saved},
       remove:async song=>{await removeSong(song);setSongs(current=>current.filter(s=>s.id!==song.id))}
-    }}/>}
+    }}/>}</>}
   </>
 }
