@@ -1,0 +1,25 @@
+begin;
+insert into auth.users(id,email,email_confirmed_at) values('11111111-1111-4111-8111-111111111111','manager-permission-test@example.invalid',now());
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c3db8ecb-a7ce-42cd-a5c1-6a46c25a2df8',true);
+do $$ declare church_song bigint; personal bigint; blocked boolean; count_rows integer; begin
+if songbook_private.songbook_role()<>'manager' then raise exception 'Personal account is not manager'; end if;
+select id into church_song from public.shared_songs where owner_id is null limit 1;
+update public.shared_songs set title=title where id=church_song; if found then raise exception 'Manager edited church song'; end if;
+delete from public.shared_songs where id=church_song; if found then raise exception 'Manager deleted church song'; end if;
+blocked:=false; begin insert into public.shared_songs(title) values('__manager_denied'); exception when insufficient_privilege then blocked:=true; end; if not blocked then raise exception 'Manager added church song directly'; end if;
+blocked:=false; begin insert into public.songbook_setlists(title) values('__manager_denied'); exception when insufficient_privilege then blocked:=true; end; if not blocked then raise exception 'Manager added church setlist'; end if;
+insert into public.shared_songs(owner_id,title,content) values(auth.uid(),'__manager_personal_test','first') returning id into personal;
+if not exists(select 1 from public.shared_songs where owner_id is null and title='__manager_personal_test') then raise exception 'Automatic church copy missing'; end if;
+update public.shared_songs set content='personal edited' where id=personal; if not found then raise exception 'Manager personal edit blocked'; end if;
+perform public.set_songbook_member('manager-permission-test@example.invalid','viewer');
+select count(*) into count_rows from public.list_songbook_accounts(); if count_rows=0 then raise exception 'Manager cannot list accounts'; end if;
+blocked:=false; begin perform public.set_songbook_member('bukchoninternationalchapel@gmail.com','remove'); exception when others then blocked:=true; end; if not blocked then raise exception 'Manager could remove church owner'; end if;
+perform set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',true);
+blocked:=false; begin perform public.list_songbook_accounts(); exception when others then blocked:=true; end; if not blocked then raise exception 'Member saw account emails'; end if;
+perform set_config('request.jwt.claim.sub','09464d2d-669b-4771-aecd-4776b7350b44',true);
+update public.shared_songs set title=title where id=church_song; if not found then raise exception 'Church owner cannot edit church songs'; end if;
+blocked:=false; begin insert into public.shared_songs(owner_id,title) values(auth.uid(),'__owner_personal_denied'); exception when insufficient_privilege then blocked:=true; end; if not blocked then raise exception 'Church owner created personal song'; end if;
+blocked:=false; begin insert into public.songbook_folders(owner_id,name) values(auth.uid(),'__owner_folder_denied'); exception when insufficient_privilege then blocked:=true; end; if not blocked then raise exception 'Church owner created personal folder'; end if;
+end $$;
+rollback;

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { transposeChord, transposeSongContent } from './lib/chord/transpose'
+import { transposeChord, transposeSongContent, lyricsOnly } from './lib/chord/transpose'
 import './App.css'
 import { parseSongFile, downloadSongs, makeSongLink, readSongLink } from './lib/sharing'
 import { MenuSection } from './ThemePreference'
@@ -79,6 +79,7 @@ function getCurrentKey(
 }
 
 export type SharedLibrary = {
+  sharedSetlist?: boolean
   ownerId: string | null
   refresh: ()=>Promise<void>
   bookName: string
@@ -314,10 +315,21 @@ function App({library}: {library: SharedLibrary}) {
     setIsEditing(false)
   }
 
+  async function copySong(withoutChords: boolean) {
+    if (!selectedSong) return
+    try {
+      const text = withoutChords ? lyricsOnly(selectedSong.content) : transposeSongContent(selectedSong.content, transpose, getCurrentKey(selectedSong.key, transpose).includes('b'))
+      await navigator.clipboard.writeText(text)
+      setNotice(withoutChords ? 'Lyrics copied without chords.' : 'Song copied with chords in the displayed key.')
+    } catch {
+      setNotice('Could not copy. Please allow clipboard access in your browser and try again.')
+    }
+  }
+
   return (
     <div className="app">
       <header>
-        <h1>🎵 {library.bookName}</h1>
+        <h1 className="brand"><img src="/bic-logo.png" alt="BIC" /> BIC Worship DB</h1><p>{library.bookName} · <a href="/guide.html" target="_blank" rel="noopener">ⓘ User guide</a></p>
         <p>Your songs, in every key. Wherever you play.</p>
       </header>
 
@@ -327,7 +339,8 @@ function App({library}: {library: SharedLibrary}) {
           <label className="import-label" hidden={!library.canEdit}>Import songs<input type="file" accept=".json,application/json" onChange={event => { void importFile(event.target.files?.[0]); event.target.value = '' }} /></label>
         </div>
         <p className="storage-note">{library.bookName} · Changes save online. Export a backup whenever you need one.</p></MenuSection>
-        {!selectedSong && !isAddingSong && <SongOrganization ownerId={library.ownerId} songs={songList} canEdit={library.canEdit} onOpen={songs=>{if(songs.length){setSetlistQueue(songs);setQueueIndex(0);selectSong(songs[0])}}}/>}
+        {!selectedSong && library.sharedSetlist && <button disabled={!songList.length} onClick={()=>{setSetlistQueue(songList);setQueueIndex(0);selectSong(songList[0])}}>Start shared setlist</button>}
+        {!selectedSong && !isAddingSong && library.ownerId && <SongOrganization ownerId={library.ownerId} songs={songList} canEdit={library.canEdit} onOpen={songs=>{if(songs.length){setSetlistQueue(songs);setQueueIndex(0);selectSong(songs[0])}}}/>}
         {!selectedSong && !isAddingSong && library.ownerId && <SongFolders userId={library.userId} selected={folder} onSelect={setFolder} onFolders={setFolderNames} onChanged={library.refresh}/>}
         {favoriteError && <p role="status" className="notice">{favoriteError}</p>}
         {notice && <p role="status" className="notice">{notice}<button aria-label="Dismiss notification" onClick={() => setNotice('')}>×</button></p>}
@@ -458,7 +471,7 @@ function App({library}: {library: SharedLibrary}) {
               </button>
 
               {filteredSongs.length === 0 && <p>No songs found. Try another search or add a song.</p>}
-              <button className="favorite-filter" aria-pressed={favoritesOnly} onClick={()=>setFavoritesOnly(!favoritesOnly)}>{favoritesOnly?'★ Favorites only — show all':'☆ Show my favorites'}</button>
+              <button hidden={library.sharedSetlist} className="favorite-filter" aria-pressed={favoritesOnly} onClick={()=>setFavoritesOnly(!favoritesOnly)}>{favoritesOnly?'★ Favorites only — show all':'☆ Show my favorites'}</button>
               <div className="song-list">
                 {filteredSongs.map((song) => (
                   <button
@@ -498,7 +511,7 @@ function App({library}: {library: SharedLibrary}) {
             </button>
 
             <div className="song-heading"><h2 title={selectedSong.title}>{selectedSong.title}</h2>
-            {!isEditing && !readingMode && <button className="favorite-filter" disabled={favoriteBusy} aria-pressed={favorites.includes(selectedSong.id)} onClick={()=>void toggleFavorite(selectedSong.id)}>{favorites.includes(selectedSong.id)?'★ Remove favorite':'☆ Add to my favorites'}</button>}
+            {!isEditing && !readingMode && !library.sharedSetlist && <button className="favorite-filter" disabled={favoriteBusy} aria-pressed={favorites.includes(selectedSong.id)} onClick={()=>void toggleFavorite(selectedSong.id)}>{favorites.includes(selectedSong.id)?'★ Remove favorite':'☆ Add to my favorites'}</button>}
             {!!setlistQueue.length && !isEditing && <nav className="setlist-navigation" aria-label="Setlist songs"><button disabled={queueIndex===0} onClick={()=>{setQueueIndex(queueIndex-1);selectSong(setlistQueue[queueIndex-1]);setStartOnLastPage(readingMode);setReadingMode(readingMode)}}>← Previous song</button><span>Song {queueIndex+1} of {setlistQueue.length}</span><button disabled={queueIndex===setlistQueue.length-1} onClick={()=>{setQueueIndex(queueIndex+1);selectSong(setlistQueue[queueIndex+1]);setReadingMode(readingMode)}}>Next song →</button></nav>}</div>
 
             {!isEditing && !readingMode && library.copyToPersonal && <button onClick={async()=>{try{await library.copyToPersonal!(selectedSong);setNotice('Copied to My songbook. You can edit your copy there.')}catch(error){setNotice(String(error instanceof Error?error.message:error))}}}>Copy to My songbook</button>}
@@ -614,7 +627,10 @@ function App({library}: {library: SharedLibrary}) {
             ) : (
               <div className="song-actions">
                 <button onClick={() => void shareSong(selectedSong)}>Share Song</button>
-                <button onClick={() => window.print()}>Print</button>
+                <details className="copy-options"><summary>Copy</summary>
+                  <button onClick={()=>void copySong(false)}>Copy with chords</button>
+                  <button onClick={()=>void copySong(true)}>Copy lyrics</button>
+                </details>
                 <button
                   hidden={!library.canEdit}
                   className="edit-button"

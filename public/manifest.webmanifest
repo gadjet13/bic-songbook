@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "Song Database",
-  "short_name": "Songbook",
-  "description": "Your offline songbook with chord transposition and sharing.",
+  "name": "BIC Worship DB",
+  "short_name": "BIC Worship DB",
+  "description": "Church song database, personal songbooks and shared worship setlists.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

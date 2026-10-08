@@ -43,7 +43,7 @@ export default function ThemePreference({ children }: { children: ReactNode }) {
         <option value="dark">Dark</option>
       </select>
     </div>
-    <div className="menu-install"><InstallHelp /><p><a href="/privacy.html">Privacy policy</a></p></div>
+    <div className="menu-install"><InstallHelp /><p><a href="/guide.html" target="_blank" rel="noopener">User guide / README</a></p><p><a href="/privacy.html">Privacy policy</a></p></div>
     </div>
     </details>
     {children}

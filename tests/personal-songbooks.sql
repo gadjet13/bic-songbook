@@ -1,0 +1,37 @@
+begin;
+update public.songbook_members set role='viewer' where user_id='c3db8ecb-a7ce-42cd-a5c1-6a46c25a2df8';
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c3db8ecb-a7ce-42cd-a5c1-6a46c25a2df8',true);
+do $$ declare personal bigint; church bigint; folder uuid; list uuid; blocked boolean; copy_count integer; begin
+insert into public.songbook_folders(name) values('__test_folder_'||gen_random_uuid()) returning id into folder;
+insert into public.shared_songs(owner_id,title,content,folder_id) values(auth.uid(),'__test_song_'||gen_random_uuid(),'first version',folder) returning id into personal;
+select id into strict church from public.shared_songs where owner_id is null and title=(select title from public.shared_songs where id=personal);
+update public.shared_songs set content='personal edit' where id=personal;
+if (select content from public.shared_songs where id=church)<>'first version' then raise exception 'Church copy changed'; end if;
+insert into public.songbook_setlists(owner_id,title,song_ids) values(auth.uid(),'__test_list',array[personal]) returning id into list;
+perform set_config('request.jwt.claim.sub','09464d2d-669b-4771-aecd-4776b7350b44',true);
+if exists(select 1 from public.shared_songs where id=personal) or exists(select 1 from public.songbook_setlists where id=list) or exists(select 1 from public.songbook_folders where id=folder) then raise exception 'Private data exposed to another owner'; end if;
+blocked:=false; begin insert into public.songbook_setlists(title,song_ids) values('__bad',array[personal]); exception when others then blocked:=true; end;
+if not blocked then raise exception 'Cross-user song reference allowed'; end if;
+perform set_config('request.jwt.claim.sub','c3db8ecb-a7ce-42cd-a5c1-6a46c25a2df8',true);
+delete from public.songbook_folders where id=folder;
+if (select folder_id from public.shared_songs where id=personal) is not null then raise exception 'Folder deletion lost unfiled transition'; end if;
+select count(*) into copy_count from public.shared_songs where owner_id is null;
+insert into public.shared_songs(owner_id,title,content,source_song_id) values(auth.uid(),'__copy_test','personal church copy',church);
+if (select count(*) from public.shared_songs where owner_id is null)<>copy_count then raise exception 'Copying church song created duplicate church version'; end if;
+delete from public.shared_songs where id=personal;
+if not exists(select 1 from public.shared_songs where id=church and content='first version') then raise exception 'Personal deletion removed church copy'; end if;
+end $$;
+rollback;
+begin; set local role authenticated;
+select set_config('request.jwt.claim.sub','c3db8ecb-a7ce-42cd-a5c1-6a46c25a2df8',true);
+do $$ declare song bigint; blocked boolean; begin
+insert into public.shared_songs(owner_id,title,content) values(auth.uid(),'__privacy_'||gen_random_uuid(),'private') returning id into song;
+perform set_config('request.jwt.claim.sub','09464d2d-669b-4771-aecd-4776b7350b44',true);
+update public.shared_songs set content='other owner edit' where id=song; if found then raise exception 'Other owner updated private song'; end if;
+delete from public.shared_songs where id=song; if found then raise exception 'Other owner deleted private song'; end if;
+blocked:=false; begin insert into public.songbook_favorites(user_id,song_id) values(auth.uid(),song); exception when insufficient_privilege then blocked:=true; end;
+if not blocked then raise exception 'Other owner favorited private song'; end if;
+perform set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000000',true);
+if exists(select 1 from public.shared_songs) then raise exception 'Unapproved user saw library'; end if;
+end $$; rollback;

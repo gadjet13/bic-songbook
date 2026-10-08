@@ -32,3 +32,14 @@ export function transposeSongContent(content: string, semitones: number, useFlat
     })
   }).join('\n')
 }
+
+/** Remove chord tokens while preserving section labels, lyric spacing and line endings. */
+export function lyricsOnly(content: string): string {
+  return content.split('\n').map(line => {
+    if (line.trim().startsWith('# ')) return line
+    return line.replace(/\[([^\]\r\n]+)\]|\{([^}\r\n]+)\}/g, (token, legacy: string | undefined, modern: string | undefined) => {
+      const chord = legacy ?? modern!
+      return /^[A-G](?:#|b)?(?:(?:maj|min|dim|aug|sus|add|omit|no|m|M)|\d|[#b()+-])*(?:\/[A-G](?:#|b)?)?$/.test(chord) ? '' : token
+    })
+  }).join('\n')
+}

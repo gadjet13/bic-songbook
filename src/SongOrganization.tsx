@@ -18,6 +18,10 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId}: {songs:
  const [title,setTitle]=useState('')
  const [ids,setIds]=useState<number[]>([])
  const [search,setSearch]=useState('')
+ const [recipient,setRecipient]=useState('')
+ const [shares,setShares]=useState<{id:string;recipient_email:string}[]>([])
+ async function loadShares(id:string){const {data,error}=await cloud!.from('songbook_setlist_shares').select('id,recipient_email').eq('setlist_id',id);if(error)throw error;setShares(data??[])}
+ useEffect(()=>{setShares([]);if(selected)void loadShares(selected.id).catch(error=>setNotice(message(error)))},[selected?.id])
  const [editing,setEditing]=useState(false)
  const [busy,setBusy]=useState(false)
  const [notice,setNotice]=useState('')
@@ -29,7 +33,7 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId}: {songs:
  async function save(){if(!title.trim())throw new Error('Enter a setlist name.');const fields={title:title.trim(),song_ids:ids};const result=selected?await cloud!.from('songbook_setlists').update(fields).eq('id',selected.id).eq('revision',selected.revision).select().maybeSingle():await cloud!.from('songbook_setlists').insert({...fields,owner_id:ownerId}).select().single();if(result.error)throw result.error;if(!result.data)throw new Error('Someone changed this setlist. Copy your changes, then refresh setlists and try again.');await refresh();choose(result.data);setNotice('Setlist saved.')}
  function move(index:number,direction:number){const next=[...ids];[next[index],next[index+direction]]=[next[index+direction],next[index]];setIds(next)}
  const queue=(values:number[])=>values.map(id=>songs.find(song=>song.id===id)).filter((song):song is Song=>!!song)
- return <details className="setlist-panel"><summary>Setlists</summary><p className="storage-note">{ownerId?'Your personal setlists. Sharing will be added in the next stage.':'Church setlists shared with approved members.'}</p>
+ return <details className="setlist-panel"><summary>Setlists</summary><p className="storage-note">{ownerId?'Your personal setlists. Share a read-only copy with another approved personal account.':'Church setlists shared with approved members.'}</p>
  <div className="setlist-tools"><label>Choose setlist<select value={selected?.id??''} disabled={busy||editing} onChange={event=>{const list=lists.find(item=>item.id===event.target.value);if(list)choose(list);else setSelected(null)}}><option value="">Select a setlist</option>{lists.map(list=><option key={list.id} value={list.id}>{list.title}</option>)}</select></label>
  <button disabled={busy||editing} onClick={()=>void action(async()=>{const rows=await refresh();if(selected){const current=rows.find(row=>row.id===selected.id);if(current)choose(current);else setSelected(null)}})}>Refresh setlists</button>
  {canEdit&&<button disabled={busy||editing} onClick={()=>{setSelected(null);setTitle('');setIds([]);setEditing(true)}}>New setlist</button>}</div>
@@ -41,5 +45,7 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId}: {songs:
  </>:selected&&<><ol>{selected.song_ids.map((id,index)=>{const song=songs.find(item=>item.id===id);return <li key={id+'-'+index}>{song?<button onClick={()=>onOpen(queue(selected.song_ids.slice(index)))}>{song.title}</button>:<span>Song removed from library</span>}</li>})}</ol>
  <button disabled={!queue(selected.song_ids).length} onClick={()=>onOpen(queue(selected.song_ids))}>Start setlist</button>
  {canEdit&&<><button disabled={busy} onClick={()=>{setTitle(selected.title);setIds(selected.song_ids);setEditing(true)}}>Edit setlist</button><button disabled={busy} onClick={()=>{if(window.confirm('Delete setlist '+selected.title+'? Songs will stay in the library.'))void action(async()=>{const {data,error}=await cloud!.from('songbook_setlists').delete().eq('id',selected.id).eq('revision',selected.revision).select('id');if(error)throw error;if(!data?.length)throw new Error('Setlist changed. Refresh before deleting.');setSelected(null);await refresh()})}}>Delete setlist</button></>}
+ <form onSubmit={event=>{event.preventDefault();void action(async()=>{const {error}=await cloud!.rpc('share_setlist',{list_id:selected.id,recipient_email_address:recipient});if(error)throw error;await loadShares(selected.id);setRecipient('');setNotice('Shared. Your friend can find it under Shared with me. Share again after edits to update their copy.')})}}><label>Share with account email<input type="email" required value={recipient} onChange={event=>setRecipient(event.target.value)} /></label><button disabled={busy}>Share / update copy</button></form>
+ {shares.map(share=><p key={share.id}>{share.recipient_email} <button disabled={busy} onClick={()=>void action(async()=>{const {error}=await cloud!.from('songbook_setlist_shares').delete().eq('id',share.id);if(error)throw error;await loadShares(selected.id)})}>Revoke sharing</button></p>)}
  </>}<p role="status">{notice}</p></details>
 }

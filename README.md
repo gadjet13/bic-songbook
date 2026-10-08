@@ -1,4 +1,4 @@
-# BIC Songbook
+# BIC Worship DB
 
 A church songbook for browsing lyrics and chords, preparing setlists, and keeping your own arrangements in your preferred key.
 
@@ -82,13 +82,13 @@ A song belongs to one folder at a time. **All songs** includes every personal so
 
 ### Setlists
 
-Personal setlists live in My songbook. Church setlists are visible to approved members and editable by the church owner.
+Setlists are personal only. The church account contains songs, with no setlists.
 
 Create or edit a setlist, search by song title, artist, or category, and select a result to add it. Search shows up to 20 matching songs; narrow the search if needed. Arrange songs with the up/down controls. A setlist can contain up to 100 song entries.
 
 Setlists use songs from the same songbook. Copy a church song to My songbook before adding your version to a personal setlist. Deleting a setlist does not delete its songs. Deleted songs appear as missing entries and are skipped when reading.
 
-**Private sharing of personal setlists is planned and is not implemented yet.** Church setlists are already shared with approved members.
+Open a saved personal setlist, enter another approved personal account’s email, then choose **Share / update copy**. They find it under **Shared with me** on the front page. Only that setlist and its included songs are shared as a read-only snapshot. Later edits do not change it until you share again. The sender can revoke sharing; the recipient can remove their copy. Deleting the original setlist removes its shares. Church accounts cannot send or receive setlists. Sharing sends no email. Access removal blocks online viewing, but cannot recall content already downloaded or copied.
 
 ## Reading and appearance
 
@@ -173,3 +173,13 @@ Google sign-in is the primary shared login path. Email/password and recovery scr
 - Check lyrics spacing, page turns, and light/dark mode on desktop and phone/tablet.
 
 Privacy information is published at [bic-songbook.netlify.app/privacy.html](https://bic-songbook.netlify.app/privacy.html).
+
+## App guide and branding
+
+The app is named **BIC Worship DB** and uses the chapel logo, including the BIC letters. Open **Menu → User guide / README**, or the **ⓘ User guide** link on the front page. Phone shortcuts may need to be removed and reinstalled to update their icon and name. The existing website address remains unchanged.
+
+`database/setlist-sharing.sql` has already been applied to the live database. Do not rerun it. It restricts setlists to personal accounts and adds protected read-only snapshot sharing. Existing church setlist records are retained but hidden.
+
+### Copy songs
+
+Open a song and choose **Copy → Copy with chords** to copy its text in the currently displayed key, or **Copy → Copy lyrics** to copy without chords. Section labels remain. Copying does not edit the saved song. This replaces Print.
