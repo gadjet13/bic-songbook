@@ -183,3 +183,5 @@ The app is named **BIC Worship DB** and uses the chapel logo, including the BIC 
 ### Copy songs
 
 Open a song and choose **Copy → Copy with chords** to copy its text in the currently displayed key, or **Copy → Copy lyrics** to copy without chords. Section labels remain. Copying does not edit the saved song. This replaces Print.
+
+You can also open a personal song and choose **Add to setlist**, select an existing personal setlist, and press **Add song**. The song is appended at the end. Shared snapshots are updated only when you share again.

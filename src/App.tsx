@@ -5,6 +5,7 @@ import { parseSongFile, downloadSongs, makeSongLink, readSongLink } from './lib/
 import { MenuSection } from './ThemePreference'
 import SongPages from './SongPages'
 import SongFolders from './SongFolders'
+import AddToSetlist from './AddToSetlist'
 import SongOrganization, { useFavorites } from './SongOrganization'
 
 export type Song = {
@@ -515,6 +516,7 @@ function App({library}: {library: SharedLibrary}) {
             {!!setlistQueue.length && !isEditing && <nav className="setlist-navigation" aria-label="Setlist songs"><button disabled={queueIndex===0} onClick={()=>{setQueueIndex(queueIndex-1);selectSong(setlistQueue[queueIndex-1]);setStartOnLastPage(readingMode);setReadingMode(readingMode)}}>← Previous song</button><span>Song {queueIndex+1} of {setlistQueue.length}</span><button disabled={queueIndex===setlistQueue.length-1} onClick={()=>{setQueueIndex(queueIndex+1);selectSong(setlistQueue[queueIndex+1]);setReadingMode(readingMode)}}>Next song →</button></nav>}</div>
 
             {!isEditing && !readingMode && library.copyToPersonal && <button onClick={async()=>{try{await library.copyToPersonal!(selectedSong);setNotice('Copied to My songbook. You can edit your copy there.')}catch(error){setNotice(String(error instanceof Error?error.message:error))}}}>Copy to My songbook</button>}
+            {!isEditing && !readingMode && library.ownerId && library.canEdit && <AddToSetlist key={selectedSong.id} songId={selectedSong.id} ownerId={library.ownerId}/>}
             {!isEditing && !readingMode && library.ownerId && <label>Folder<select value={selectedSong.folder_id??''} onChange={async event=>{try{const saved=await library.update({...selectedSong,folder_id:event.target.value||null});setSelectedSong(saved)}catch(error){setNotice(String(error instanceof Error?error.message:error))}}}><option value="">Unfiled</option>{folderNames.map(folder=><option key={folder.id} value={folder.id}>{folder.name}</option>)}</select></label>}
 
             <p>{selectedSong.artist}</p>
@@ -730,7 +732,7 @@ function displaySong(
   return groups.map((group, index) => <div className="song-block" key={index}>
     {group.heading && <div className="song-section">{group.heading}</div>}
     {group.lines.map((line, lineIndex) => <div className="song-line" key={lineIndex}>
-      {parseLine(line, transpose, useFlats).map((segment, segmentIndex) => <span className={segment.chord && !segment.lyrics ? "song-segment chord-only" : "song-segment"} key={segmentIndex}>
+      {parseLine(line, transpose, useFlats).map((segment, segmentIndex) => <span className={segment.chord && !segment.lyrics.trim() ? "song-segment chord-only" : "song-segment"} key={segmentIndex}>
         <span className="chord">{segment.chord}</span><span className="lyrics">{segment.lyrics}</span>
       </span>)}
     </div>)}
