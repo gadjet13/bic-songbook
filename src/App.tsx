@@ -121,6 +121,31 @@ function App({library}: {library: SharedLibrary}) {
   const [selectedSong, setSelectedSong] =
     useState<Song | null>(null)
 
+  const historySongRef=useRef<Song|null>(null)
+  historySongRef.current=selectedSong
+  useEffect(()=>{
+    if(!selectedSong)return
+    const state=history.state??{}
+    if(state.bicSong===selectedSong.id)return
+    const next={...state,bicSong:selectedSong.id}
+    if(state.bicMode==='adding')delete next.bicMode
+    if(state.bicSong || state.bicMode==='adding')history.replaceState(next,'',location.href)
+    else history.pushState(next,'',location.href)
+  },[selectedSong?.id])
+  useEffect(()=>{
+    const back=(event:PopStateEvent)=>{
+      if(event.state?.bicSong){
+        const song=library.songs.find(item=>item.id===event.state.bicSong)
+        if(song){selectSong(song);setReadingMode(event.state.bicMode==='reading');setIsEditing(event.state.bicMode==='editing')}
+        setIsAddingSong(false)
+      } else if(historySongRef.current){
+        setSelectedSong(null);setIsEditing(false);setReadingMode(false);setSetlistQueue([]);setIsAddingSong(event.state?.bicMode==='adding')
+      } else {setIsAddingSong(event.state?.bicMode==='adding')}
+    }
+    window.addEventListener('popstate',back)
+    return ()=>window.removeEventListener('popstate',back)
+  },[library.songs])
+
   const currentSongId = useRef<number | null>(null)
   currentSongId.current = selectedSong?.id ?? null
   const [savingKey,setSavingKey]=useState(false)
@@ -145,6 +170,14 @@ function App({library}: {library: SharedLibrary}) {
 
   const [isAddingSong, setIsAddingSong] =
     useState(false)
+  useEffect(()=>{
+    const mode=isAddingSong?'adding':isEditing?'editing':readingMode?'reading':null
+    const state=history.state??{}
+    if(mode=== (state.bicMode??null))return
+    if(mode)history.pushState({...state,bicMode:mode},'',location.href)
+    else if(state.bicMode)history.back()
+  },[isAddingSong,isEditing,readingMode])
+
 
   const [newSongTitle, setNewSongTitle] =
     useState('')
@@ -345,7 +378,7 @@ function App({library}: {library: SharedLibrary}) {
         {!selectedSong && !isAddingSong && library.ownerId && <SongFolders userId={library.userId} selected={folder} onSelect={setFolder} onFolders={setFolderNames} onChanged={library.refresh}/>}
         {favoriteError && <p role="status" className="notice">{favoriteError}</p>}
         {notice && <p role="status" className="notice">{notice}<button aria-label="Dismiss notification" onClick={() => setNotice('')}>×</button></p>}
-        {incoming && <section className="incoming"><h2>A friend shared “{incoming.title}”</h2><p>{incoming.artist} · Key: {incoming.key}</p><button disabled={!library.canEdit} onClick={async () => { try { const [song] = await library.add([incoming]); selectSong(song); setIncoming(null); history.replaceState(null, '', location.pathname + location.search) } catch (error) { setNotice(String(error instanceof Error ? error.message : error)) } }}>Add to this songbook</button><button onClick={() => {setIncoming(null); history.replaceState(null, '', location.pathname + location.search)}}>Dismiss</button></section>}
+        {incoming && <section className="incoming"><h2>A friend shared “{incoming.title}”</h2><p>{incoming.artist} · Key: {incoming.key}</p><button disabled={!library.canEdit} onClick={async () => { try { const [song] = await library.add([incoming]); selectSong(song); setIncoming(null); history.replaceState(history.state, '', location.pathname + location.search) } catch (error) { setNotice(String(error instanceof Error ? error.message : error)) } }}>Add to this songbook</button><button onClick={() => {setIncoming(null); history.replaceState(history.state, '', location.pathname + location.search)}}>Dismiss</button></section>}
 
         {!selectedSong ? (
           isAddingSong ? (
@@ -502,10 +535,8 @@ function App({library}: {library: SharedLibrary}) {
             <button
               className="back-button"
               onClick={() => {
-                setSelectedSong(null)
-                setIsEditing(false)
-                setReadingMode(false)
-                setSetlistQueue([])
+                if(history.state?.bicSong)history.back()
+                else {setSelectedSong(null);setIsEditing(false);setReadingMode(false);setSetlistQueue([])}
               }}
             >
               ← Back to songs
@@ -732,7 +763,7 @@ function displaySong(
   return groups.map((group, index) => <div className="song-block" key={index}>
     {group.heading && <div className="song-section">{group.heading}</div>}
     {group.lines.map((line, lineIndex) => <div className="song-line" key={lineIndex}>
-      {parseLine(line, transpose, useFlats).map((segment, segmentIndex) => <span className={segment.chord && !segment.lyrics.trim() ? "song-segment chord-only" : "song-segment"} key={segmentIndex}>
+      {parseLine(line, transpose, useFlats).map((segment, segmentIndex) => <span style={segment.chord ? {minWidth: `${(segment.chord.length + 0.7) * 0.65}em`} : undefined} className={segment.chord && !segment.lyrics.trim() ? "song-segment chord-only" : "song-segment"} key={segmentIndex}>
         <span className="chord">{segment.chord}</span><span className="lyrics">{segment.lyrics}</span>
       </span>)}
     </div>)}

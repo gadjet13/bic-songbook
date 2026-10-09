@@ -245,3 +245,5 @@ select:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
 .brand{display:flex;align-items:center;gap:12px}.brand img{width:64px;height:64px;object-fit:contain;border-radius:8px;background:white;flex-shrink:0}
 
 .copy-options{position:relative}.copy-options summary{cursor:pointer;padding:10px 14px;border:1px solid var(--border);border-radius:8px}.copy-options[open]{display:flex;flex-wrap:wrap;gap:6px}.copy-options button{margin:4px}
+
+.song-segment .chord{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
