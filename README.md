@@ -88,7 +88,13 @@ Create or edit a setlist, search by song title, artist, or category, and select 
 
 Setlists use songs from the same songbook. Copy a church song to My songbook before adding your version to a personal setlist. Deleting a setlist does not delete its songs. Deleted songs appear as missing entries and are skipped when reading.
 
-Open a saved personal setlist, enter another approved personal account’s email, then choose **Share / update copy**. They find it under **Shared with me** on the front page. Only that setlist and its included songs are shared as a read-only snapshot. Later edits do not change it until you share again. The sender can revoke sharing; the recipient can remove their copy. Deleting the original setlist removes its shares. Church accounts cannot send or receive setlists. Sharing sends no email. Access removal blocks online viewing, but cannot recall content already downloaded or copied.
+Open a saved personal setlist, enter another approved personal account’s email, then choose **Share setlist**. They find it under **Shared with me** on the front page. Only that setlist and its included songs are shared read-only. Saved song edits, title changes, additions, removals and reordering update automatically. The open recipient view checks every 15 seconds while visible, and refreshes on focus. Sharing sends no email. Church accounts cannot send or receive setlists. Revoke sharing to remove access; deleting the original setlist removes its shares. Already copied or downloaded content cannot be recalled.
+
+After the first share, the recipient is remembered under **My friends** in the sharing controls. Search by email or private nickname, select them to fill the email, and use Rename or Remove friend. Removing a friend does not revoke existing shares.
+
+Choose **Copy entire setlist → Copy with chords / Copy lyrics** to copy all included songs in setlist order, with song titles. Chord copying uses each song’s saved base key. Missing/deleted songs are skipped.
+
+From a personal song, open **Add to setlist** and choose an existing setlist, or enter a new name and choose **Create setlist with this song**.
 
 ## Reading and appearance
 
@@ -178,10 +184,16 @@ Privacy information is published at [bic-songbook.netlify.app/privacy.html](http
 
 The app is named **BIC Worship DB** and uses the chapel logo, including the BIC letters. Open **Menu → User guide / README**, or the **ⓘ User guide** link on the front page. Phone shortcuts may need to be removed and reinstalled to update their icon and name. The existing website address remains unchanged.
 
-`database/setlist-sharing.sql` has already been applied to the live database. Do not rerun it. It restricts setlists to personal accounts and adds protected read-only snapshot sharing. Existing church setlist records are retained but hidden.
+`database/setlist-sharing.sql` has already been applied to the live database. Do not rerun it. It restricts setlists to personal accounts and adds protected read-only live sharing. Existing church setlist records are retained but hidden.
 
 ### Copy songs
 
 Open a song and choose **Copy → Copy with chords** to copy its text in the currently displayed key, or **Copy → Copy lyrics** to copy without chords. Section labels remain. Copying does not edit the saved song. This replaces Print.
 
-You can also open a personal song and choose **Add to setlist**, select an existing personal setlist, and press **Add song**. The song is appended at the end. Shared snapshots are updated only when you share again.
+You can also open a personal song and choose **Add to setlist**, select an existing personal setlist, and press **Add song**. The song is appended at the end. Shared setlists update automatically.
+
+`database/live-sharing-friends.sql` is already applied. Do not rerun it. Existing shares now follow the owner’s saved changes.
+
+### Friends tab
+
+On the front page, choose **Friends** to add an approved personal account by email before sharing, give them a private nickname, rename or remove them. Adding a friend does not approve an account, send an invitation or share any songs. `database/add-friends.sql` is already applied; do not rerun it.

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { cloud } from './lib/cloud'
 import type { Song } from './App'
+import SetlistCopy from './SetlistCopy'
+import FriendPicker from './FriendPicker'
 
 type Setlist = {id:string; title:string; song_ids:number[]; revision:number}
 const message = (error: unknown) => error instanceof Error ? error.message : String((error as {message?:string})?.message ?? error)
@@ -19,6 +21,7 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId}: {songs:
  const [ids,setIds]=useState<number[]>([])
  const [search,setSearch]=useState('')
  const [recipient,setRecipient]=useState('')
+ const [friendRefresh,setFriendRefresh]=useState(0)
  const [shares,setShares]=useState<{id:string;recipient_email:string}[]>([])
  async function loadShares(id:string){const {data,error}=await cloud!.from('songbook_setlist_shares').select('id,recipient_email').eq('setlist_id',id);if(error)throw error;setShares(data??[])}
  useEffect(()=>{setShares([]);if(selected)void loadShares(selected.id).catch(error=>setNotice(message(error)))},[selected?.id])
@@ -33,7 +36,7 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId}: {songs:
  async function save(){if(!title.trim())throw new Error('Enter a setlist name.');const fields={title:title.trim(),song_ids:ids};const result=selected?await cloud!.from('songbook_setlists').update(fields).eq('id',selected.id).eq('revision',selected.revision).select().maybeSingle():await cloud!.from('songbook_setlists').insert({...fields,owner_id:ownerId}).select().single();if(result.error)throw result.error;if(!result.data)throw new Error('Someone changed this setlist. Copy your changes, then refresh setlists and try again.');await refresh();choose(result.data);setNotice('Setlist saved.')}
  function move(index:number,direction:number){const next=[...ids];[next[index],next[index+direction]]=[next[index+direction],next[index]];setIds(next)}
  const queue=(values:number[])=>values.map(id=>songs.find(song=>song.id===id)).filter((song):song is Song=>!!song)
- return <details className="setlist-panel"><summary>Setlists</summary><p className="storage-note">{ownerId?'Your personal setlists. Share a read-only copy with another approved personal account.':'Church setlists shared with approved members.'}</p>
+ return <details className="setlist-panel"><summary>Setlists</summary><p className="storage-note">{ownerId?'Your personal setlists. Share a live, read-only setlist with another approved personal account.':'Church setlists shared with approved members.'}</p>
  <div className="setlist-tools"><label>Choose setlist<select value={selected?.id??''} disabled={busy||editing} onChange={event=>{const list=lists.find(item=>item.id===event.target.value);if(list)choose(list);else setSelected(null)}}><option value="">Select a setlist</option>{lists.map(list=><option key={list.id} value={list.id}>{list.title}</option>)}</select></label>
  <button disabled={busy||editing} onClick={()=>void action(async()=>{const rows=await refresh();if(selected){const current=rows.find(row=>row.id===selected.id);if(current)choose(current);else setSelected(null)}})}>Refresh setlists</button>
  {canEdit&&<button disabled={busy||editing} onClick={()=>{setSelected(null);setTitle('');setIds([]);setEditing(true)}}>New setlist</button>}</div>
@@ -43,9 +46,11 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId}: {songs:
  {search.trim() && <div className="setlist-search-results">{songs.filter(song=>`${song.title} ${song.artist} ${song.category}`.toLowerCase().includes(search.toLowerCase())).slice(0,20).map(song=><button key={song.id} disabled={busy||ids.length>=100} onClick={()=>{setIds([...ids,song.id]);setSearch('')}}>＋ {song.title} {song.artist&&`· ${song.artist}`}</button>)}{!songs.some(song=>`${song.title} ${song.artist} ${song.category}`.toLowerCase().includes(search.toLowerCase()))&&<p>No matching songs.</p>}</div>}
  <button disabled={busy} onClick={()=>void action(save)}>Save setlist</button><button disabled={busy} onClick={()=>{setEditing(false);if(selected)choose(selected)}}>Cancel</button>
  </>:selected&&<><ol>{selected.song_ids.map((id,index)=>{const song=songs.find(item=>item.id===id);return <li key={id+'-'+index}>{song?<button onClick={()=>onOpen(queue(selected.song_ids.slice(index)))}>{song.title}</button>:<span>Song removed from library</span>}</li>})}</ol>
+ <SetlistCopy songs={queue(selected.song_ids)}/>
  <button disabled={!queue(selected.song_ids).length} onClick={()=>onOpen(queue(selected.song_ids))}>Start setlist</button>
  {canEdit&&<><button disabled={busy} onClick={()=>{setTitle(selected.title);setIds(selected.song_ids);setEditing(true)}}>Edit setlist</button><button disabled={busy} onClick={()=>{if(window.confirm('Delete setlist '+selected.title+'? Songs will stay in the library.'))void action(async()=>{const {data,error}=await cloud!.from('songbook_setlists').delete().eq('id',selected.id).eq('revision',selected.revision).select('id');if(error)throw error;if(!data?.length)throw new Error('Setlist changed. Refresh before deleting.');setSelected(null);await refresh()})}}>Delete setlist</button></>}
- <form onSubmit={event=>{event.preventDefault();void action(async()=>{const {error}=await cloud!.rpc('share_setlist',{list_id:selected.id,recipient_email_address:recipient});if(error)throw error;await loadShares(selected.id);setRecipient('');setNotice('Shared. Your friend can find it under Shared with me. Share again after edits to update their copy.')})}}><label>Share with account email<input type="email" required value={recipient} onChange={event=>setRecipient(event.target.value)} /></label><button disabled={busy}>Share / update copy</button></form>
+ {ownerId&&<FriendPicker ownerId={ownerId} onChoose={setRecipient} refreshKey={friendRefresh}/>}
+ <form onSubmit={event=>{event.preventDefault();void action(async()=>{const {error}=await cloud!.rpc('share_setlist',{list_id:selected.id,recipient_email_address:recipient});if(error)throw error;await loadShares(selected.id);setRecipient('');setFriendRefresh(value=>value+1);setNotice('Shared. Your friend can find it under Shared with me. Saved changes update automatically.')})}}><label>Share with account email<input type="email" required value={recipient} onChange={event=>setRecipient(event.target.value)} /></label><button disabled={busy}>Share setlist</button></form>
  {shares.map(share=><p key={share.id}>{share.recipient_email} <button disabled={busy} onClick={()=>void action(async()=>{const {error}=await cloud!.from('songbook_setlist_shares').delete().eq('id',share.id);if(error)throw error;await loadShares(selected.id)})}>Revoke sharing</button></p>)}
  </>}<p role="status">{notice}</p></details>
 }

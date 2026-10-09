@@ -6,6 +6,7 @@ import { MenuSection } from './ThemePreference'
 import SongPages from './SongPages'
 import SongFolders from './SongFolders'
 import AddToSetlist from './AddToSetlist'
+import SetlistCopy from './SetlistCopy'
 import SongOrganization, { useFavorites } from './SongOrganization'
 
 export type Song = {
@@ -121,6 +122,16 @@ function App({library}: {library: SharedLibrary}) {
   const [selectedSong, setSelectedSong] =
     useState<Song | null>(null)
 
+  useEffect(()=>{
+    if(!library.sharedSetlist)return
+    setSelectedSong(current=>current?songList.find(song=>song.id===current.id)??null:null)
+    setSetlistQueue(current=>current.length?songList:current)
+    setQueueIndex(current=>{
+      const index=selectedSong?songList.findIndex(song=>song.id===selectedSong.id):-1
+      return index>=0?index:Math.min(current,Math.max(0,songList.length-1))
+    })
+    if(selectedSong&&!songList.some(song=>song.id===selectedSong.id))setReadingMode(false)
+  },[library.songs,library.sharedSetlist])
   const historySongRef=useRef<Song|null>(null)
   historySongRef.current=selectedSong
   useEffect(()=>{
@@ -373,6 +384,7 @@ function App({library}: {library: SharedLibrary}) {
           <label className="import-label" hidden={!library.canEdit}>Import songs<input type="file" accept=".json,application/json" onChange={event => { void importFile(event.target.files?.[0]); event.target.value = '' }} /></label>
         </div>
         <p className="storage-note">{library.bookName} · Changes save online. Export a backup whenever you need one.</p></MenuSection>
+        {!selectedSong && library.sharedSetlist && <SetlistCopy songs={songList}/>}
         {!selectedSong && library.sharedSetlist && <button disabled={!songList.length} onClick={()=>{setSetlistQueue(songList);setQueueIndex(0);selectSong(songList[0])}}>Start shared setlist</button>}
         {!selectedSong && !isAddingSong && library.ownerId && <SongOrganization ownerId={library.ownerId} songs={songList} canEdit={library.canEdit} onOpen={songs=>{if(songs.length){setSetlistQueue(songs);setQueueIndex(0);selectSong(songs[0])}}}/>}
         {!selectedSong && !isAddingSong && library.ownerId && <SongFolders userId={library.userId} selected={folder} onSelect={setFolder} onFolders={setFolderNames} onChanged={library.refresh}/>}

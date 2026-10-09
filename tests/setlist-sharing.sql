@@ -3,17 +3,34 @@ insert into auth.users(id,email,email_confirmed_at) values('10000000-0000-0000-0
 insert into public.songbook_members(user_id,role) values('10000000-0000-0000-0000-000000000001','viewer'),('10000000-0000-0000-0000-000000000002','viewer');
 select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);
 set local role authenticated;
-do $$ declare song bigint; list uuid; blocked boolean:=false; begin
- insert into public.shared_songs(title,artist,key,category,content,owner_id) values('Share test','','C','','[Verse]\n{C}Test','10000000-0000-0000-0000-000000000001') returning id into song;
+do $$ declare song bigint; second_song bigint; list uuid; blocked boolean:=false; begin
+ perform public.add_songbook_friend('bic-test-recipient@example.invalid','Before sharing');
+ if (select nickname from public.songbook_friends where owner_id=auth.uid())<>'Before sharing' then raise exception 'Adding friend before sharing failed';end if;
+ if exists(select 1 from public.songbook_setlist_shares where sender_id=auth.uid()) then raise exception 'Adding friend granted share access';end if;
+ insert into public.shared_songs(title,artist,key,category,content,owner_id) values('Share test' ,'','C','','[Verse]\n{C}Test','10000000-0000-0000-0000-000000000001') returning id into song;
  insert into public.songbook_setlists(title,song_ids,owner_id) values('Share test',array[song,song],'10000000-0000-0000-0000-000000000001') returning id into list;
  perform public.share_setlist(list,'bic-test-recipient@example.invalid');
  if (select jsonb_array_length(songs) from public.songbook_setlist_shares where setlist_id=list)<>2 then raise exception 'Order/duplicates lost'; end if;
  begin perform public.share_setlist(list,'bukchoninternationalchapel@gmail.com'); exception when others then blocked:=true; end;
  if not blocked then raise exception 'Church recipient allowed'; end if;
+ update public.songbook_friends set nickname='Private nickname' where owner_id=auth.uid();
+ if (select nickname from public.songbook_friends where owner_id=auth.uid())<>'Private nickname' then raise exception 'Nickname save failed'; end if;
+ update public.shared_songs set content='{D}Edited lyrics',key='D' where id=song;
+ if (select songs->0->>'content' from public.songbook_setlist_shares where setlist_id=list)<>'{D}Edited lyrics' then raise exception 'Live song edit missing'; end if;
+ update public.songbook_setlists set title='Renamed' where id=list;
+ if (select title from public.songbook_setlist_shares where setlist_id=list)<>'Renamed' then raise exception 'Live title missing'; end if;
+ update public.songbook_setlists set title='Share test',song_ids=array[song] where id=list;
+ if (select jsonb_array_length(songs) from public.songbook_setlist_shares where setlist_id=list)<>1 then raise exception 'Live removal missing'; end if;
+ insert into public.shared_songs(title,artist,key,category,content,owner_id) values('Second shared song','','G','','{G}Second','10000000-0000-0000-0000-000000000001') returning id into second_song;
+ update public.songbook_setlists set song_ids=array[second_song,song] where id=list;
+ if (select songs->0->>'title' from public.songbook_setlist_shares where setlist_id=list)<>'Second shared song' then raise exception 'Live addition/reorder missing'; end if;
+ delete from public.shared_songs where id=second_song;
+ if (select jsonb_array_length(songs) from public.songbook_setlist_shares where setlist_id=list)<>1 then raise exception 'Live song deletion missing'; end if;
 end $$;
 select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000002',true);
 do $$ begin
  if (select count(*) from public.songbook_setlist_shares where title='Share test')<>1 then raise exception 'Recipient missing snapshot'; end if;
+ if exists(select 1 from public.songbook_friends) then raise exception 'Private nickname leaked'; end if;
  if exists(select 1 from public.shared_songs where owner_id='10000000-0000-0000-0000-000000000001') then raise exception 'Personal library leaked'; end if;
  if exists(select 1 from public.songbook_setlists where owner_id='10000000-0000-0000-0000-000000000001') then raise exception 'Personal setlists leaked'; end if;
 end $$;
@@ -25,5 +42,9 @@ do $$ declare blocked boolean:=false; begin
  begin insert into public.songbook_setlists(title,song_ids) values('Church blocked','{}'); exception when insufficient_privilege then blocked:=true; end;
  if not blocked then raise exception 'Church setlist insert allowed'; end if;
 end $$;
-select 'sharing permissions passed' as result;
+select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);
+delete from public.songbook_setlist_shares where title='Share test';
+select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000002',true);
+do $$ begin if exists(select 1 from public.songbook_setlist_shares where title='Share test') then raise exception 'Revocation failed'; end if;end $$;
+select 'live sharing, nickname privacy and revocation passed' as result;
 rollback;

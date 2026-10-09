@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import App from './App'
+import FriendPicker from './FriendPicker'
 import type { Song } from './App'
 type SharedSetlist = {id:string;title:string;sender_email:string;songs:Song[]}
 import { MenuSection } from './ThemePreference'
@@ -11,6 +12,7 @@ export default function SharedApp() {
   const [session,setSession]=useState<Session|null>(null)
   const [ready,setReady]=useState(false)
   const [role,setRole]=useState<string|null>(null)
+  const [homeTab,setHomeTab]=useState<'songbooks'|'friends'>('songbooks')
   const [book,setBook]=useState<'home'|'personal'|'church'>('home')
   const [songs,setSongs]=useState<CloudSong[]>([])
   const [email,setEmail]=useState('')
@@ -84,7 +86,7 @@ export default function SharedApp() {
       const rows=next && book!=='home' ? await loadSongs(book==='personal'?session.user.id:null) : []
       if(generation.current!==current) return
       setRole(next);setSongs(rows)
-      if(next && next!=='owner'){const {data,error}=await cloud.from('songbook_setlist_shares').select('id,title,sender_email,songs').eq('recipient_id',session.user.id).order('updated_at',{ascending:false});if(error)throw error;if(generation.current===current)setSharedLists(data??[])}
+      if(next && next!=='owner'){const {data,error}=await cloud.from('songbook_setlist_shares').select('id,title,sender_email,songs').eq('recipient_id',session.user.id).order('updated_at',{ascending:false});if(error)throw error;if(generation.current===current){const lists=data??[];setSharedLists(lists);setSharedList(previous=>previous?lists.find(list=>list.id===previous.id)??null:null)}}
     } catch(error) {
       if(generation.current===current) setNotice(message(error))
     } finally {if(generation.current===current) setLoading(false)}
@@ -95,6 +97,11 @@ export default function SharedApp() {
     window.addEventListener('focus',focus)
     return ()=>window.removeEventListener('focus',focus)
   },[session?.user.id,book])
+  useEffect(()=>{
+    if(!sharedList)return
+    const timer=window.setInterval(()=>{if(document.visibilityState==='visible')void refresh()},15000)
+    return ()=>window.clearInterval(timer)
+  },[sharedList?.id,session?.user.id,book])
   async function action(fn:()=>Promise<void>) {
     setBusy(true);setNotice('')
     try {await fn()} catch(error){setNotice(message(error))} finally{setBusy(false)}
@@ -135,11 +142,11 @@ export default function SharedApp() {
     {notice && <p role="status" className="notice">{notice}</p>}
     {loading && <p className="storage-note">Loading library…</p>}
     {!role && !loading && <main><h1>Welcome!</h1><p>Ask the songbook owner to approve your account’s email address, then press Refresh library.</p></main>}
-    {role && role!=='owner' && book==='home' && !sharedList && <main className="songbook-home"><h1 className="brand"><img src="/bic-logo.png" alt="BIC" />BIC Worship DB</h1><p><a href="/guide.html" target="_blank" rel="noopener">ⓘ User guide</a></p><h2>Your songbooks</h2><p>Choose a songbook to visit.</p><div className="songbook-cards">
+    {role && role!=='owner' && book==='home' && !sharedList && <main className="songbook-home"><h1 className="brand"><img src="/bic-logo.png" alt="BIC" />BIC Worship DB</h1><p><a href="/guide.html" target="_blank" rel="noopener">ⓘ User guide</a></p><nav aria-label="Home tabs"><button aria-pressed={homeTab==='songbooks'} onClick={()=>setHomeTab('songbooks')}>Songbooks</button><button aria-pressed={homeTab==='friends'} onClick={()=>setHomeTab('friends')}>Friends</button></nav>{homeTab==='friends'?<FriendPicker ownerId={session.user.id}/>:<><h2>Your songbooks</h2><p>Choose a songbook to visit.</p><div className="songbook-cards">
       <button onClick={()=>{openBook('personal')}}><strong>My songbook</strong><span>Your versions, folders, and personal setlists.</span></button>
       <button onClick={()=>{openBook('church')}}><strong>Bukchon International Chapel</strong><span>Visit the church songbook · Shared with approved members.</span></button>
-    </div><h2>Shared with me</h2><button disabled={loading} onClick={()=>void refresh()}>Refresh shared setlists</button>{!sharedLists.length&&<p>No shared setlists yet.</p>}<div className="songbook-cards">{sharedLists.map(list=><button key={list.id} onClick={()=>openShared(list)}><strong>{list.title}</strong><span>From {list.sender_email} · {list.songs.length} songs</span></button>)}</div></main>}
-    {sharedList && role && role!=='owner' && <><button onClick={backToBooks}>← Songbooks</button><p>Shared by {sharedList.sender_email} · Read-only snapshot</p><button disabled={busy} onClick={()=>void action(async()=>{const {error}=await cloud!.from('songbook_setlist_shares').delete().eq('id',sharedList.id);if(error)throw error;setSharedList(null);await refresh()})}>Remove shared setlist</button><App key={sharedList.id} library={{sharedSetlist:true,userId:session.user.id,ownerId:null,bookName:sharedList.title,songs:sharedList.songs,canEdit:false,refresh,add:async()=>{throw new Error('Read only')},update:async()=>{throw new Error('Read only')},remove:async()=>{throw new Error('Read only')}}}/></>}
+    </div><h2>Shared with me</h2><button disabled={loading} onClick={()=>void refresh()}>Refresh shared setlists</button>{!sharedLists.length&&<p>No shared setlists yet.</p>}<div className="songbook-cards">{sharedLists.map(list=><button key={list.id} onClick={()=>openShared(list)}><strong>{list.title}</strong><span>From {list.sender_email} · {list.songs.length} songs</span></button>)}</div></>}</main>}
+    {sharedList && role && role!=='owner' && <><button onClick={backToBooks}>← Songbooks</button><p>Shared by {sharedList.sender_email} · Live shared setlist · Updates automatically</p><button disabled={busy} onClick={()=>void action(async()=>{const {error}=await cloud!.from('songbook_setlist_shares').delete().eq('id',sharedList.id);if(error)throw error;setSharedList(null);await refresh()})}>Remove shared setlist</button><App key={sharedList.id} library={{sharedSetlist:true,userId:session.user.id,ownerId:null,bookName:sharedList.title,songs:sharedList.songs,canEdit:false,refresh,add:async()=>{throw new Error('Read only')},update:async()=>{throw new Error('Read only')},remove:async()=>{throw new Error('Read only')}}}/></>}
 
     {role && book!=='home' && <><div className="songbook-location">{role!=='owner'&&<button onClick={backToBooks}>← Songbooks</button>}<strong>{book==='personal'?'My songbook':'Bukchon International Chapel'}</strong></div>
     {<App key={session.user.id+'-'+book} library={{userId:session.user.id,refresh,ownerId:book==='personal'?session.user.id:null,bookName:book==='personal'?'My songbook':'Church songbook',songs,canEdit:book==='personal'||role==='owner',copyToPersonal:book==='church'&&role!=='owner'?async song=>{await insertSongs([{...song,folder_id:null,source_song_id:song.id}],session.user.id)}:undefined,
