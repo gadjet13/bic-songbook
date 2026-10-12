@@ -7,6 +7,9 @@ import SongPages from './SongPages'
 import SongFolders from './SongFolders'
 import AddToSetlist from './AddToSetlist'
 import SetlistCopy from './SetlistCopy'
+import CompleteBackup from './CompleteBackup'
+import SongHistory from './SongHistory'
+import ChordSheetPaste from './ChordSheetPaste'
 import SongOrganization, { useFavorites } from './SongOrganization'
 
 export type Song = {
@@ -380,12 +383,14 @@ function App({library}: {library: SharedLibrary}) {
 
       <main>
         <MenuSection><div className="library-tools">
-          <button onClick={() => downloadSongs(songList)}>Export backup</button>
+          <button onClick={() => downloadSongs(songList)}>Export songs only</button>
+          {!library.sharedSetlist&&<CompleteBackup church={!library.ownerId} canEdit={library.canEdit} onChanged={library.refresh}/>}
           <label className="import-label" hidden={!library.canEdit}>Import songs<input type="file" accept=".json,application/json" onChange={event => { void importFile(event.target.files?.[0]); event.target.value = '' }} /></label>
         </div>
         <p className="storage-note">{library.bookName} · Changes save online. Export a backup whenever you need one.</p></MenuSection>
         {!selectedSong && library.sharedSetlist && <SetlistCopy songs={songList}/>}
         {!selectedSong && library.sharedSetlist && <button disabled={!songList.length} onClick={()=>{setSetlistQueue(songList);setQueueIndex(0);selectSong(songList[0])}}>Start shared setlist</button>}
+        {!selectedSong && !isAddingSong && library.canEdit && <SongHistory ownerId={library.ownerId} currentSongs={songList} onChanged={library.refresh}/>}
         {!selectedSong && !isAddingSong && library.ownerId && <SongOrganization ownerId={library.ownerId} songs={songList} canEdit={library.canEdit} onOpen={songs=>{if(songs.length){setSetlistQueue(songs);setQueueIndex(0);selectSong(songs[0])}}}/>}
         {!selectedSong && !isAddingSong && library.ownerId && <SongFolders userId={library.userId} selected={folder} onSelect={setFolder} onFolders={setFolderNames} onChanged={library.refresh}/>}
         {favoriteError && <p role="status" className="notice">{favoriteError}</p>}
@@ -395,7 +400,7 @@ function App({library}: {library: SharedLibrary}) {
         {!selectedSong ? (
           isAddingSong ? (
             <div className="add-song-form">
-              <h2>Add New Song</h2>{library.ownerId && <p className="storage-note">The first saved version also goes to the church songbook. Later edits stay in your personal songbook.</p>}
+              <h2>Add New Song</h2><ChordSheetPaste onApply={(content,title)=>{if(newSongContent&&!window.confirm("Replace the editor content with converted text?"))return;setNewSongContent(content);if(title)setNewSongTitle(title)}}/>{library.ownerId && <p className="storage-note">The first saved version also goes to the church songbook. Later edits stay in your personal songbook.</p>}
 
               <label>
                 Song Title
@@ -558,6 +563,7 @@ function App({library}: {library: SharedLibrary}) {
             {!isEditing && !readingMode && !library.sharedSetlist && <button className="favorite-filter" disabled={favoriteBusy} aria-pressed={favorites.includes(selectedSong.id)} onClick={()=>void toggleFavorite(selectedSong.id)}>{favorites.includes(selectedSong.id)?'★ Remove favorite':'☆ Add to my favorites'}</button>}
             {!!setlistQueue.length && !isEditing && <nav className="setlist-navigation" aria-label="Setlist songs"><button disabled={queueIndex===0} onClick={()=>{setQueueIndex(queueIndex-1);selectSong(setlistQueue[queueIndex-1]);setStartOnLastPage(readingMode);setReadingMode(readingMode)}}>← Previous song</button><span>Song {queueIndex+1} of {setlistQueue.length}</span><button disabled={queueIndex===setlistQueue.length-1} onClick={()=>{setQueueIndex(queueIndex+1);selectSong(setlistQueue[queueIndex+1]);setReadingMode(readingMode)}}>Next song →</button></nav>}</div>
 
+            {!isEditing && !readingMode && library.canEdit && <SongHistory key={selectedSong.id} song={selectedSong} ownerId={library.ownerId} currentSongs={songList} onChanged={library.refresh} onRestored={song=>setSelectedSong(song)}/>}
             {!isEditing && !readingMode && library.copyToPersonal && <button onClick={async()=>{try{await library.copyToPersonal!(selectedSong);setNotice('Copied to My songbook. You can edit your copy there.')}catch(error){setNotice(String(error instanceof Error?error.message:error))}}}>Copy to My songbook</button>}
             {!isEditing && !readingMode && library.ownerId && library.canEdit && <AddToSetlist key={selectedSong.id} songId={selectedSong.id} ownerId={library.ownerId}/>}
             {!isEditing && !readingMode && library.ownerId && <label>Folder<select value={selectedSong.folder_id??''} onChange={async event=>{try{const saved=await library.update({...selectedSong,folder_id:event.target.value||null});setSelectedSong(saved)}catch(error){setNotice(String(error instanceof Error?error.message:error))}}}><option value="">Unfiled</option>{folderNames.map(folder=><option key={folder.id} value={folder.id}>{folder.name}</option>)}</select></label>}
@@ -637,7 +643,7 @@ function App({library}: {library: SharedLibrary}) {
 
                 <label>
                   Song Content
-
+                  <ChordSheetPaste onApply={(content,title)=>{if(editedContent&&!window.confirm("Replace the editor content with converted text?"))return;setEditedContent(content);if(title)setEditedTitle(title)}}/>
                   <textarea
                     className="song-editor"
                     value={editedContent}

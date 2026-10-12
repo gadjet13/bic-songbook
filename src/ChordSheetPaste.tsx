@@ -1,0 +1,6 @@
+import { useState } from 'react'
+import { convertChordSheet } from './lib/chord-sheet'
+export default function ChordSheetPaste({onApply}:{onApply:(content:string,title:string)=>void}) {
+ const [raw,setRaw]=useState(''),[converted,setConverted]=useState<ReturnType<typeof convertChordSheet>|null>(null)
+ return <details className="setlist-panel"><summary>Paste chord sheet</summary><p>Paste chords above lyrics. A title above the first chord line is detected automatically; **Title** also works. Section labels stay unchanged.</p><textarea aria-label="Paste original chord sheet" className="song-editor" value={raw} onChange={event=>{setRaw(event.target.value);setConverted(null)}}/><button disabled={!raw.trim()} onClick={()=>setConverted(convertChordSheet(raw))}>Convert and preview</button>{converted&&<><p>{converted.title&&`Title: ${converted.title}. `}{converted.warnings.join(' ')}</p><textarea aria-label="Converted chord sheet preview" className="song-editor" value={converted.content} onChange={event=>setConverted({...converted,content:event.target.value})}/><button onClick={()=>{onApply(converted.content,converted.title);setConverted(null);setRaw('')}}>Apply to editor</button><p>Adjust positions by moving the {'{chord}'} markers. Save the song when finished.</p></>}</details>
+}

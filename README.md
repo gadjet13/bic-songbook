@@ -197,3 +197,15 @@ You can also open a personal song and choose **Add to setlist**, select an exist
 ### Friends tab
 
 On the front page, choose **Friends** to add an approved personal account by email before sharing, give them a private nickname, rename or remove them. Adding a friend does not approve an account, send an invitation or share any songs. `database/add-friends.sql` is already applied; do not rerun it.
+
+## Complete backups, history and chord-sheet paste
+
+**Menu → Complete backup / restore → Download complete backup** exports the current songbook’s songs, folders, personal setlists, favorites and private friend nicknames. Church exports contain church songs and your church-song favorites. Backups contain lyrics and friend emails; keep them safe. Access approvals, outgoing share permissions, received setlists and song history are not included.
+
+**Restore complete backup** imports additional copies in one database transaction. Existing work stays unchanged; repeated restores create duplicates. Folder names and setlist names get a restored suffix. Song IDs and folder references are remapped, keeping setlist order and repeated songs. Personal restore does not create more church copies. Friends are restored only if their account is still approved. Reopen folders/setlists after restoring to reload their choices. Existing songs-only files still work through Import songs.
+
+**Song history** on an editable song shows recent saved versions. Preview one and restore it; the replaced version remains in history. **Recover deleted songs** on the song list restores a deleted song with its original ID so setlists can find it again. Deleted folders are replaced by Unfiled. Church history is available only to the church owner; managers cannot read or restore other users’ histories. History begins with this update and cannot recover versions or deletions from before it. The UI lists up to 100 recent entries at a time.
+
+**Paste chord sheet** in the new-song/editor screen converts chord lines above lyrics into inline braces, keeps section labels and chord-only instrumental lines, and recognizes a title above the opening chords. Nonbreaking spaces and tabs are normalized. Convert, check/edit the preview, then Apply to editor and save. Position estimates depend on the copied spacing; move `{chord}` markers afterward to correct them.
+
+`database/history-backups.sql` has already been applied to the database. Do not run it again. Full offline songs/setlists are still a future improvement.

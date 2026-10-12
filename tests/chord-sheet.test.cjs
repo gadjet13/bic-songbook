@@ -1,0 +1,6 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('fs'),vm=require('vm'),ts=require('typescript');const exp={};vm.runInNewContext(ts.transpile(fs.readFileSync('src/lib/chord-sheet.ts','utf8'),{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}),{exports:exp});
+test('converts title, chord-only intros, section labels and aligned slash chords',()=>{const input='**Oceans**\nBm A/C# D\n\n[Verse 1]\nBm    A/C#\nYou call me';const result=exp.convertChordSheet(input);assert.equal(result.title,'Oceans');assert.equal(result.content,'{Bm} {A/C#} {D}\n\n[Verse 1]\n{Bm}You ca{A/C#}ll me');assert.equal(result.warnings.length,1)});
+test('normalizes copied nonbreaking spaces and keeps labels and existing notation',()=>{const result=exp.convertChordSheet('[Chorus]\r\nC\u00a0 G\r\nHi there\r\n\r\n{Am}Already converted');assert.equal(result.content,'[Chorus]\n{C}Hi {G}there\n\n{Am}Already converted')});
+test('multiple chords beyond short lyric line remain intact and ordered',()=>{assert.equal(exp.convertChordSheet('C       F      G\nHi').content,'{C}Hi{F}{G}')});
+
+test('recognizes a plain title above the opening chord line',()=>{const result=exp.convertChordSheet('Oceans\n\nBm A/C# D\n\n[Verse]\n{Bm}Words');assert.equal(result.title,'Oceans');assert.ok(result.content.startsWith('{Bm} {A/C#} {D}'))});

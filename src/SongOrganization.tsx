@@ -30,6 +30,7 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId}: {songs:
  const [notice,setNotice]=useState('')
  function query(){const q=cloud!.from('songbook_setlists').select('*').order('title');return ownerId?q.eq('owner_id',ownerId):q.is('owner_id',null)}
  async function refresh(){const {data,error}=await query();if(error)throw error;setLists(data??[]);return (data??[]) as Setlist[]}
+ useEffect(()=>{const restored=()=>{setSelected(null);void refresh().catch(error=>setNotice(message(error)))};window.addEventListener('songbook-restored',restored);return()=>window.removeEventListener('songbook-restored',restored)},[ownerId])
  useEffect(()=>{let active=true;void query().then(({data,error})=>{if(active){if(error)setNotice(error.message);else setLists(data??[])}});return()=>{active=false}},[ownerId])
  async function action(fn:()=>Promise<void>){setBusy(true);setNotice('');try{await fn()}catch(error){setNotice(message(error))}finally{setBusy(false)}}
  function choose(list:Setlist){setSelected(list);setTitle(list.title);setIds(list.song_ids);setEditing(false);setNotice('')}
