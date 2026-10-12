@@ -36,6 +36,6 @@ export default function AddToSetlist({songId,ownerId}:{songId:number;ownerId:str
  <label>Choose personal setlist<select disabled={busy} value={chosen} onChange={event=>setChosen(event.target.value)}><option value="">Choose a setlist</option>{lists.map(list=><option key={list.id} value={list.id}>{list.title}</option>)}</select></label>
  <button disabled={busy||!chosen} onClick={()=>void add()}>Add song</button><button disabled={busy} onClick={()=>void load()}>Refresh choices</button>
  {!busy&&!lists.length&&<p>No setlists yet. Create one below.</p>}
- <form onSubmit={event=>{event.preventDefault();void create()}}><label>New setlist name<input disabled={busy} maxLength={200} value={newTitle} onChange={event=>setNewTitle(event.target.value)} placeholder="Sunday worship"/></label><button disabled={busy||!newTitle.trim()}>Create setlist with this song</button></form>
+ <p>{lists.length} / 25 personal setlists</p><form onSubmit={event=>{event.preventDefault();void create()}}><label>New setlist name<input disabled={busy} maxLength={200} value={newTitle} onChange={event=>setNewTitle(event.target.value)} placeholder="Sunday worship"/></label><button disabled={busy||!newTitle.trim()||lists.length>=25}>Create setlist with this song</button></form>
  <p role="status">{notice}</p></div>}</div>
 }

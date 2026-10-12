@@ -112,7 +112,7 @@ From a personal song, open **Add to setlist** and choose an existing setlist, or
 
 Individual song sharing and downloaded song files are separate from private setlist sharing. A shared song file/link contains the song content; send it only to intended recipients.
 
-The app requires an internet connection for account checks and database songs. The installed app caches application files, but full offline song and setlist access is not implemented. Song history and deleted-song recovery are also planned.
+Account approval and saving changes require internet. Saved songbooks and setlists can now be read offline on the same device. Song history and deleted-song recovery are also planned.
 
 ## Editing and deploying the website
 
@@ -208,4 +208,22 @@ On the front page, choose **Friends** to add an approved personal account by ema
 
 **Paste chord sheet** in the new-song/editor screen converts chord lines above lyrics into inline braces, keeps section labels and chord-only instrumental lines, and recognizes a title above the opening chords. Nonbreaking spaces and tabs are normalized. Convert, check/edit the preview, then Apply to editor and save. Position estimates depend on the copied spacing; move `{chord}` markers afterward to correct them.
 
-`database/history-backups.sql` has already been applied to the database. Do not run it again. Full offline songs/setlists are still a future improvement.
+`database/history-backups.sql` has already been applied to the database. Do not run it again. Offline reading is available; offline editing and conflict syncing are not implemented.
+
+## Simplified song fields
+
+Category has been removed from forms, displays and search. Existing category values remain stored for compatibility with old files and history. No automatic artist lookup is performed. Paste chord sheet suggests the arrangement’s key from its chords, showing a possible alternative. Confirm or edit the suggestion before applying; it may differ from the original recording and relative major/minor keys can be ambiguous. Leave the suggestion blank to keep the existing key.
+
+## Offline reading
+
+Open the app online on each device and sign in. **Menu → Offline use → Save latest for offline** saves personal and church songs, folders, favorites, personal setlists and received setlists. Refresh also saves these automatically. Wait for the saved timestamp, and open/install the app online once so its application files are cached.
+
+In airplane mode you can reopen the app, browse both songbooks, filter folders/favorites, start setlists, transpose, copy and use reading mode. All account approval, editing, saving, sharing, history, full backup and friend-management operations need internet. Shared setlists use their last saved contents and update after reconnecting. Stay signed in before going offline; first-time sign-in cannot be done offline.
+
+Offline copies are stored in this browser/device, separately by account. Signing out or switching accounts clears the previous account’s saved copy. Menu has a Clear saved offline data button; an online refresh saves the data again. Other devices need their own save. Storage failures are reported. Browser storage can be removed by the browser/device, so this is not a replacement for downloaded backups. Revoked sharing/access cannot be checked without a connection; reconnecting checks approval and refreshes/removes saved data.
+
+## Duplicate titles and setlist limit
+
+Paste chord sheet checks the detected/current title against live church songs and displays matching titles, ignoring case and repeated spaces. You can load an existing version into the editor. Matching personal song titles do not add another automatic church copy; personal versions remain independent. Direct church creation with a matching title is rejected. Different songs with the same title need a distinguishing subtitle. This does not detect every alternate title or remove existing duplicates. Backup restoration remains an explicit import of additional copies.
+
+Each account may have up to **25 personal setlists**. Existing lists above the limit are retained but new lists cannot be added until the count falls below 25. Received setlists do not count. Complete-backup restoration must fit within the limit; otherwise it rolls back without importing partial data. `database/duplicates-setlist-limit.sql` is already applied; do not rerun it.
