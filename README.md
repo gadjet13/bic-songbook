@@ -227,3 +227,11 @@ Offline copies are stored in this browser/device, separately by account. Signing
 Paste chord sheet checks the detected/current title against live church songs and displays matching titles, ignoring case and repeated spaces. You can load an existing version into the editor. Matching personal song titles do not add another automatic church copy; personal versions remain independent. Direct church creation with a matching title is rejected. Different songs with the same title need a distinguishing subtitle. This does not detect every alternate title or remove existing duplicates. Backup restoration remains an explicit import of additional copies.
 
 Each account may have up to **25 personal setlists**. Existing lists above the limit are retained but new lists cannot be added until the count falls below 25. Received setlists do not count. Complete-backup restoration must fit within the limit; otherwise it rolls back without importing partial data. `database/duplicates-setlist-limit.sql` is already applied; do not rerun it.
+
+### Streamlined chord-sheet editing
+
+**Convert into editor** fills the regular title, key and content fields immediately, replacing the current editor text without saving. There is no separate preview/apply confirmation. Adjust the normal fields, then save. The existing-church-song notice appears directly above Save and rechecks when the title changes.
+
+### Making a setlist at the limit
+
+At 25, enter the new setlist’s name/songs and save. Choose Delete oldest and create, select another setlist to replace, or Cancel to review your lists. The setlist name is shown before deletion. Songs remain; shares of the deleted setlist end. Replacement runs as one transaction and rolls back if creation fails. Old setlists use their last recorded update as an approximate creation date; new setlists track the real creation date. `database/setlist-replacement.sql` is already applied.

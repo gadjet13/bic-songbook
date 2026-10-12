@@ -1,0 +1,8 @@
+import { useEffect,useState } from 'react'
+import { loadSongs } from './lib/cloud'
+import type { Song } from './App'
+export default function DuplicateSongNotice({title,personal,excludeId,onUseExisting}:{title:string;personal:boolean;excludeId?:number;onUseExisting:(song:Song)=>void}) {
+ const [matches,setMatches]=useState<Song[]>([]),[notice,setNotice]=useState('')
+ useEffect(()=>{let active=true;setMatches([]);setNotice('');if(!title.trim())return;const timer=window.setTimeout(()=>{setNotice('Checking for an existing church song…');void loadSongs(null).then(songs=>{if(!active)return;const normalize=(value:string)=>value.trim().toLowerCase().replace(/\s+/g,' ');setMatches(songs.filter(song=>song.id!==excludeId&&normalize(song.title)===normalize(title)));setNotice('')}).catch(()=>{if(active)setNotice('Could not check existing church songs. Check your connection before saving.')})},400);return()=>{active=false;window.clearTimeout(timer)}},[title,excludeId])
+ return <div className="duplicate-song-notice" role="status">{notice&&<p>{notice}</p>}{!!matches.length&&<><p><strong>A song with this title already exists in the church database.</strong> {personal?'Your personal version will not add another church copy.':'Open the existing church song to edit it, or give a different song a distinguishing title.'}</p>{matches.map(song=><p key={song.id}>{song.title} · {song.artist||'Artist not set'} · Key {song.key} {personal&&<button onClick={()=>onUseExisting(song)}>Use existing version</button>}</p>)}</>}</div>
+}

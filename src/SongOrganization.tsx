@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { cloud } from './lib/cloud'
 import type { Song } from './App'
 import type { OfflineList } from './lib/offline'
+import SetlistLimitPanel from './SetlistLimitPanel'
 import SetlistCopy from './SetlistCopy'
 import FriendPicker from './FriendPicker'
 
@@ -27,6 +28,7 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLi
  async function loadShares(id:string){if(offlineLists)return;const {data,error}=await cloud!.from('songbook_setlist_shares').select('id,recipient_email').eq('setlist_id',id);if(error)throw error;setShares(data??[])}
  useEffect(()=>{setShares([]);if(selected)void loadShares(selected.id).catch(error=>setNotice(message(error)))},[selected?.id,offlineLists])
  const [editing,setEditing]=useState(false)
+ const [limit,setLimit]=useState(false)
  const [busy,setBusy]=useState(false)
  const [notice,setNotice]=useState('')
  function query(){const q=cloud!.from('songbook_setlists').select('*').order('title');return ownerId?q.eq('owner_id',ownerId):q.is('owner_id',null)}
@@ -35,13 +37,14 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLi
  useEffect(()=>{if(offlineLists){setLists(offlineLists);return}let active=true;void query().then(({data,error})=>{if(active){if(error)setNotice(error.message);else setLists(data??[])}});return()=>{active=false}},[ownerId,offlineLists])
  async function action(fn:()=>Promise<void>){setBusy(true);setNotice('');try{await fn()}catch(error){setNotice(message(error))}finally{setBusy(false)}}
  function choose(list:Setlist){setSelected(list);setTitle(list.title);setIds(list.song_ids);setEditing(false);setNotice('')}
- async function save(){if(offlineLists)throw new Error('Reconnect before saving setlists.');if(!title.trim())throw new Error('Enter a setlist name.');const fields={title:title.trim(),song_ids:ids};const result=selected?await cloud!.from('songbook_setlists').update(fields).eq('id',selected.id).eq('revision',selected.revision).select().maybeSingle():await cloud!.from('songbook_setlists').insert({...fields,owner_id:ownerId}).select().single();if(result.error)throw result.error;if(!result.data)throw new Error('Someone changed this setlist. Copy your changes, then refresh setlists and try again.');await refresh();choose(result.data);setNotice('Setlist saved.')}
+ async function save(){if(offlineLists)throw new Error('Reconnect before saving setlists.');if(!title.trim())throw new Error('Enter a setlist name.');if(!selected&&lists.length>=25){setLimit(true);return}const fields={title:title.trim(),song_ids:ids};const result=selected?await cloud!.from('songbook_setlists').update(fields).eq('id',selected.id).eq('revision',selected.revision).select().maybeSingle():await cloud!.from('songbook_setlists').insert({...fields,owner_id:ownerId}).select().single();if(result.error)throw result.error;if(!result.data)throw new Error('Someone changed this setlist. Copy your changes, then refresh setlists and try again.');await refresh();choose(result.data);setNotice('Setlist saved.')}
  function move(index:number,direction:number){const next=[...ids];[next[index],next[index+direction]]=[next[index+direction],next[index]];setIds(next)}
  const queue=(values:number[])=>values.map(id=>songs.find(song=>song.id===id)).filter((song):song is Song=>!!song)
  return <details className="setlist-panel"><summary>Setlists</summary><p className="storage-note">{ownerId?'Your personal setlists. Share a live, read-only setlist with another approved personal account.':'Church setlists shared with approved members.'}</p>
+ {limit&&ownerId&&<SetlistLimitPanel ownerId={ownerId} title={title} songIds={ids} onCreated={list=>{setLimit(false);choose(list);void refresh()}} onCancel={()=>{setLimit(false);setEditing(false);setSelected(null);setNotice('Creation cancelled. Review your setlists before trying again.')}}/>}
  <p>{lists.length} / 25 personal setlists</p><div className="setlist-tools"><label>Choose setlist<select value={selected?.id??''} disabled={busy||editing} onChange={event=>{const list=lists.find(item=>item.id===event.target.value);if(list)choose(list);else setSelected(null)}}><option value="">Select a setlist</option>{lists.map(list=><option key={list.id} value={list.id}>{list.title}</option>)}</select></label>
  <button disabled={busy||editing} onClick={()=>void action(async()=>{const rows=await refresh();if(selected){const current=rows.find(row=>row.id===selected.id);if(current)choose(current);else setSelected(null)}})}>Refresh setlists</button>
- {canEdit&&<button disabled={busy||editing||lists.length>=25} onClick={()=>{setSelected(null);setTitle('');setIds([]);setEditing(true)}}>New setlist</button>}</div>
+ {canEdit&&<button disabled={busy||editing} onClick={()=>{setSelected(null);setTitle('');setIds([]);setEditing(true);if(lists.length>=25)setNotice('Limit reached. After naming your new setlist, Save will offer replacement choices.')}}>New setlist</button>}</div>
  {editing?<fieldset disabled={!canEdit}><label>Setlist name<input maxLength={200} value={title} placeholder="Sunday service" disabled={busy} onChange={event=>setTitle(event.target.value)}/></label>
  <ol className="setlist-songs">{ids.map((id,index)=><li key={id+'-'+index}><span>{songs.find(song=>song.id===id)?.title??'Song removed from library'}</span><button disabled={busy||index===0} aria-label={'Move song '+(index+1)+' up'} onClick={()=>move(index,-1)}>↑</button><button disabled={busy||index===ids.length-1} aria-label={'Move song '+(index+1)+' down'} onClick={()=>move(index,1)}>↓</button><button disabled={busy} onClick={()=>setIds(ids.filter((_,i)=>i!==index))}>Remove</button></li>)}</ol>
  <label>Search songs to add<input type="search" value={search} disabled={busy} placeholder="Song title or artist" onChange={event=>setSearch(event.target.value)}/></label>

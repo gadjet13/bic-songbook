@@ -11,6 +11,7 @@ import CompleteBackup from './CompleteBackup'
 import type { OfflineBundle } from './lib/offline'
 import SongHistory from './SongHistory'
 import ChordSheetPaste from './ChordSheetPaste'
+import DuplicateSongNotice from './DuplicateSongNotice'
 import SongOrganization, { useFavorites } from './SongOrganization'
 
 export type Song = {
@@ -395,7 +396,7 @@ function App({library}: {library: SharedLibrary}) {
         {!selectedSong ? (
           isAddingSong ? (
             <div className="add-song-form">
-              <h2>Add New Song</h2><ChordSheetPaste checkDuplicates currentTitle={newSongTitle} onApply={(content,title,key)=>{if(newSongContent&&!window.confirm("Replace the editor content with converted text?"))return;setNewSongContent(content);if(title)setNewSongTitle(title);if(key)setNewSongKey(key)}}/>{library.ownerId && <p className="storage-note">The first saved version also goes to the church songbook. Later edits stay in your personal songbook.</p>}
+              <h2>Add New Song</h2><ChordSheetPaste onApply={(content,title,key)=>{setNewSongContent(content);if(title)setNewSongTitle(title);if(key)setNewSongKey(key)}}/>{library.ownerId && <p className="storage-note">The first saved version also goes to the church songbook. Later edits stay in your personal songbook.</p>}
 
               <label>
                 Song Title
@@ -462,6 +463,7 @@ function App({library}: {library: SharedLibrary}) {
                 </small>
               </label>
 
+              <DuplicateSongNotice title={newSongTitle} personal={!!library.ownerId} onUseExisting={song=>{setNewSongTitle(song.title);setNewSongArtist(song.artist);setNewSongKey(song.key);setNewSongContent(song.content)}}/>
               <div className="edit-buttons">
                 <button
                   className="save-button"
@@ -606,7 +608,7 @@ function App({library}: {library: SharedLibrary}) {
 
                 <label>
                   Song Content
-                  <ChordSheetPaste onApply={(content,title,key)=>{if(editedContent&&!window.confirm("Replace the editor content with converted text?"))return;setEditedContent(content);if(title)setEditedTitle(title);if(key)setEditedKey(key)}}/>
+                  <ChordSheetPaste onApply={(content,title,key)=>{setEditedContent(content);if(title)setEditedTitle(title);if(key)setEditedKey(key)}}/>
                   <textarea
                     className="song-editor"
                     value={editedContent}
@@ -622,6 +624,7 @@ function App({library}: {library: SharedLibrary}) {
                   </small>
                 </label>
 
+                <DuplicateSongNotice title={editedTitle} personal={!!library.ownerId} excludeId={library.ownerId?undefined:selectedSong.id} onUseExisting={song=>{setEditedTitle(song.title);setEditedArtist(song.artist);setEditedKey(song.key);setEditedContent(song.content)}}/>
                 <div className="edit-buttons">
                   <button
                     className="save-button"
