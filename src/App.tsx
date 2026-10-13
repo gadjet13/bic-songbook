@@ -12,6 +12,10 @@ import type { OfflineBundle } from './lib/offline'
 import SongHistory from './SongHistory'
 import ChordSheetPaste from './ChordSheetPaste'
 import DuplicateSongNotice from './DuplicateSongNotice'
+import useUnsavedChanges from './useUnsavedChanges'
+import useReadingWakeLock from './useReadingWakeLock'
+import { allowNavigation } from './lib/unsaved'
+import { freshestSong } from './lib/editor-song'
 import SongOrganization, { useFavorites } from './SongOrganization'
 
 export type Song = {
@@ -111,6 +115,7 @@ function App({library}: {library: SharedLibrary}) {
   const [queueIndex,setQueueIndex]=useState(0)
   const [startOnLastPage,setStartOnLastPage]=useState(false)
   const [readingMode, setReadingMode] = useState(false)
+  const wakeStatus=useReadingWakeLock(readingMode)
   const [fontSize, setFontSize] = useState(() => {
     try { const saved = Number(localStorage.getItem('bic-songbook-font-size')); return saved >= 6 && saved <= 32 ? saved : 18 } catch { return 18 }
   })
@@ -172,6 +177,11 @@ function App({library}: {library: SharedLibrary}) {
   const [transpose, setTranspose] = useState(0)
 
   const [isEditing, setIsEditing] = useState(false)
+  const [savingSong,setSavingSong]=useState(false)
+  useEffect(()=>{
+    if(isEditing||library.sharedSetlist)return
+    setSelectedSong(current=>current?freshestSong(current,songList):null)
+  },[library.songs,isEditing,library.sharedSetlist])
 
   const [editedContent, setEditedContent] =
     useState('')
@@ -209,6 +219,10 @@ function App({library}: {library: SharedLibrary}) {
 
   const [newSongContent, setNewSongContent] =
     useState('')
+  const dirtySong=!!isEditing&&!!selectedSong&&(editedTitle!==selectedSong.title||editedArtist!==selectedSong.artist||editedKey!==selectedSong.key||editedContent!==selectedSong.content)
+  const dirtyNew=isAddingSong&&!!(newSongTitle.trim()||newSongArtist.trim()||newSongContent.trim())
+  useUnsavedChanges(dirtySong||dirtyNew)
+
 
   const changeTranspose = (amount: number) => {
     const next = transpose + amount
@@ -269,7 +283,8 @@ function App({library}: {library: SharedLibrary}) {
       .includes(search.toLowerCase()),
   )
 
-  const selectSong = (song: Song) => {
+  const selectSong = (song: Song,force=false) => {
+    if(!force&&song.id!==currentSongId.current&&!allowNavigation())return
     setStartOnLastPage(false)
     setReadingMode(false)
     setSelectedSong(song)
@@ -283,26 +298,35 @@ function App({library}: {library: SharedLibrary}) {
     setIsEditing(false)
   }
 
-  const initialOpened=useRef(false)
+  const initialOpened=useRef<number|undefined>(undefined)
   useEffect(()=>{
-    if(initialOpened.current||!library.initialSongId)return
+    if(initialOpened.current===library.initialSongId||!library.initialSongId)return
     const song=songList.find(song=>song.id===library.initialSongId)
-    if(song){initialOpened.current=true;selectSong(song)}
+    if(song){initialOpened.current=library.initialSongId;selectSong(song)}
   },[library.initialSongId,library.songs])
   const duplicateTarget=(churchSong:Song)=>library.ownerId?songList.find(song=>song.source_song_id===churchSong.id)||songList.find(song=>song.title.trim().toLowerCase().replace(/\s+/g,' ')===churchSong.title.trim().toLowerCase().replace(/\s+/g,' ')):churchSong
   function openDuplicate(song:Song){
+    if(!allowNavigation())return
     if(library.ownerId)library.openChurchSong?.(song)
-    else {setIsAddingSong(false);selectSong(song)}
+    else {setIsAddingSong(false);selectSong(song,true)}
   }
   async function overwriteDuplicate(song:Song,draft:{title:string;artist:string;key:string;content:string}){
     const target=duplicateTarget(song)
     if(!target||!library.canEdit)throw new Error('You can only overwrite an existing song in your own editable songbook.')
     if(!draft.title.trim())throw new Error('Enter a title first.')
     if(!window.confirm(`Overwrite ${library.ownerId?'your personal':'the church'} version of “${target.title}” with the current editor content? Its previous version remains in history.`))return
+    const startedSong=currentSongId.current
     const saved=await library.update({...target,...draft,title:draft.title.trim()})
-    setIsAddingSong(false);selectSong(saved);setNotice('Existing version overwritten. The previous version is in song history.')
+    if(currentSongId.current!==startedSong){setNotice("Existing version overwritten. Open it to see the changes.");return}
+    setIsAddingSong(false);selectSong(saved,true);setNotice('Existing version overwritten. The previous version is in song history.')
+  }
+  function beginEditing(){
+    if(!selectedSong)return
+    const song=freshestSong(selectedSong,songList)
+    setSelectedSong(song);setEditedTitle(song.title);setEditedArtist(song.artist);setEditedKey(song.key);setEditedContent(song.content);setIsEditing(true)
   }
   const saveSong = async () => {
+    if(savingSong)return
     if (!editedTitle.trim()) { setNotice('Please enter a song title.'); return }
     if (!selectedSong) {
       return
@@ -317,9 +341,12 @@ function App({library}: {library: SharedLibrary}) {
       content: editedContent,
     }
 
-    try { setSelectedSong(await library.update(updatedSong)) }
-    catch (error) { setNotice(String(error instanceof Error ? error.message : error)); return }
-    setIsEditing(false)
+    setSavingSong(true)
+    try {
+      const saved=await library.update(updatedSong)
+      if(currentSongId.current===updatedSong.id){setSelectedSong(saved);setEditedTitle(saved.title);setEditedArtist(saved.artist);setEditedKey(saved.key);setEditedContent(saved.content);setIsEditing(false)}
+    } catch(error){setNotice(String(error instanceof Error?error.message:error))}
+    finally{setSavingSong(false)}
   }
 
   const addSong = async () => {
@@ -368,6 +395,7 @@ function App({library}: {library: SharedLibrary}) {
   }
 
   const cancelEditing = () => {
+    if(!allowNavigation())return
     if (!selectedSong) {
       return
     }
@@ -408,7 +436,7 @@ function App({library}: {library: SharedLibrary}) {
         {!selectedSong && library.sharedSetlist && <SetlistCopy songs={songList}/>}
         {!selectedSong && library.sharedSetlist && <button disabled={!songList.length} onClick={()=>{setSetlistQueue(songList);setQueueIndex(0);selectSong(songList[0])}}>Start shared setlist</button>}
         {!selectedSong && !isAddingSong && library.canEdit && <SongHistory ownerId={library.ownerId} currentSongs={songList} onChanged={library.refresh}/>}
-        {!selectedSong && !isAddingSong && library.ownerId && <SongOrganization offlineLists={library.offline?library.offlineData?.setlists:undefined} ownerId={library.ownerId} songs={songList} canEdit={library.canEdit} onOpen={songs=>{if(songs.length){setSetlistQueue(songs);setQueueIndex(0);selectSong(songs[0])}}}/>}
+        {!selectedSong && !isAddingSong && library.ownerId && <SongOrganization churchSongs={library.offlineData?.church??[]} onSongsChanged={library.refresh} offlineLists={library.offline?library.offlineData?.setlists:undefined} ownerId={library.ownerId} songs={songList} canEdit={library.canEdit} onOpen={songs=>{if(songs.length){setSetlistQueue(songs);setQueueIndex(0);selectSong(songs[0])}}}/>}
         {!selectedSong && !isAddingSong && library.ownerId && <SongFolders canEdit={library.canEdit} offlineFolders={library.offline?library.offlineData?.folders:undefined} userId={library.userId} selected={folder} onSelect={setFolder} onFolders={setFolderNames} onChanged={library.refresh}/>}
         {favoriteError && <p role="status" className="notice">{favoriteError}</p>}
         {notice && <p role="status" className="notice">{notice}<button aria-label="Dismiss notification" onClick={() => setNotice('')}>×</button></p>}
@@ -495,9 +523,7 @@ function App({library}: {library: SharedLibrary}) {
 
                 <button
                   className="cancel-button"
-                  onClick={() =>
-                    setIsAddingSong(false)
-                  }
+                  onClick={() =>{if(allowNavigation())setIsAddingSong(false)}}
                 >
                   Cancel
                 </button>
@@ -518,9 +544,7 @@ function App({library}: {library: SharedLibrary}) {
               <button
                 hidden={!library.canEdit}
                 className="add-song-button"
-                onClick={() =>
-                  setIsAddingSong(true)
-                }
+                onClick={() =>{if(allowNavigation())setIsAddingSong(true)}}
               >
                 + Add Song
               </button>
@@ -629,7 +653,7 @@ function App({library}: {library: SharedLibrary}) {
 
                 <label>
                   Song Content
-                  <ChordSheetPaste onApply={(content,title,key)=>{setEditedContent(content);if(title)setEditedTitle(title);if(key)setEditedKey(key)}}/>
+                  <ChordSheetPaste key={selectedSong.id} onApply={(content,title,key)=>{setEditedContent(content);if(title)setEditedTitle(title);if(key)setEditedKey(key)}}/>
                   <textarea
                     className="song-editor"
                     value={editedContent}
@@ -649,7 +673,7 @@ function App({library}: {library: SharedLibrary}) {
                 <div className="edit-buttons">
                   <button
                     className="save-button"
-                    onClick={saveSong}
+                    disabled={savingSong||library.offline} onClick={saveSong}
                   >
                     Save Changes
                   </button>
@@ -672,9 +696,7 @@ function App({library}: {library: SharedLibrary}) {
                 <button
                   hidden={!library.canEdit}
                   className="edit-button"
-                  onClick={() =>
-                    setIsEditing(true)
-                  }
+                  onClick={beginEditing}
                 >
                   Edit Song
                 </button>
@@ -726,6 +748,7 @@ function App({library}: {library: SharedLibrary}) {
               </div>}
             </div>
             {!isEditing && (<>
+              {readingMode&&<small role="status">{wakeStatus}</small>}
               {readingMode ? <SongPages key={selectedSong.id+'-'+queueIndex} fontSize={fontSize} startOnLastPage={startOnLastPage} onPreviousSong={queueIndex > 0 && setlistQueue.length ? () => {setQueueIndex(queueIndex-1);selectSong(setlistQueue[queueIndex-1]);setStartOnLastPage(true);setReadingMode(true)} : undefined} onNextSong={queueIndex < setlistQueue.length - 1 ? () => {setQueueIndex(queueIndex+1);selectSong(setlistQueue[queueIndex+1]);setReadingMode(true)} : undefined}>{displaySong(selectedSong.content, transpose, getCurrentKey(selectedSong.key, transpose))}</SongPages> : <div className="song-display" style={{fontSize: `${fontSize}px`}} tabIndex={0} aria-label="Song lyrics and chords">
                 {displaySong(
                   selectedSong.content,

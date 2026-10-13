@@ -239,3 +239,19 @@ At 25, enter the new setlist’s name/songs and save. Choose Delete oldest and c
 ### Opening or overwriting a duplicate
 
 The duplicate notice has Open existing song to visit the church version directly. Overwrite uses the current editor content and requires confirmation. The church owner can overwrite church songs. Personal accounts can overwrite their own existing copy (matched by source song or title); they cannot overwrite the church copy. Make/save a personal copy first if none exists. Previous versions remain in history and revision checks prevent silently replacing someone else’s newer edits. Opening the church song leaves the current unsaved editor.
+
+### Editor refresh fix
+
+Opening Edit loads the freshest known saved song into every editor field. Background refreshes preserve an unsaved draft, and older refresh responses cannot replace a newer saved revision. Switching songs resets the chord-sheet input. Slow save/overwrite responses no longer navigate back to a previously selected song.
+
+## Faster setlists and service reading
+
+Setlist search prioritizes your personal versions. Matching church songs are offered only when no personal version exists. Selecting one automatically adds/reuses a personal copy and adds that copy to the draft setlist. Your saved personal key and edits take priority over the church arrangement. Opening a personal setlist automatically restores missing songs when your own song history still contains them; unavailable older deletions remain marked missing.
+
+On a received live setlist, **Save to my setlists** lets you keep its name or enter a new name. It copies the current order and arrangements into your personal songbook, reusing exactly matching personal songs and creating separate copies for different versions. Your existing edited songs are never overwritten. This creates an independent setlist: later edits on either side do not affect the other. The original received setlist stays available and keeps updating. At 25 personal setlists, the replacement options still apply; copying/replacement runs as one transaction.
+
+Unsaved song/setlist edits, new-setlist names and unconverted pasted chord sheets are protected when navigating away. You can discard changes or stay. Browsers may show their own generic warning on reload/close. These warnings do not provide persistent draft recovery after force-closing the app.
+
+Reading mode requests a screen wake lock while visible and releases it on exit. A status shows whether it is active. Device/browser support, battery-saving settings and manual locks can prevent it. It retries when you return to the app; it cannot override all device settings.
+
+`database/setlist-personal-copies.sql` and `database/copy-shared-setlist.sql` have already been applied. Do not run them again.

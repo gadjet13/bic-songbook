@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import SetlistLimitPanel from './SetlistLimitPanel'
+import useUnsavedChanges from './useUnsavedChanges'
+import { allowNavigation } from './lib/unsaved'
 import { cloud } from './lib/cloud'
 
 type List = {id:string;title:string;song_ids:number[];revision:number}
@@ -11,6 +13,7 @@ export default function AddToSetlist({songId,ownerId}:{songId:number;ownerId:str
  const [limit,setLimit]=useState(false)
  const [busy,setBusy]=useState(false)
  const [notice,setNotice]=useState('')
+ useUnsavedChanges(open&&!!newTitle.trim())
  async function load(){
   setBusy(true);setNotice('')
   try {const {data,error}=await cloud!.from('songbook_setlists').select('id,title,song_ids,revision').eq('owner_id',ownerId).order('title');if(error)throw error;setLists(data??[])}
@@ -35,11 +38,11 @@ export default function AddToSetlist({songId,ownerId}:{songId:number;ownerId:str
   setBusy(true);setNotice('')
   try{const {data,error}=await cloud!.from('songbook_setlists').insert({title:newTitle.trim(),song_ids:[songId],owner_id:ownerId}).select('id,title,song_ids,revision').single();if(error)throw error;setLists(rows=>[...rows,data]);setChosen(data.id);setNewTitle('');setNotice(`Created ${data.title} with this song first.`)}catch(error){setNotice((error as {message:string}).message)}finally{setBusy(false)}
  }
- return <div className="add-to-setlist"><button aria-expanded={open} onClick={()=>{setOpen(!open);if(!open)void load()}}>{open?'Close setlist choices':'Add to setlist'}</button>{open&&<div>
+ return <div className="add-to-setlist"><button aria-expanded={open} onClick={()=>{if(open&&!allowNavigation())return;setOpen(!open);if(!open)void load()}}>{open?'Close setlist choices':'Add to setlist'}</button>{open&&<div>
  <label>Choose personal setlist<select disabled={busy} value={chosen} onChange={event=>setChosen(event.target.value)}><option value="">Choose a setlist</option>{lists.map(list=><option key={list.id} value={list.id}>{list.title}</option>)}</select></label>
  <button disabled={busy||!chosen} onClick={()=>void add()}>Add song</button><button disabled={busy} onClick={()=>void load()}>Refresh choices</button>
  {!busy&&!lists.length&&<p>No setlists yet. Create one below.</p>}
  <p>{lists.length} / 25 personal setlists</p><form onSubmit={event=>{event.preventDefault();void create()}}><label>New setlist name<input disabled={busy} maxLength={200} value={newTitle} onChange={event=>setNewTitle(event.target.value)} placeholder="Sunday worship"/></label><button disabled={busy||!newTitle.trim()}>Create setlist with this song</button></form>
- {limit&&<SetlistLimitPanel ownerId={ownerId} title={newTitle} songIds={[songId]} onCreated={list=>{setLimit(false);setLists(rows=>[...rows.filter(row=>row.id!==list.id),list]);setChosen(list.id);setNewTitle('');void load();setNotice('New setlist created.')}} onCancel={()=>{setLimit(false);setNewTitle('');setNotice('Creation cancelled. Choose an existing setlist to review.')}}/>}
+ {limit&&<SetlistLimitPanel ownerId={ownerId} title={newTitle} songIds={[songId]} onCreated={list=>{setLimit(false);setLists(rows=>[...rows.filter(row=>row.id!==list.id),list]);setChosen(list.id);setNewTitle('');void load();setNotice('New setlist created.')}} onCancel={()=>{if(!allowNavigation())return;setLimit(false);setNewTitle('');setNotice('Creation cancelled. Choose an existing setlist to review.')}}/>}
  <p role="status">{notice}</p></div>}</div>
 }
