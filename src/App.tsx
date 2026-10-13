@@ -88,6 +88,8 @@ function getCurrentKey(
 export type SharedLibrary = {
   offline?: boolean
   offlineData?: OfflineBundle
+  initialSongId?: number
+  openChurchSong?: (song:Song)=>void
   sharedSetlist?: boolean
   ownerId: string | null
   refresh: ()=>Promise<void>
@@ -281,6 +283,25 @@ function App({library}: {library: SharedLibrary}) {
     setIsEditing(false)
   }
 
+  const initialOpened=useRef(false)
+  useEffect(()=>{
+    if(initialOpened.current||!library.initialSongId)return
+    const song=songList.find(song=>song.id===library.initialSongId)
+    if(song){initialOpened.current=true;selectSong(song)}
+  },[library.initialSongId,library.songs])
+  const duplicateTarget=(churchSong:Song)=>library.ownerId?songList.find(song=>song.source_song_id===churchSong.id)||songList.find(song=>song.title.trim().toLowerCase().replace(/\s+/g,' ')===churchSong.title.trim().toLowerCase().replace(/\s+/g,' ')):churchSong
+  function openDuplicate(song:Song){
+    if(library.ownerId)library.openChurchSong?.(song)
+    else {setIsAddingSong(false);selectSong(song)}
+  }
+  async function overwriteDuplicate(song:Song,draft:{title:string;artist:string;key:string;content:string}){
+    const target=duplicateTarget(song)
+    if(!target||!library.canEdit)throw new Error('You can only overwrite an existing song in your own editable songbook.')
+    if(!draft.title.trim())throw new Error('Enter a title first.')
+    if(!window.confirm(`Overwrite ${library.ownerId?'your personal':'the church'} version of “${target.title}” with the current editor content? Its previous version remains in history.`))return
+    const saved=await library.update({...target,...draft,title:draft.title.trim()})
+    setIsAddingSong(false);selectSong(saved);setNotice('Existing version overwritten. The previous version is in song history.')
+  }
   const saveSong = async () => {
     if (!editedTitle.trim()) { setNotice('Please enter a song title.'); return }
     if (!selectedSong) {
@@ -463,7 +484,7 @@ function App({library}: {library: SharedLibrary}) {
                 </small>
               </label>
 
-              <DuplicateSongNotice title={newSongTitle} personal={!!library.ownerId} onUseExisting={song=>{setNewSongTitle(song.title);setNewSongArtist(song.artist);setNewSongKey(song.key);setNewSongContent(song.content)}}/>
+              <DuplicateSongNotice onOpen={openDuplicate} canOverwrite={song=>!!library.canEdit&&!!duplicateTarget(song)} onOverwrite={song=>overwriteDuplicate(song,{title:newSongTitle,artist:newSongArtist,key:newSongKey,content:newSongContent})} title={newSongTitle} personal={!!library.ownerId} onUseExisting={song=>{setNewSongTitle(song.title);setNewSongArtist(song.artist);setNewSongKey(song.key);setNewSongContent(song.content)}}/>
               <div className="edit-buttons">
                 <button
                   className="save-button"
@@ -624,7 +645,7 @@ function App({library}: {library: SharedLibrary}) {
                   </small>
                 </label>
 
-                <DuplicateSongNotice title={editedTitle} personal={!!library.ownerId} excludeId={library.ownerId?undefined:selectedSong.id} onUseExisting={song=>{setEditedTitle(song.title);setEditedArtist(song.artist);setEditedKey(song.key);setEditedContent(song.content)}}/>
+                <DuplicateSongNotice onOpen={openDuplicate} canOverwrite={song=>!!library.canEdit&&!!duplicateTarget(song)} onOverwrite={song=>overwriteDuplicate(song,{title:editedTitle,artist:editedArtist,key:editedKey,content:editedContent})} title={editedTitle} personal={!!library.ownerId} excludeId={library.ownerId?undefined:selectedSong.id} onUseExisting={song=>{setEditedTitle(song.title);setEditedArtist(song.artist);setEditedKey(song.key);setEditedContent(song.content)}}/>
                 <div className="edit-buttons">
                   <button
                     className="save-button"

@@ -17,6 +17,7 @@ export default function SharedApp() {
   const [ready,setReady]=useState(false)
   const [role,setRole]=useState<string|null>(null)
   const [homeTab,setHomeTab]=useState<'songbooks'|'friends'>('songbooks')
+  const [pendingSong,setPendingSong]=useState<number|undefined>()
   const [book,setBook]=useState<'home'|'personal'|'church'>('home')
   const [songs,setSongs]=useState<CloudSong[]>([])
   const [email,setEmail]=useState('')
@@ -37,6 +38,7 @@ export default function SharedApp() {
   const sharedListsRef=useRef(sharedLists)
   sharedListsRef.current=sharedLists
   function openBook(next:'personal'|'church') {
+    setPendingSong(undefined)
     history.pushState({bicBook:next},'',location.href)
     generation.current++;setSongs([]);setBook(next)
   }
@@ -75,7 +77,7 @@ export default function SharedApp() {
     const {data:{subscription}}=cloud!.auth.onAuthStateChange((event,newSession)=>{
       if(!newSession&&!navigator.onLine&&event!=='SIGNED_OUT')return
       const id=newSession?.user.id ?? null
-      if(activeUser.current!==id) {generation.current++;setAccounts([]);setShowAccounts(false);setSharedLists([]);setSharedList(null);setBook('home');setSongs([]);setRole(null);setOfflineBundle(null);setOfflineStatus('Not saved on this device yet.');setLoading(false);setNotice('');if(activeUser.current&&activeUser.current!==id)void clearOffline(activeUser.current).catch(()=>{});if(!id)forgetIdentity();activeUser.current=id}
+      if(activeUser.current!==id) {generation.current++;setAccounts([]);setShowAccounts(false);setSharedLists([]);setSharedList(null);setPendingSong(undefined);setBook('home');setSongs([]);setRole(null);setOfflineBundle(null);setOfflineStatus('Not saved on this device yet.');setLoading(false);setNotice('');if(activeUser.current&&activeUser.current!==id)void clearOffline(activeUser.current).catch(()=>{});if(!id)forgetIdentity();activeUser.current=id}
       setSession(newSession);setReady(true)
       if(event==='PASSWORD_RECOVERY') setRecovery(true)
     })
@@ -182,7 +184,7 @@ export default function SharedApp() {
     {sharedList && role && role!=='owner' && <><button onClick={backToBooks}>← Songbooks</button><p>Shared by {sharedList.sender_email} · {offline?'Saved shared setlist · Updates when reconnected':'Live shared setlist · Updates automatically'}</p><button disabled={busy||offline} onClick={()=>void action(async()=>{const {error}=await cloud!.from('songbook_setlist_shares').delete().eq('id',sharedList.id);if(error)throw error;setSharedList(null);await refresh()})}>Remove shared setlist</button><App key={sharedList.id} library={{offline,offlineData:offlineBundle??undefined,sharedSetlist:true,userId:session.user.id,ownerId:null,bookName:sharedList.title,songs:sharedList.songs,canEdit:false,refresh,add:async()=>{throw new Error('Read only')},update:async()=>{throw new Error('Read only')},remove:async()=>{throw new Error('Read only')}}}/></>}
 
     {role && book!=='home' && <><div className="songbook-location">{role!=='owner'&&<button onClick={backToBooks}>← Songbooks</button>}<strong>{book==='personal'?'My songbook':'Bukchon International Chapel'}</strong></div>
-    {<App key={session.user.id+'-'+book} library={{offline,offlineData:offlineBundle??undefined,userId:session.user.id,refresh,ownerId:book==='personal'?session.user.id:null,bookName:book==='personal'?'My songbook':'Church songbook',songs,canEdit:!offline&&(book==='personal'||role==='owner'),copyToPersonal:!offline&&book==='church'&&role!=='owner'?async song=>{await insertSongs([{...song,folder_id:null,source_song_id:song.id}],session.user.id)}:undefined,
+    {<App key={session.user.id+'-'+book} library={{initialSongId:pendingSong,openChurchSong:song=>{openBook('church');setPendingSong(song.id)},offline,offlineData:offlineBundle??undefined,userId:session.user.id,refresh,ownerId:book==='personal'?session.user.id:null,bookName:book==='personal'?'My songbook':'Church songbook',songs,canEdit:!offline&&(book==='personal'||role==='owner'),copyToPersonal:!offline&&book==='church'&&role!=='owner'?async song=>{await insertSongs([{...song,folder_id:null,source_song_id:song.id}],session.user.id)}:undefined,
       add:async rows=>{if(offline||!navigator.onLine)throw new Error('Reconnect before saving songs.');const saved=await insertSongs(rows,book==='personal'?session.user.id:null);setSongs(current=>[...current,...saved]);void refresh();return saved},
       update:async song=>{if(offline||!navigator.onLine)throw new Error('Reconnect before saving songs.');const saved=await updateSong(song);setSongs(current=>current.map(s=>s.id===saved.id?saved:s));void refresh();return saved},
       remove:async song=>{if(offline||!navigator.onLine)throw new Error('Reconnect before deleting songs.');await removeSong(song);setSongs(current=>current.filter(s=>s.id!==song.id));void refresh()}

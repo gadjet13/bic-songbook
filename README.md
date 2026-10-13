@@ -235,3 +235,7 @@ Each account may have up to **25 personal setlists**. Existing lists above the l
 ### Making a setlist at the limit
 
 At 25, enter the new setlist’s name/songs and save. Choose Delete oldest and create, select another setlist to replace, or Cancel to review your lists. The setlist name is shown before deletion. Songs remain; shares of the deleted setlist end. Replacement runs as one transaction and rolls back if creation fails. Old setlists use their last recorded update as an approximate creation date; new setlists track the real creation date. `database/setlist-replacement.sql` is already applied.
+
+### Opening or overwriting a duplicate
+
+The duplicate notice has Open existing song to visit the church version directly. Overwrite uses the current editor content and requires confirmation. The church owner can overwrite church songs. Personal accounts can overwrite their own existing copy (matched by source song or title); they cannot overwrite the church copy. Make/save a personal copy first if none exists. Previous versions remain in history and revision checks prevent silently replacing someone else’s newer edits. Opening the church song leaves the current unsaved editor.
