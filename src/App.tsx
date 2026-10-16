@@ -91,6 +91,7 @@ function getCurrentKey(
 
 export type SharedLibrary = {
   offline?: boolean
+  personalName?: string
   offlineData?: OfflineBundle
   initialSongId?: number
   openChurchSong?: (song:Song)=>void
@@ -109,6 +110,7 @@ export type SharedLibrary = {
 function App({library}: {library: SharedLibrary}) {
   const {favorites,toggle:toggleFavorite,error:favoriteError,busy:favoriteBusy}=useFavorites(library.userId,library.offline?library.offlineData?.favorites:undefined)
   const [folder,setFolder]=useState('all')
+  const [letter,setLetter]=useState('All')
   const [folderNames,setFolderNames]=useState<{id:string;name:string}[]>([])
   const [favoritesOnly,setFavoritesOnly]=useState(false)
   const [setlistQueue,setSetlistQueue]=useState<Song[]>([])
@@ -276,6 +278,7 @@ function App({library}: {library: SharedLibrary}) {
   }
 
   const filteredSongs = songList.filter((song) =>
+    (letter==='All'||(letter==='#'?!/^[A-Za-z]/.test(song.title.trim()):song.title.trim().toUpperCase().startsWith(letter))) &&
     (folder==='all'||(folder==='unfiled'?!song.folder_id:song.folder_id===folder)) &&
     (!favoritesOnly || favorites.includes(song.id)) &&
     `${song.title} ${song.artist}`
@@ -436,8 +439,8 @@ function App({library}: {library: SharedLibrary}) {
         {!selectedSong && library.sharedSetlist && <SetlistCopy songs={songList}/>}
         {!selectedSong && library.sharedSetlist && <button disabled={!songList.length} onClick={()=>{setSetlistQueue(songList);setQueueIndex(0);selectSong(songList[0])}}>Start shared setlist</button>}
         {!selectedSong && !isAddingSong && library.canEdit && <SongHistory ownerId={library.ownerId} currentSongs={songList} onChanged={library.refresh}/>}
-        {!selectedSong && !isAddingSong && library.ownerId && <SongOrganization churchSongs={library.offlineData?.church??[]} onSongsChanged={library.refresh} offlineLists={library.offline?library.offlineData?.setlists:undefined} ownerId={library.ownerId} songs={songList} canEdit={library.canEdit} onOpen={songs=>{if(songs.length){setSetlistQueue(songs);setQueueIndex(0);selectSong(songs[0])}}}/>}
-        {!selectedSong && !isAddingSong && library.ownerId && <SongFolders canEdit={library.canEdit} offlineFolders={library.offline?library.offlineData?.folders:undefined} userId={library.userId} selected={folder} onSelect={setFolder} onFolders={setFolderNames} onChanged={library.refresh}/>}
+        {!selectedSong && !isAddingSong && library.ownerId && <SongOrganization personalName={library.personalName??'My songbook'} churchSongs={library.offlineData?.church??[]} onSongsChanged={library.refresh} offlineLists={library.offline?library.offlineData?.setlists:undefined} ownerId={library.ownerId} songs={songList} canEdit={library.canEdit} onOpen={songs=>{if(songs.length){setSetlistQueue(songs);setQueueIndex(0);selectSong(songs[0])}}}/>}
+        {!selectedSong && !isAddingSong && library.ownerId && <SongFolders songs={songList} canEdit={library.canEdit} offlineFolders={library.offline?library.offlineData?.folders:undefined} userId={library.userId} selected={folder} onSelect={setFolder} onFolders={setFolderNames} onChanged={library.refresh}/>}
         {favoriteError && <p role="status" className="notice">{favoriteError}</p>}
         {notice && <p role="status" className="notice">{notice}<button aria-label="Dismiss notification" onClick={() => setNotice('')}>×</button></p>}
         {incoming && <section className="incoming"><h2>A friend shared “{incoming.title}”</h2><p>{incoming.artist} · Key: {incoming.key}</p><button disabled={!library.canEdit} onClick={async () => { try { const [song] = await library.add([incoming]); selectSong(song); setIncoming(null); history.replaceState(history.state, '', location.pathname + location.search) } catch (error) { setNotice(String(error instanceof Error ? error.message : error)) } }}>Add to this songbook</button><button onClick={() => {setIncoming(null); history.replaceState(history.state, '', location.pathname + location.search)}}>Dismiss</button></section>}
@@ -551,6 +554,7 @@ function App({library}: {library: SharedLibrary}) {
 
               {filteredSongs.length === 0 && <p>No songs found. Try another search or add a song.</p>}
               <button hidden={library.sharedSetlist} className="favorite-filter" aria-pressed={favoritesOnly} onClick={()=>setFavoritesOnly(!favoritesOnly)}>{favoritesOnly?'★ Favorites only — show all':'☆ Show my favorites'}</button>
+              {!library.sharedSetlist&&<nav className="alphabet-filter" aria-label="Filter by first letter">{['All',...'ABCDEFGHIJKLMNOPQRSTUVWXYZ','#'].map(value=><button key={value} aria-pressed={letter===value} onClick={()=>setLetter(value)}>{value}</button>)}</nav>}
               <div className="song-list">
                 {filteredSongs.map((song) => (
                   <button

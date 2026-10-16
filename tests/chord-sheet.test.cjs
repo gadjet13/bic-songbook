@@ -4,3 +4,5 @@ test('normalizes copied nonbreaking spaces and keeps labels and existing notatio
 test('multiple chords beyond short lyric line remain intact and ordered',()=>{assert.equal(exp.convertChordSheet('C       F      G\nHi').content,'{C}Hi{F}{G}')});
 
 test('recognizes a plain title above the opening chord line',()=>{const result=exp.convertChordSheet('Oceans\n\nBm A/C# D\n\n[Verse]\n{Bm}Words');assert.equal(result.title,'Oceans');assert.ok(result.content.startsWith('{Bm} {A/C#} {D}'))});
+
+test('recognizes a plain title before a section without swallowing untitled lyrics',()=>{const result=exp.convertChordSheet('Oceans\n\n[Verse 1]\nBm\nWords');assert.equal(result.title,'Oceans');assert.ok(result.content.startsWith('[Verse 1]'));assert.equal(exp.convertChordSheet('First lyric\nSecond lyric').title,'')});

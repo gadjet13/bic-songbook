@@ -1,0 +1,7 @@
+import {useEffect,useState} from 'react'
+import {cloud} from './lib/cloud'
+export default function AccountHandle({userId}:{userId:string}) {
+ const [value,setValue]=useState(''),[saved,setSaved]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false)
+ useEffect(()=>{let active=true;void cloud!.from('songbook_handles').select('handle').eq('user_id',userId).maybeSingle().then(({data,error})=>{if(active){if(error)setNotice(error.message);else{setValue(data?.handle??'');setSaved(data?.handle??'')}}});return()=>{active=false}},[userId])
+ return <details><summary>My friend ID {saved&&`· @${saved}`}</summary><p>Choose a unique ID: 3–24 letters, numbers or underscores. Changing it keeps your friends and shares connected.</p><form onSubmit={async event=>{event.preventDefault();setBusy(true);try{const {data,error}=await cloud!.rpc('set_songbook_handle',{new_handle:value});if(error)throw error;setValue(data);setSaved(data);setNotice('Friend ID saved.')}catch(error){setNotice((error as Error).message)}finally{setBusy(false)}}}><label>Friend ID<input required minLength={3} maxLength={25} value={value} onChange={event=>setValue(event.target.value)}/></label><button disabled={busy}>Save ID</button></form>{saved&&<button onClick={()=>void navigator.clipboard.writeText('@'+saved).then(()=>setNotice('ID copied.')).catch(()=>setNotice('Copy this ID: @'+saved))}>Copy @{saved}</button>}<p role="status">{notice}</p></details>
+}

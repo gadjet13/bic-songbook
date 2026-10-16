@@ -249,3 +249,15 @@ select:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
 .song-segment .chord{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
 
 .setlist-panel fieldset{border:0;padding:0;min-width:0}
+
+/* Compact library and folder cards */
+.song-list,.folder-grid,.songbook-cards { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+.song-item,.folder-card { min-width:0; overflow-wrap:anywhere; }
+.alphabet-filter { display:flex; flex-wrap:wrap; gap:4px; margin-block:12px; }
+.alphabet-filter button { padding:6px 9px; }
+.alphabet-filter [aria-pressed="true"],.folder-grid [aria-pressed="true"] { outline:2px solid var(--accent,#6574cf); }
+.folder-card { border:1px solid var(--border,#888); border-radius:12px; padding:12px; }
+.folder-card>button { display:flex; flex-direction:column; width:100%; text-align:left; }
+.folder-card small { margin-top:6px; }
+@media(max-width:1000px) {.song-list,.folder-grid,.songbook-cards {grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:600px) {.song-list,.folder-grid,.songbook-cards {grid-template-columns:minmax(0,1fr);}}
