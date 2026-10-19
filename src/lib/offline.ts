@@ -1,3 +1,4 @@
+import { loginPersistence } from './login-storage'
 import type { Song } from '../App'
 export type OfflineList={id:string;title:string;song_ids:number[];revision:number}
 export type OfflineShared={id:string;title:string;sender_email:string;songs:Song[]}
@@ -9,6 +10,7 @@ export const readOffline=(userId:string)=>transaction<OfflineBundle|undefined>('
 export const saveOffline=(bundle:OfflineBundle)=>transaction<void>('readwrite',store=>store.put(bundle))
 export const clearOffline=(userId:string)=>transaction<void>('readwrite',store=>store.delete(userId))
 export function usableOffline(bundle:OfflineBundle|undefined,userId:string):bundle is OfflineBundle{return !!bundle&&bundle.userId===userId&&!!bundle.role&&Array.isArray(bundle.personal)&&Array.isArray(bundle.church)}
-export function rememberIdentity(user:{id:string;email?:string}){localStorage.setItem('bic-offline-identity',JSON.stringify({id:user.id,email:user.email}))}
-export function offlineIdentity():{id:string;email?:string}|null{try{const user=JSON.parse(localStorage.getItem('bic-offline-identity')??'null');return user&&typeof user.id==='string'?user:null}catch{return null}}
-export function forgetIdentity(){localStorage.removeItem('bic-offline-identity')}
+export function rememberIdentity(user:{id:string;email?:string}){loginPersistence.storage.setItem('bic-offline-identity',JSON.stringify({id:user.id,email:user.email}))}
+export function offlineIdentity():{id:string;email?:string}|null{try{const user=JSON.parse(loginPersistence.storage.getItem('bic-offline-identity')??'null');return user&&typeof user.id==='string'?user:null}catch{return null}}
+export function forgetIdentity(){loginPersistence.storage.removeItem('bic-offline-identity')}
+

@@ -3,6 +3,7 @@ import { readOffline,saveOffline,clearOffline,usableOffline,rememberIdentity,off
 import type { OfflineBundle } from './lib/offline'
 import App from './App'
 import SaveSharedSetlist from './SaveSharedSetlist'
+import { loginPersistence } from './lib/login-storage'
 import { allowNavigation } from './lib/unsaved'
 import AccountHandle from './AccountHandle'
 import FriendPicker from './FriendPicker'
@@ -23,6 +24,7 @@ export default function SharedApp() {
   const [pendingSong,setPendingSong]=useState<number|undefined>()
   const [book,setBook]=useState<'home'|'personal'|'church'>('home')
   const [songs,setSongs]=useState<CloudSong[]>([])
+  const [rememberMe,setRememberMe]=useState(()=>loginPersistence.getRememberMe())
   const [email,setEmail]=useState('')
   const [password,setPassword]=useState('')
   const [signup,setSignup]=useState(false)
@@ -150,6 +152,7 @@ export default function SharedApp() {
   if(!session || recovery) return <main className="auth-panel"><h1 className="brand"><img src="/bic-logo.png" alt="BIC" />BIC Worship DB</h1><p><a href="/guide.html" target="_blank" rel="noopener">ⓘ First time? Read the user guide</a></p><p>One songbook for you and your friends.</p>
     <form onSubmit={event=>{event.preventDefault(); void action(async()=>{
       if(recovery) {const {error}=await cloud!.auth.updateUser({password});if(error)throw error;setRecovery(false);setPassword('');setNotice('Password updated.');history.replaceState(history.state,'',location.pathname);return}
+      loginPersistence.setRememberMe(rememberMe)
       const result=signup ? await cloud!.auth.signUp({email,password,options:{emailRedirectTo:location.origin}}) : await cloud!.auth.signInWithPassword({email,password})
       if(result.error)throw result.error
       setPassword('')
@@ -157,9 +160,10 @@ export default function SharedApp() {
     })}}>
     {!recovery && <label>Email<input type="email" autoComplete="email" required value={email} onChange={e=>setEmail(e.target.value)} /></label>}
     <label>{recovery ? 'New password' : 'Password'}<input type="password" minLength={signup || recovery ? 12 : undefined} required autoComplete={signup || recovery ? 'new-password':'current-password'} value={password} onChange={e=>setPassword(e.target.value)} /></label>
+    {!recovery&&<><label className="remember-login"><input type="checkbox" checked={rememberMe} disabled={busy} onChange={event=>{setRememberMe(event.target.checked);loginPersistence.setRememberMe(event.target.checked)}}/> Remember me on this device</label><p className="storage-note">{rememberMe?'Stay signed in when you return using this browser.':'Keep this login only for this tab session.'} Use Sign out on shared devices.</p>{rememberMe&&!loginPersistence.canRemember()&&<p role="status">This browser is blocking saved login. Allow site storage to stay signed in after closing the browser.</p>}</>}
     <button disabled={busy}>{busy ? 'Please wait…' : recovery ? 'Save password' : signup ? 'Create account' : 'Sign in'}</button>
     </form>
-    {!recovery && <><button disabled={busy} onClick={()=>void action(async()=>{const {error}=await cloud!.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin}});if(error)throw error})}>Continue with Google</button><button disabled={busy} onClick={()=>{setSignup(!signup);setNotice('')}}>{signup ? 'Already have an account? Sign in' : 'Create an account'}</button>
+    {!recovery && <><button disabled={busy} onClick={()=>void action(async()=>{loginPersistence.setRememberMe(rememberMe);const {error}=await cloud!.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin}});if(error)throw error})}>Continue with Google</button><button disabled={busy} onClick={()=>{setSignup(!signup);setNotice('')}}>{signup ? 'Already have an account? Sign in' : 'Create an account'}</button>
     <button disabled={busy || !email} onClick={()=>void action(async()=>{const {error}=await cloud!.auth.resetPasswordForEmail(email,{redirectTo:location.origin});if(error)throw error;setNotice('If this account exists, you will receive a password reset email.')})}>Forgot password</button></>}
     <p role="status">{notice}</p><p>New accounts need the owner’s approval before viewing the library.</p>
   </main>
@@ -167,7 +171,7 @@ export default function SharedApp() {
     <MenuSection>
     <div className="account-bar"><span>{session.user.email} · {role ?? 'Awaiting access'}</span>
     <button disabled={loading} onClick={()=>void refresh()}>Refresh library</button>
-    <button disabled={busy} onClick={()=>void action(async()=>{if(!allowNavigation())return;await clearOffline(session.user.id);forgetIdentity();const {error}=await cloud!.auth.signOut({scope:'local'});if(error&&!offline)throw error;if(offline){localStorage.removeItem('sb-tggcpgfunzaxftbkghbn-auth-token');setSession(null);setRole(null);setSongs([]);setSharedLists([]);setSharedList(null);setOfflineBundle(null)}setRecovery(false)})}>Sign out</button></div>
+    <button disabled={busy} onClick={()=>void action(async()=>{if(!allowNavigation())return;await clearOffline(session.user.id);forgetIdentity();const {error}=await cloud!.auth.signOut({scope:'local'});if(error&&!offline)throw error;if(offline){loginPersistence.storage.removeItem('sb-tggcpgfunzaxftbkghbn-auth-token');setSession(null);setRole(null);setSongs([]);setSharedLists([]);setSharedList(null);setOfflineBundle(null)}setRecovery(false)})}>Sign out</button></div>
     {!offline&&role!=='owner'&&<AccountHandle key={session.user.id} userId={session.user.id}/>}
     {!offline&&(role==='owner'||role==='manager') && <details className="member-panel"><summary>Manage friends’ access</summary><p>Ask your friend to create an account first. Giving access does not send an email.</p>
       <form onSubmit={event=>{event.preventDefault();void action(async()=>{const {error}=await cloud!.rpc('set_songbook_member',{email_address:memberEmail,member_role:memberRole});if(error)throw error;setNotice('Access updated. Your friend can refresh their library.');setMemberEmail('')})}}>
@@ -197,3 +201,4 @@ export default function SharedApp() {
     }}/>}</>}
   </>
 }
+

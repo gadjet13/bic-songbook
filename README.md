@@ -260,3 +260,9 @@ Reading mode requests a screen wake lock while visible and releases it on exit. 
 ## October 16 update
 
 Songbooks now use responsive cards and All/A–Z/# title filters. Personal folders open like folders, with a breadcrumb back to all songs. Setlists use cards and show saved keys. Setlist search includes BIC songs and prioritizes personal versions. In the menu, choose My friend ID to set a unique, changeable @ID (3–24 letters, numbers or underscores). Friends can find and confirm you by ID or email; existing connections survive ID changes. Church accounts have no friend ID. Managers may also use IDs when granting access. Plain pasted titles can precede a section heading; **Title** explicitly marks a title. The friend-ID database changes are already applied; no manual SQL is needed.
+
+
+
+## Remember me (October 19)
+
+The login checkbox defaults to on and applies to email and Google OAuth. Auth sessions explicitly persist and refresh through a storage adapter: localStorage when checked, sessionStorage when unchecked. Offline identity uses the same choice, so a tab-only login is not resurrected from a persistent offline identity. Sign-out removes auth entries from both stores. Existing default localStorage sessions remain compatible. Storage failures fall back to memory and a login-page message explains when persistent storage is blocked. Private browsing, cleared site data, and server session policies can still require login. No database migration required.
