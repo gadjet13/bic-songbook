@@ -265,3 +265,28 @@ select:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
 
 .auth-panel .remember-login {display:flex; flex-direction:row; align-items:center; gap:8px;}
 .auth-panel .remember-login input {width:auto; margin:0;}
+
+.draft-recovery {border:1px solid var(--border,#b4bfa8);padding:18px;border-radius:12px;margin:18px 0;}
+.draft-row {display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:12px 0;}
+.draft-row span {flex:1 1 220px;overflow-wrap:anywhere;}
+.key-table-scroll {overflow-x:auto;}
+.key-overview table {width:100%;border-collapse:collapse;}
+.key-overview th,.key-overview td {padding:10px;text-align:left;border-bottom:1px solid var(--border,#b4bfa8);}
+.key-badge {display:inline-block;border:1px solid var(--border,#b4bfa8);border-radius:6px;padding:2px 8px;white-space:nowrap;}
+
+.library-toggle {margin-block:14px;}
+.library-toggle>summary,.setlist-sharing>summary {font-weight:700;cursor:pointer;padding:10px 0;}
+.setlist-page {padding-block:12px;min-height:60vh;}
+.setlist-primary-actions {display:flex;flex-wrap:wrap;gap:10px;margin:16px 0 8px;}
+.setlist-copy-row {margin:0 0 18px;}
+.setlist-sharing,.setlist-delete {margin-block:18px;}
+.add-to-folder {margin:10px 0;}
+.active-filters {overflow-wrap:anywhere;}
+.book-measure .song-word,.book-spread .song-word {display:inline-block;white-space:nowrap;vertical-align:top;}
+.book-measure .song-word .song-segment,.book-spread .song-word .song-segment {max-width:none;}
+.book-measure .song-line,.book-spread .song-line {white-space:pre-wrap;overflow-wrap:normal;word-break:normal;}
+.book-measure .lyrics,.book-spread .lyrics {white-space:pre;overflow-wrap:normal;word-break:normal;}
+.book-measure[data-nowrap] .song-line {white-space:pre;}
+.book-column {overflow-x:auto;}
+
+.book-column {min-height:0;overflow-y:hidden;}

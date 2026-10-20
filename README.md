@@ -1,5 +1,7 @@
 # BIC Worship DB
 
+First time using the app? Read [START_HERE.md](START_HERE.md), the illustrated beginner guide. After deployment, it is also available in Menu → Start here.
+
 A church songbook for browsing lyrics and chords, preparing setlists, and keeping your own arrangements in your preferred key.
 
 **Website:** [bic-songbook.netlify.app](https://bic-songbook.netlify.app)  
@@ -76,21 +78,21 @@ Older `# Verse 1` headings and `[G]` chord markers remain supported. A chord-onl
 
 ### Personal folders
 
-**My folders** starts closed. Open it to create folders, rename or delete a selected folder, and filter your songs. Open a personal song to choose its folder.
+**My folders** starts closed. Open it to create folders, rename or delete a selected folder, and filter your songs. Open a personal song → Add to folder to use an existing folder or create one, then Open folder to visit it.
 
-A song belongs to one folder at a time. **All songs** includes every personal song; **Unfiled** includes songs without a folder. Deleting a folder keeps its songs and moves them to Unfiled.
+A song belongs to one folder at a time. **All songs** includes every personal song, including songs with no folder. There is no separate Unfiled card. Deleting a folder keeps its songs and keeps them in All songs.
 
 ### Setlists
 
 Setlists are personal only. The church account contains songs, with no setlists.
 
-Create or edit a setlist, search by song title, artist, or category, and select a result to add it. Search shows up to 20 matching songs; narrow the search if needed. Arrange songs with the up/down controls. A setlist can contain up to 100 song entries.
+Create or edit a setlist, search by song title, or artist, and select a result to add it. Search shows up to 20 matching songs; narrow the search if needed. Arrange songs with the up/down controls. A setlist can contain up to 100 song entries.
 
-Setlists use songs from the same songbook. Copy a church song to My songbook before adding your version to a personal setlist. Deleting a setlist does not delete its songs. Deleted songs appear as missing entries and are skipped when reading.
+Setlists use songs from the same songbook. Choosing a church-only result automatically copies it to My songbook before adding that version to a personal setlist. Deleting a setlist does not delete its songs. Deleted songs appear as missing entries and are skipped when reading.
 
-Open a saved personal setlist, enter another approved personal account’s email, then choose **Share setlist**. They find it under **Shared with me** on the front page. Only that setlist and its included songs are shared read-only. Saved song edits, title changes, additions, removals and reordering update automatically. The open recipient view checks every 15 seconds while visible, and refreshes on focus. Sharing sends no email. Church accounts cannot send or receive setlists. Revoke sharing to remove access; deleting the original setlist removes its shares. Already copied or downloaded content cannot be recalled.
+Open a saved personal setlist, expand **Sharing**, enter another approved personal account’s email, then choose **Share setlist**. They find it under **Shared with me** on the front page. Only that setlist and its included songs are shared read-only. Saved song edits, title changes, additions, removals and reordering update automatically. The open recipient view checks every 15 seconds while visible, and refreshes on focus. Sharing sends no email. Church accounts cannot send or receive setlists. Revoke sharing to remove access; deleting the original setlist removes its shares. Already copied or downloaded content cannot be recalled.
 
-After the first share, the recipient is remembered under **My friends** in the sharing controls. Search by email or private nickname, select them to fill the email, and use Rename or Remove friend. Removing a friend does not revoke existing shares.
+After the first share, the recipient is remembered in your friends list. Manage friends, nicknames and removal from the home-page **Friends** tab. Inside a setlist, open **Sharing** to choose a remembered recipient or enter their email. Removing a friend does not revoke existing shares.
 
 Choose **Copy entire setlist → Copy with chords / Copy lyrics** to copy all included songs in setlist order, with song titles. Chord copying uses each song’s saved base key. Missing/deleted songs are skipped.
 
@@ -204,7 +206,7 @@ On the front page, choose **Friends** to add an approved personal account by ema
 
 **Restore complete backup** imports additional copies in one database transaction. Existing work stays unchanged; repeated restores create duplicates. Folder names and setlist names get a restored suffix. Song IDs and folder references are remapped, keeping setlist order and repeated songs. Personal restore does not create more church copies. Friends are restored only if their account is still approved. Reopen folders/setlists after restoring to reload their choices. Existing songs-only files still work through Import songs.
 
-**Song history** on an editable song shows recent saved versions. Preview one and restore it; the replaced version remains in history. **Recover deleted songs** on the song list restores a deleted song with its original ID so setlists can find it again. Deleted folders are replaced by Unfiled. Church history is available only to the church owner; managers cannot read or restore other users’ histories. History begins with this update and cannot recover versions or deletions from before it. The UI lists up to 100 recent entries at a time.
+**Song history** on an editable song shows recent saved versions. Preview one and restore it; the replaced version remains in history. **Recover deleted songs** on the song list restores a deleted song with its original ID so setlists can find it again. Songs whose folders were deleted remain in All songs. Church history is available only to the church owner; managers cannot read or restore other users’ histories. History begins with this update and cannot recover versions or deletions from before it. The UI lists up to 100 recent entries at a time.
 
 **Paste chord sheet** in the new-song/editor screen converts chord lines above lyrics into inline braces, keeps section labels and chord-only instrumental lines, and recognizes a title above the opening chords. Nonbreaking spaces and tabs are normalized. Convert, check/edit the preview, then Apply to editor and save. Position estimates depend on the copied spacing; move `{chord}` markers afterward to correct them.
 
@@ -250,7 +252,7 @@ Setlist search prioritizes your personal versions. Matching church songs are off
 
 On a received live setlist, **Save to my setlists** lets you keep its name or enter a new name. It copies the current order and arrangements into your personal songbook, reusing exactly matching personal songs and creating separate copies for different versions. Your existing edited songs are never overwritten. This creates an independent setlist: later edits on either side do not affect the other. The original received setlist stays available and keeps updating. At 25 personal setlists, the replacement options still apply; copying/replacement runs as one transaction.
 
-Unsaved song/setlist edits, new-setlist names and unconverted pasted chord sheets are protected when navigating away. You can discard changes or stay. Browsers may show their own generic warning on reload/close. These warnings do not provide persistent draft recovery after force-closing the app.
+Unsaved song/setlist edits, new-setlist names and unconverted pasted chord sheets are protected when navigating away. You can discard changes or stay. Browsers may show their own generic warning on reload/close. These warnings remain separate from browser-local song draft recovery, described below. Setlist edits are protected by warnings but do not yet have persistent draft recovery.
 
 Reading mode requests a screen wake lock while visible and releases it on exit. A status shows whether it is active. Device/browser support, battery-saving settings and manual locks can prevent it. It retries when you return to the app; it cannot override all device settings.
 
@@ -266,3 +268,24 @@ Songbooks now use responsive cards and All/A–Z/# title filters. Personal folde
 ## Remember me (October 19)
 
 The login checkbox defaults to on and applies to email and Google OAuth. Auth sessions explicitly persist and refresh through a storage adapter: localStorage when checked, sessionStorage when unchecked. Offline identity uses the same choice, so a tab-only login is not resurrected from a persistent offline identity. Sign-out removes auth entries from both stores. Existing default localStorage sessions remain compatible. Storage failures fall back to memory and a login-page message explains when persistent storage is blocked. Private browsing, cleared site data, and server session policies can still require login. No database migration required.
+
+
+## Song draft recovery and setlist keys (October 19)
+
+Unsaved new and edited songs, including raw pasted chord sheets, are saved automatically on this browser under the signed-in user and songbook scope. Recover/discard controls appear on the song list. Recovery never writes to the database: users review and save explicitly. A revision mismatch or missing original offers recovery as a new song, preserving the current database version. Successful saves, confirmed Cancel/Discard, and sign-out clear the relevant drafts. Drafts use the Remember me storage choice, so unchecked sessions do not survive a fresh tab session. Drafts do not sync, and browser clearing/quota restrictions can prevent recovery; editor status distinguishes persistent storage from memory-only fallback. Setlist drafts are not included.
+
+Personal and received setlists show an ordered Saved key overview using saved base keys, with repeated and missing entries preserved. Setlist editing also shows each song’s key alongside reorder controls. This does not change saved keys or temporary reading-mode transposition. The illustrated START_HERE guide is included in this batch. No SQL migration is needed.
+
+
+## Collapsible library and dedicated setlist pages (October 19)
+
+My Setlists, My folders and Song filters start collapsed. Filters include first letter, artist (the Author / singer field), and favorites, with a visible active-filter summary. Unfiled is no longer a navigation item: songs without a folder remain in All songs. Folder membership remains one folder per song. Add to folder supports existing/new folders, removing membership, and opening the destination folder. Song history and deleted-song recovery appear at the bottom.
+
+Setlist cards open a dedicated page with browser Back navigation. Opening a song from that page and going back returns to the setlist. Copy is below Start/Edit; Sharing is collapsible and contains recipient selection without inline friend management. Friends are managed from the home tab.
+
+The reader measures unwrapped lines on opening and width changes, fits font size down to 12px, and groups lyric words across chord markers so wrapping only happens at whitespace. Manual A+ can deliberately cause wrapping. Oversized wrapped source lines are packed by measured visual rows to avoid clipping across columns/pages. An unbroken word wider than a column at 12px remains intact and can scroll horizontally; it is not split at a chord marker.
+
+
+### Readable automatic sizing
+
+The default text size is 16px. Previously saved sizes below 12px reset to 16px on startup. Opening reading mode starts with the current size and checks each size in descending 1px steps, stopping at the first that fits the measured column. Automatic reduction stops at 12px: longer lines then wrap at spaces, with chords inside a word kept together. Manual text-size controls remain available.

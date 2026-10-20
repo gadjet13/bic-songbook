@@ -1,0 +1,4 @@
+import type {Song} from './App'
+export default function SetlistKeyOverview({songs,onOpen,label='Saved key overview'}:{songs:(Song|undefined)[];onOpen?:(index:number)=>void;label?:string}){
+ return <section className="key-overview"><h3>{label}</h3><p>Keys are the saved base keys, before any temporary reading-mode transpose.</p><div className="key-table-scroll"><table><thead><tr><th scope="col">Order</th><th scope="col">Song</th><th scope="col">Saved key</th></tr></thead><tbody>{songs.map((song,index)=><tr key={index}><td>{index+1}</td><td>{song&&onOpen?<button onClick={()=>onOpen(index)}>{song.title}</button>:song?.title??'Song unavailable'}</td><td><strong className="key-badge">{song?.key.trim()||'Not set'}</strong></td></tr>)}</tbody></table></div>{!songs.length&&<p>No songs in this setlist yet.</p>}</section>
+}

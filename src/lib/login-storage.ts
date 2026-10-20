@@ -13,6 +13,7 @@ export function createLoginPersistence(local:()=>Storage,tab:()=>Storage) {
  }
  function setRememberMe(value:boolean){remembered=value;try{local().setItem(preference,String(value))}catch{/* session still works in memory */}}
  function canRemember(){const key='bic-storage-check';try{local().setItem(key,'1');local().removeItem(key);return true}catch{return false}}
- return {storage,getRememberMe,setRememberMe,canRemember}
+ function isPersisted(key:string){try{return !memory.has(key)&&selected().getItem(key)!==null}catch{return false}}
+ return {storage,getRememberMe,setRememberMe,canRemember,isPersisted}
 }
 export const loginPersistence=createLoginPersistence(()=>window.localStorage,()=>window.sessionStorage)

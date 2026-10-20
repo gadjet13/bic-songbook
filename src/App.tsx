@@ -1,3 +1,10 @@
+import {readingWords} from './lib/reader-lines'
+import AddToFolder from './AddToFolder'
+import SongDraftRecovery from './SongDraftRecovery'
+import SetlistKeyOverview from './SetlistKeyOverview'
+import { draftKey,readSongDrafts,writeSongDraft,removeSongDraft,canResumeSongDraft } from './lib/song-drafts'
+import type { SongDraft } from './lib/song-drafts'
+import { loginPersistence } from './lib/login-storage'
 import { useEffect, useRef, useState } from 'react'
 import { transposeChord, transposeSongContent, lyricsOnly } from './lib/chord/transpose'
 import './App.css'
@@ -90,6 +97,7 @@ function getCurrentKey(
 }
 
 export type SharedLibrary = {
+  loading?: boolean
   offline?: boolean
   personalName?: string
   offlineData?: OfflineBundle
@@ -111,6 +119,8 @@ function App({library}: {library: SharedLibrary}) {
   const {favorites,toggle:toggleFavorite,error:favoriteError,busy:favoriteBusy}=useFavorites(library.userId,library.offline?library.offlineData?.favorites:undefined)
   const [folder,setFolder]=useState('all')
   const [letter,setLetter]=useState('All')
+  const [artistFilter,setArtistFilter]=useState('all')
+  const [setlistId,setSetlistId]=useState<string|null>(null)
   const [folderNames,setFolderNames]=useState<{id:string;name:string}[]>([])
   const [favoritesOnly,setFavoritesOnly]=useState(false)
   const [setlistQueue,setSetlistQueue]=useState<Song[]>([])
@@ -119,7 +129,7 @@ function App({library}: {library: SharedLibrary}) {
   const [readingMode, setReadingMode] = useState(false)
   const wakeStatus=useReadingWakeLock(readingMode)
   const [fontSize, setFontSize] = useState(() => {
-    try { const saved = Number(localStorage.getItem('bic-songbook-font-size')); return saved >= 6 && saved <= 32 ? saved : 18 } catch { return 18 }
+    try { const saved = Number(localStorage.getItem('bic-songbook-font-size')); return saved >= 12 && saved <= 32 ? saved : 16 } catch { return 16 }
   })
   useEffect(() => {
     try { localStorage.setItem('bic-songbook-font-size', String(fontSize)) } catch { /* Keep the current size when storage is unavailable. */ }
@@ -161,6 +171,8 @@ function App({library}: {library: SharedLibrary}) {
   },[selectedSong?.id])
   useEffect(()=>{
     const back=(event:PopStateEvent)=>{
+      setSetlistId(event.state?.bicSetlist??null)
+      setFolder(event.state?.bicFolder??'all')
       if(event.state?.bicSong){
         const song=library.songs.find(item=>item.id===event.state.bicSong)
         if(song){selectSong(song);setReadingMode(event.state.bicMode==='reading');setIsEditing(event.state.bicMode==='editing')}
@@ -221,9 +233,33 @@ function App({library}: {library: SharedLibrary}) {
 
   const [newSongContent, setNewSongContent] =
     useState('')
-  const dirtySong=!!isEditing&&!!selectedSong&&(editedTitle!==selectedSong.title||editedArtist!==selectedSong.artist||editedKey!==selectedSong.key||editedContent!==selectedSong.content)
-  const dirtyNew=isAddingSong&&!!(newSongTitle.trim()||newSongArtist.trim()||newSongContent.trim())
+  const [newRaw,setNewRaw]=useState('')
+  const [editedRaw,setEditedRaw]=useState('')
+  const recoveryKey=draftKey(library.userId,library.ownerId?'personal':'church')
+  const [songDrafts,setSongDrafts]=useState(()=>library.sharedSetlist?[]:readSongDrafts(recoveryKey))
+  const [draftStatus,setDraftStatus]=useState('')
+  const dirtySong=!!isEditing&&!!selectedSong&&(editedTitle!==selectedSong.title||editedArtist!==selectedSong.artist||editedKey!==selectedSong.key||editedContent!==selectedSong.content||!!editedRaw.trim())
+  const dirtyNew=isAddingSong&&!!(newSongTitle.trim()||newSongArtist.trim()||newSongContent.trim()||newRaw.trim()||newSongKey!=='C')
   useUnsavedChanges(dirtySong||dirtyNew)
+  useEffect(()=>{
+    if(library.sharedSetlist||!library.canEdit)return
+    const draft:SongDraft|null=dirtyNew?{id:'new',songId:null,title:newSongTitle,artist:newSongArtist,key:newSongKey,content:newSongContent,raw:newRaw,folderId:folder==='all'||folder==='unfiled'?null:folder,updatedAt:new Date().toISOString()}:dirtySong&&selectedSong?{id:'song:'+selectedSong.id,songId:selectedSong.id,baseRevision:selectedSong.revision,title:editedTitle,artist:editedArtist,key:editedKey,content:editedContent,raw:editedRaw,folderId:selectedSong.folder_id??null,updatedAt:new Date().toISOString()}:null
+    if(!draft){const id=isAddingSong?'new':isEditing&&selectedSong?'song:'+selectedSong.id:null;if(id&&readSongDrafts(recoveryKey).some(row=>row.id===id)){setSongDrafts(removeSongDraft(recoveryKey,id));setDraftStatus('')}return}
+    setSongDrafts(writeSongDraft(recoveryKey,draft))
+    setDraftStatus(loginPersistence.isPersisted(recoveryKey)?'Draft saved on this browser. Save the song to update the database.':'Draft is only in memory. Browser storage is unavailable or full; do not close this tab before saving.')
+  },[recoveryKey,isAddingSong,isEditing,library.canEdit,library.sharedSetlist,dirtyNew,dirtySong,newSongTitle,newSongArtist,newSongKey,newSongContent,newRaw,editedTitle,editedArtist,editedKey,editedContent,editedRaw,selectedSong?.id,folder])
+  function clearDraft(id:string){setSongDrafts(removeSongDraft(recoveryKey,id));setDraftStatus('')}
+  function recoverDraft(draft:SongDraft){
+    if(!library.canEdit||library.loading||!allowNavigation())return
+    const current=songList.find(song=>song.id===draft.songId)
+    const canResume=canResumeSongDraft(draft,current)
+    if(draft.songId!==null&&!canResume&&!window.confirm('This song changed or was deleted after the draft began. Recover it as a new song instead? The current saved version will stay unchanged.'))return
+    if(canResume&&current){selectSong(current,true);setEditedTitle(draft.title);setEditedArtist(draft.artist);setEditedKey(draft.key);setEditedContent(draft.content);setEditedRaw(draft.raw);setIsEditing(true);setIsAddingSong(false)}
+    else {if(draft.songId!==null&&songDrafts.some(row=>row.id==='new')){setNotice('Recover or discard your existing new-song draft first.');return}setSelectedSong(null);setNewSongTitle(draft.title);setNewSongArtist(draft.artist);setNewSongKey(draft.key);setNewSongContent(draft.content);setNewRaw(draft.raw);setFolder(draft.folderId??'all');setIsEditing(false);setIsAddingSong(true);if(draft.songId!==null)clearDraft(draft.id)}
+    setNotice(canResume?'Draft recovered. Review and save when ready.':'Draft recovered as a new song. Review it before saving.')
+  }
+  function startNewSong(){if(!allowNavigation())return;const draft=songDrafts.find(row=>row.id==='new');if(draft){recoverDraft(draft);return}setNewSongTitle('');setNewSongArtist('');setNewSongKey('C');setNewSongContent('');setNewRaw('');setIsAddingSong(true)}
+  function cancelNewSong(){if(!allowNavigation())return;clearDraft('new');setNewSongTitle('');setNewSongArtist('');setNewSongKey('C');setNewSongContent('');setNewRaw('');setIsAddingSong(false)}
 
 
   const changeTranspose = (amount: number) => {
@@ -279,13 +315,28 @@ function App({library}: {library: SharedLibrary}) {
 
   const filteredSongs = songList.filter((song) =>
     (letter==='All'||(letter==='#'?!/^[A-Za-z]/.test(song.title.trim()):song.title.trim().toUpperCase().startsWith(letter))) &&
-    (folder==='all'||(folder==='unfiled'?!song.folder_id:song.folder_id===folder)) &&
+    (folder==='all'||song.folder_id===folder) &&
+    (artistFilter==='all'||(artistFilter==='__none'?!song.artist.trim():song.artist.trim().toLowerCase()===artistFilter)) &&
     (!favoritesOnly || favorites.includes(song.id)) &&
     `${song.title} ${song.artist}`
       .toLowerCase()
       .includes(search.toLowerCase()),
   )
 
+  function openSetlist(id:string,saved=false){
+    if(!saved&&!allowNavigation())return
+    const next={...history.state,bicSetlist:id};delete next.bicSong;delete next.bicMode
+    if(setlistId)history.replaceState(next,'',location.href);else history.pushState(next,'',location.href)
+    setSetlistId(id);setSelectedSong(null);setIsAddingSong(false)
+  }
+  function backToSetlists(){if(history.state?.bicSetlist)history.back();else if(allowNavigation())setSetlistId(null)}
+  function selectFolder(id:string){setFolder(id);history.replaceState({...history.state,bicFolder:id},'',location.href)}
+  function openFolder(id:string){
+    const next={...history.state,bicFolder:id};delete next.bicSong;delete next.bicMode;delete next.bicSetlist
+    history.pushState(next,'',location.href);setFolder(id);setSelectedSong(null);setIsEditing(false);setReadingMode(false);setSetlistQueue([]);setSetlistId(null);setLetter('All');setArtistFilter('all');setSearch('');setFavoritesOnly(false)
+  }
+  const libraryPage=!selectedSong&&!isAddingSong&&!setlistId
+  const artists=[...new Map(songList.filter(song=>song.artist.trim()).map(song=>[song.artist.trim().toLowerCase(),song.artist.trim()])).entries()].sort((a,b)=>a[1].localeCompare(b[1]))
   const selectSong = (song: Song,force=false) => {
     if(!force&&song.id!==currentSongId.current&&!allowNavigation())return
     setStartOnLastPage(false)
@@ -293,6 +344,7 @@ function App({library}: {library: SharedLibrary}) {
     setSelectedSong(song)
     setTranspose(0)
 
+    setEditedRaw('')
     setEditedTitle(song.title)
     setEditedArtist(song.artist)
     setEditedKey(song.key)
@@ -321,10 +373,13 @@ function App({library}: {library: SharedLibrary}) {
     const startedSong=currentSongId.current
     const saved=await library.update({...target,...draft,title:draft.title.trim()})
     if(currentSongId.current!==startedSong){setNotice("Existing version overwritten. Open it to see the changes.");return}
+    clearDraft(isAddingSong?'new':'song:'+startedSong);setNewRaw('');setEditedRaw('');
     setIsAddingSong(false);selectSong(saved,true);setNotice('Existing version overwritten. The previous version is in song history.')
   }
   function beginEditing(){
     if(!selectedSong)return
+    const draft=songDrafts.find(row=>row.id==='song:'+selectedSong.id);if(draft){recoverDraft(draft);return}
+    setEditedRaw('')
     const song=freshestSong(selectedSong,songList)
     setSelectedSong(song);setEditedTitle(song.title);setEditedArtist(song.artist);setEditedKey(song.key);setEditedContent(song.content);setIsEditing(true)
   }
@@ -347,6 +402,7 @@ function App({library}: {library: SharedLibrary}) {
     setSavingSong(true)
     try {
       const saved=await library.update(updatedSong)
+      clearDraft('song:'+updatedSong.id);setEditedRaw('')
       if(currentSongId.current===updatedSong.id){setSelectedSong(saved);setEditedTitle(saved.title);setEditedArtist(saved.artist);setEditedKey(saved.key);setEditedContent(saved.content);setIsEditing(false)}
     } catch(error){setNotice(String(error instanceof Error?error.message:error))}
     finally{setSavingSong(false)}
@@ -367,7 +423,7 @@ function App({library}: {library: SharedLibrary}) {
       content: newSongContent,
     }
 
-    try { const [saved] = await library.add([newSong]); setSelectedSong(saved) }
+    try { const [saved] = await library.add([newSong]); clearDraft('new');setNewRaw('');setSelectedSong(saved) }
     catch (error) { setNotice(String(error instanceof Error ? error.message : error)); return }
     setTranspose(0)
     setIsAddingSong(false)
@@ -403,6 +459,7 @@ function App({library}: {library: SharedLibrary}) {
       return
     }
 
+    clearDraft('song:'+selectedSong.id);setEditedRaw('')
     setEditedTitle(selectedSong.title)
     setEditedArtist(selectedSong.artist)
     setEditedKey(selectedSong.key)
@@ -436,19 +493,23 @@ function App({library}: {library: SharedLibrary}) {
           <label className="import-label" hidden={!library.canEdit}>Import songs<input type="file" accept=".json,application/json" onChange={event => { void importFile(event.target.files?.[0]); event.target.value = '' }} /></label>
         </div>
         <p className="storage-note">{library.bookName} · {library.offline?'Reading saved copies. Reconnect to edit or share.':'Changes save online. Export a backup whenever you need one.'}</p></MenuSection>
-        {!selectedSong && library.sharedSetlist && <SetlistCopy songs={songList}/>}
+        {!selectedSong && library.sharedSetlist && <SetlistKeyOverview songs={songList}/>}
+
         {!selectedSong && library.sharedSetlist && <button disabled={!songList.length} onClick={()=>{setSetlistQueue(songList);setQueueIndex(0);selectSong(songList[0])}}>Start shared setlist</button>}
-        {!selectedSong && !isAddingSong && library.canEdit && <SongHistory ownerId={library.ownerId} currentSongs={songList} onChanged={library.refresh}/>}
-        {!selectedSong && !isAddingSong && library.ownerId && <SongOrganization personalName={library.personalName??'My songbook'} churchSongs={library.offlineData?.church??[]} onSongsChanged={library.refresh} offlineLists={library.offline?library.offlineData?.setlists:undefined} ownerId={library.ownerId} songs={songList} canEdit={library.canEdit} onOpen={songs=>{if(songs.length){setSetlistQueue(songs);setQueueIndex(0);selectSong(songs[0])}}}/>}
-        {!selectedSong && !isAddingSong && library.ownerId && <SongFolders songs={songList} canEdit={library.canEdit} offlineFolders={library.offline?library.offlineData?.folders:undefined} userId={library.userId} selected={folder} onSelect={setFolder} onFolders={setFolderNames} onChanged={library.refresh}/>}
+        {!selectedSong&&library.sharedSetlist&&<div className="setlist-copy-row"><SetlistCopy songs={songList}/></div>}
+        {libraryPage&&!library.sharedSetlist&&<SongDraftRecovery drafts={songDrafts} canRestore={library.canEdit&&!library.loading} onRestore={recoverDraft} onDiscard={draft=>{if(window.confirm('Permanently discard this unsaved draft?'))clearDraft(draft.id)}}/>}
+        {(isAddingSong||isEditing)&&draftStatus&&<p className="storage-note" role="status">{draftStatus}</p>}
+
+        {!selectedSong && !isAddingSong && library.ownerId && <SongOrganization activeId={setlistId} onNavigate={openSetlist} onBack={backToSetlists} personalName={library.personalName??'My songbook'} churchSongs={library.offlineData?.church??[]} onSongsChanged={library.refresh} offlineLists={library.offline?library.offlineData?.setlists:undefined} ownerId={library.ownerId} songs={songList} canEdit={library.canEdit} onOpen={songs=>{if(songs.length){setSetlistQueue(songs);setQueueIndex(0);selectSong(songs[0])}}}/>}
+        {libraryPage && library.ownerId && <SongFolders songs={songList} canEdit={library.canEdit} offlineFolders={library.offline?library.offlineData?.folders:undefined} userId={library.userId} selected={folder} onSelect={selectFolder} onFolders={setFolderNames} onChanged={library.refresh}/>}
         {favoriteError && <p role="status" className="notice">{favoriteError}</p>}
         {notice && <p role="status" className="notice">{notice}<button aria-label="Dismiss notification" onClick={() => setNotice('')}>×</button></p>}
-        {incoming && <section className="incoming"><h2>A friend shared “{incoming.title}”</h2><p>{incoming.artist} · Key: {incoming.key}</p><button disabled={!library.canEdit} onClick={async () => { try { const [song] = await library.add([incoming]); selectSong(song); setIncoming(null); history.replaceState(history.state, '', location.pathname + location.search) } catch (error) { setNotice(String(error instanceof Error ? error.message : error)) } }}>Add to this songbook</button><button onClick={() => {setIncoming(null); history.replaceState(history.state, '', location.pathname + location.search)}}>Dismiss</button></section>}
+        {!setlistId && incoming && <section className="incoming"><h2>A friend shared “{incoming.title}”</h2><p>{incoming.artist} · Key: {incoming.key}</p><button disabled={!library.canEdit} onClick={async () => { try { const [song] = await library.add([incoming]); selectSong(song); setIncoming(null); history.replaceState(history.state, '', location.pathname + location.search) } catch (error) { setNotice(String(error instanceof Error ? error.message : error)) } }}>Add to this songbook</button><button onClick={() => {setIncoming(null); history.replaceState(history.state, '', location.pathname + location.search)}}>Dismiss</button></section>}
 
-        {!selectedSong ? (
+        {!selectedSong&&setlistId ? null : !selectedSong ? (
           isAddingSong ? (
             <div className="add-song-form">
-              <h2>Add New Song</h2><ChordSheetPaste onApply={(content,title,key)=>{setNewSongContent(content);if(title)setNewSongTitle(title);if(key)setNewSongKey(key)}}/>{library.ownerId && <p className="storage-note">The first saved version also goes to the church songbook. Later edits stay in your personal songbook.</p>}
+              <h2>Add New Song</h2><ChordSheetPaste raw={newRaw} onRawChange={setNewRaw} onApply={(content,title,key)=>{setNewSongContent(content);if(title)setNewSongTitle(title);if(key)setNewSongKey(key)}}/>{library.ownerId && <p className="storage-note">The first saved version also goes to the church songbook. Later edits stay in your personal songbook.</p>}
 
               <label>
                 Song Title
@@ -526,7 +587,7 @@ function App({library}: {library: SharedLibrary}) {
 
                 <button
                   className="cancel-button"
-                  onClick={() =>{if(allowNavigation())setIsAddingSong(false)}}
+                  onClick={cancelNewSong}
                 >
                   Cancel
                 </button>
@@ -547,14 +608,15 @@ function App({library}: {library: SharedLibrary}) {
               <button
                 hidden={!library.canEdit}
                 className="add-song-button"
-                onClick={() =>{if(allowNavigation())setIsAddingSong(true)}}
+                onClick={startNewSong}
               >
                 + Add Song
               </button>
 
               {filteredSongs.length === 0 && <p>No songs found. Try another search or add a song.</p>}
-              <button hidden={library.sharedSetlist} className="favorite-filter" aria-pressed={favoritesOnly} onClick={()=>setFavoritesOnly(!favoritesOnly)}>{favoritesOnly?'★ Favorites only — show all':'☆ Show my favorites'}</button>
-              {!library.sharedSetlist&&<nav className="alphabet-filter" aria-label="Filter by first letter">{['All',...'ABCDEFGHIJKLMNOPQRSTUVWXYZ','#'].map(value=><button key={value} aria-pressed={letter===value} onClick={()=>setLetter(value)}>{value}</button>)}</nav>}
+              {!library.sharedSetlist&&<details className="song-filters library-toggle"><summary>Song filters</summary><label>Author / singer<select value={artistFilter} onChange={event=>setArtistFilter(event.target.value)}><option value="all">All artists</option><option value="__none">No artist listed</option>{artists.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label><nav className="alphabet-filter" aria-label="Filter by first letter">{['All',...'ABCDEFGHIJKLMNOPQRSTUVWXYZ','#'].map(value=><button key={value} aria-pressed={letter===value} onClick={()=>setLetter(value)}>{value}</button>)}</nav><button className="favorite-filter" aria-pressed={favoritesOnly} onClick={()=>setFavoritesOnly(!favoritesOnly)}>{favoritesOnly?'★ Favorites only — show all':'☆ Show my favorites'}</button></details>}
+              {!library.sharedSetlist&&(letter!=='All'||artistFilter!=='all'||favoritesOnly)&&<p className="active-filters">Filters: {letter!=='All'&&`Title ${letter} · `}{artistFilter!=='all'&&`Artist: ${artistFilter==='__none'?'Not listed':artists.find(([value])=>value===artistFilter)?.[1]??artistFilter} · `}{favoritesOnly&&'Favorites '}<button onClick={()=>{setLetter('All');setArtistFilter('all');setFavoritesOnly(false)}}>Clear song filters</button></p>}
+              {folder!=='all'&&<p>Folder: {folderNames.find(item=>item.id===folder)?.name??'Selected folder'} <button onClick={()=>selectFolder('all')}>Show all songs</button></p>}
               <div className="song-list">
                 {filteredSongs.map((song) => (
                   <button
@@ -588,17 +650,17 @@ function App({library}: {library: SharedLibrary}) {
                 else {setSelectedSong(null);setIsEditing(false);setReadingMode(false);setSetlistQueue([])}
               }}
             >
-              ← Back to songs
+              {setlistId?'← Back to setlist':'← Back to songs'}
             </button>
 
             <div className="song-heading"><h2 title={selectedSong.title}>{selectedSong.title}</h2>
             {!isEditing && !readingMode && !library.sharedSetlist && <button className="favorite-filter" disabled={favoriteBusy||library.offline} aria-pressed={favorites.includes(selectedSong.id)} onClick={()=>void toggleFavorite(selectedSong.id)}>{favorites.includes(selectedSong.id)?'★ Remove favorite':'☆ Add to my favorites'}</button>}
             {!!setlistQueue.length && !isEditing && <nav className="setlist-navigation" aria-label="Setlist songs"><button disabled={queueIndex===0} onClick={()=>{setQueueIndex(queueIndex-1);selectSong(setlistQueue[queueIndex-1]);setStartOnLastPage(readingMode);setReadingMode(readingMode)}}>← Previous song</button><span>Song {queueIndex+1} of {setlistQueue.length}</span><button disabled={queueIndex===setlistQueue.length-1} onClick={()=>{setQueueIndex(queueIndex+1);selectSong(setlistQueue[queueIndex+1]);setReadingMode(readingMode)}}>Next song →</button></nav>}</div>
 
-            {!isEditing && !readingMode && library.canEdit && <SongHistory key={selectedSong.id} song={selectedSong} ownerId={library.ownerId} currentSongs={songList} onChanged={library.refresh} onRestored={song=>setSelectedSong(song)}/>}
+
             {!isEditing && !readingMode && library.copyToPersonal && <button onClick={async()=>{try{await library.copyToPersonal!(selectedSong);setNotice('Copied to My songbook. You can edit your copy there.')}catch(error){setNotice(String(error instanceof Error?error.message:error))}}}>Copy to My songbook</button>}
-            {!isEditing && !readingMode && library.ownerId && library.canEdit && <AddToSetlist key={selectedSong.id} songId={selectedSong.id} ownerId={library.ownerId}/>}
-            {!isEditing && !readingMode && library.ownerId && <label>Folder<select disabled={library.offline} value={selectedSong.folder_id??''} onChange={async event=>{try{const saved=await library.update({...selectedSong,folder_id:event.target.value||null});setSelectedSong(saved)}catch(error){setNotice(String(error instanceof Error?error.message:error))}}}><option value="">Unfiled</option>{folderNames.map(folder=><option key={folder.id} value={folder.id}>{folder.name}</option>)}</select></label>}
+            {!isEditing && !readingMode && library.ownerId && library.canEdit && <AddToSetlist key={'setlist-'+selectedSong.id} songId={selectedSong.id} ownerId={library.ownerId}/>}
+            {!isEditing&&!readingMode&&library.ownerId&&library.canEdit&&<AddToFolder key={'folder-'+selectedSong.id} song={selectedSong} ownerId={library.ownerId} folders={folderNames} onSave={async folderId=>{const saved=await library.update({...selectedSong,folder_id:folderId});setSelectedSong(saved)}} onFolderCreated={folder=>{setFolderNames(rows=>[...rows,folder]);window.dispatchEvent(new Event('songbook-restored'))}} onOpen={openFolder}/>}
 
             <p>{selectedSong.artist}</p>
 
@@ -657,7 +719,7 @@ function App({library}: {library: SharedLibrary}) {
 
                 <label>
                   Song Content
-                  <ChordSheetPaste key={selectedSong.id} onApply={(content,title,key)=>{setEditedContent(content);if(title)setEditedTitle(title);if(key)setEditedKey(key)}}/>
+                  <ChordSheetPaste raw={editedRaw} onRawChange={setEditedRaw} key={selectedSong.id} onApply={(content,title,key)=>{setEditedContent(content);if(title)setEditedTitle(title);if(key)setEditedKey(key)}}/>
                   <textarea
                     className="song-editor"
                     value={editedContent}
@@ -753,7 +815,7 @@ function App({library}: {library: SharedLibrary}) {
             </div>
             {!isEditing && (<>
               {readingMode&&<small role="status">{wakeStatus}</small>}
-              {readingMode ? <SongPages key={selectedSong.id+'-'+queueIndex} fontSize={fontSize} startOnLastPage={startOnLastPage} onPreviousSong={queueIndex > 0 && setlistQueue.length ? () => {setQueueIndex(queueIndex-1);selectSong(setlistQueue[queueIndex-1]);setStartOnLastPage(true);setReadingMode(true)} : undefined} onNextSong={queueIndex < setlistQueue.length - 1 ? () => {setQueueIndex(queueIndex+1);selectSong(setlistQueue[queueIndex+1]);setReadingMode(true)} : undefined}>{displaySong(selectedSong.content, transpose, getCurrentKey(selectedSong.key, transpose))}</SongPages> : <div className="song-display" style={{fontSize: `${fontSize}px`}} tabIndex={0} aria-label="Song lyrics and chords">
+              {readingMode ? <SongPages key={selectedSong.id+'-'+queueIndex} fontSize={fontSize} onFitFontSize={setFontSize} startOnLastPage={startOnLastPage} onPreviousSong={queueIndex > 0 && setlistQueue.length ? () => {setQueueIndex(queueIndex-1);selectSong(setlistQueue[queueIndex-1]);setStartOnLastPage(true);setReadingMode(true)} : undefined} onNextSong={queueIndex < setlistQueue.length - 1 ? () => {setQueueIndex(queueIndex+1);selectSong(setlistQueue[queueIndex+1]);setReadingMode(true)} : undefined}>{displaySong(selectedSong.content, transpose, getCurrentKey(selectedSong.key, transpose),true)}</SongPages> : <div className="song-display" style={{fontSize: `${fontSize}px`}} tabIndex={0} aria-label="Song lyrics and chords">
                 {displaySong(
                   selectedSong.content,
                   transpose,
@@ -767,6 +829,8 @@ function App({library}: {library: SharedLibrary}) {
             )}
           </div>
         )}
+        {libraryPage&&library.canEdit&&<SongHistory ownerId={library.ownerId} currentSongs={songList} onChanged={library.refresh}/>}
+        {selectedSong&&!isEditing&&!readingMode&&library.canEdit&&<SongHistory key={'history-'+selectedSong.id} song={selectedSong} ownerId={library.ownerId} currentSongs={songList} onChanged={library.refresh} onRestored={song=>setSelectedSong(song)}/>}
       </main>
     </div>
   )
@@ -776,6 +840,7 @@ function displaySong(
   content: string,
   transpose: number,
   currentKey: string,
+  wrapWords=false,
 ) {
   const useFlats = currentKey.includes('b')
 
@@ -795,7 +860,7 @@ function displaySong(
   return groups.map((group, index) => <div className="song-block" key={index}>
     {group.heading && <div className="song-section">{group.heading}</div>}
     {group.lines.map((line, lineIndex) => <div className="song-line" key={lineIndex}>
-      {parseLine(line, transpose, useFlats).map((segment, segmentIndex) => <span style={segment.chord ? {minWidth: `${(segment.chord.length + 0.7) * 0.65}em`} : undefined} className={segment.chord && !segment.lyrics.trim() ? "song-segment chord-only" : "song-segment"} key={segmentIndex}>
+      {wrapWords?readingWords(parseLine(line,transpose,useFlats)).map((word,wordIndex)=>word.kind==='space'?word.text:<span className="song-word" key={wordIndex}>{word.parts.map((segment,segmentIndex)=><span key={segmentIndex} style={segment.chord?{minWidth:`${(segment.chord.length+.7)*.65}em`}:undefined} className={segment.chord&&!segment.lyrics.trim()?'song-segment chord-only':'song-segment'}><span className="chord">{segment.chord}</span><span className="lyrics">{segment.lyrics}</span></span>)}</span>):parseLine(line, transpose, useFlats).map((segment, segmentIndex) => <span style={segment.chord ? {minWidth: `${(segment.chord.length + 0.7) * 0.65}em`} : undefined} className={segment.chord && !segment.lyrics.trim() ? "song-segment chord-only" : "song-segment"} key={segmentIndex}>
         <span className="chord">{segment.chord}</span><span className="lyrics">{segment.lyrics}</span>
       </span>)}
     </div>)}
@@ -869,3 +934,4 @@ function parseLine(
 }
 
 export default App
+
