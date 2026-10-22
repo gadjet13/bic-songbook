@@ -124,8 +124,8 @@ Check Remember me and use the same regular browser and website address. Avoid pr
 
 
 
-## Song date filters (October 21)
+## Song sorting (October 22)
 
-Open **Song filters → Song dates**. Choose **Date added** or **Last edited**, then an optional **From date / Through date** range (both endpoints included). Sort by title or by either date, newest/oldest first. Date filters combine with search, folders, first-letter, artist and favorites filters. The active-filter summary stays visible when collapsed; **Clear song filters** resets dates and sorting too. Dates follow the device’s time zone. Unknown dates sort last and do not match date ranges.
+Open **Song filters → Sort songs**. Choose **Title A–Z / Z–A**, **Date added — newest / oldest first**, or **Last edited — newest / oldest first**. Sorting rearranges all matching songs; it does not hide songs by date. This replaces the October 21 date-range controls. Sorting works with search, folders, first-letter, artist and favorites filters. The active summary remains visible when collapsed, and **Clear song filters** resets sorting to Title A–Z too. Received setlists keep their owner's order.
 
-The database now records date added for newly created songs. Older songs have no reliable recorded added date and are left unknown rather than assigned today’s date. Last edited uses the existing server timestamp, including saved folder/key changes. Offline copies need an online refresh to receive current timestamps. Shared setlist order is preserved. The database change has already been applied; `database/song-added-date.sql` is reference only, not a manual setup step.
+Older songs without a recorded added date appear last in both date-added directions. New songs record their added date; last edited uses the server timestamp, including saved folder/key changes. Refresh online to update offline copies. The existing added-date database change remains applied; no new SQL step is needed.

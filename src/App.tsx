@@ -1,5 +1,5 @@
-import {matchesSongDate,sortSongsByDate} from './lib/song-dates'
-import type {SongDateField,SongDateSort} from './lib/song-dates'
+import {songSortLabels,sortSongsByDate} from './lib/song-dates'
+import type {SongDateSort} from './lib/song-dates'
 import OfflineSetlistStatus from './OfflineSetlistStatus'
 import type {OfflineSnapshot} from './lib/offline-readiness'
 import ChordPositionEditor from './ChordPositionEditor'
@@ -129,11 +129,8 @@ function App({library}: {library: SharedLibrary}) {
   const [folder,setFolder]=useState('all')
   const [letter,setLetter]=useState('All')
   const [artistFilter,setArtistFilter]=useState('all')
-  const [dateField,setDateField]=useState<SongDateField>('created_at')
-  const [dateFrom,setDateFrom]=useState(''),[dateTo,setDateTo]=useState('')
   const [dateSort,setDateSort]=useState<SongDateSort>('title')
-  const dateActive=!!dateFrom||!!dateTo||dateSort!=='title'
-  function clearDateFilters(){setDateFrom('');setDateTo('');setDateSort('title');setDateField('created_at')}
+  function resetSongSort(){setDateSort('title')}
   const [setlistId,setSetlistId]=useState<string|null>(null)
   const [folderNames,setFolderNames]=useState<{id:string;name:string}[]>([])
   const [favoritesOnly,setFavoritesOnly]=useState(false)
@@ -328,7 +325,6 @@ function App({library}: {library: SharedLibrary}) {
   }
 
   const matchingSongs = songList.filter((song) =>
-    matchesSongDate(song,dateField,dateFrom,dateTo) &&
     (letter==='All'||(letter==='#'?!/^[A-Za-z]/.test(song.title.trim()):song.title.trim().toUpperCase().startsWith(letter))) &&
     (folder==='all'||song.folder_id===folder) &&
     (artistFilter==='all'||(artistFilter==='__none'?!song.artist.trim():song.artist.trim().toLowerCase()===artistFilter)) &&
@@ -349,7 +345,7 @@ function App({library}: {library: SharedLibrary}) {
   function selectFolder(id:string){setFolder(id);history.replaceState({...history.state,bicFolder:id},'',location.href)}
   function openFolder(id:string){
     const next={...history.state,bicFolder:id};delete next.bicSong;delete next.bicMode;delete next.bicSetlist
-    history.pushState(next,'',location.href);setFolder(id);setSelectedSong(null);setIsEditing(false);setReadingMode(false);setSetlistQueue([]);setSetlistId(null);setLetter('All');setArtistFilter('all');setSearch('');setFavoritesOnly(false);clearDateFilters()
+    history.pushState(next,'',location.href);setFolder(id);setSelectedSong(null);setIsEditing(false);setReadingMode(false);setSetlistQueue([]);setSetlistId(null);setLetter('All');setArtistFilter('all');setSearch('');setFavoritesOnly(false);resetSongSort()
   }
   const libraryPage=!selectedSong&&!isAddingSong&&!setlistId
   const artists=[...new Map(songList.filter(song=>song.artist.trim()).map(song=>[song.artist.trim().toLowerCase(),song.artist.trim()])).entries()].sort((a,b)=>a[1].localeCompare(b[1]))
@@ -632,8 +628,8 @@ function App({library}: {library: SharedLibrary}) {
               </button>
 
               {filteredSongs.length === 0 && <p>No songs found. Try another search or add a song.</p>}
-              {!library.sharedSetlist&&<details className="song-filters library-toggle"><summary>Song filters</summary><label>Author / singer<select value={artistFilter} onChange={event=>setArtistFilter(event.target.value)}><option value="all">All artists</option><option value="__none">No artist listed</option>{artists.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label><fieldset className="song-date-filters"><legend>Song dates</legend><label>Filter date<select value={dateField} onChange={event=>setDateField(event.target.value as SongDateField)}><option value="created_at">Date added</option><option value="updated_at">Last edited</option></select></label><label>From date<input type="date" value={dateFrom} max={dateTo||undefined} onChange={event=>setDateFrom(event.target.value)}/></label><label>Through date<input type="date" value={dateTo} min={dateFrom||undefined} onChange={event=>setDateTo(event.target.value)}/></label><label>Sort songs<select value={dateSort} onChange={event=>setDateSort(event.target.value as SongDateSort)}><option value="title">Title A–Z</option><option value="added-newest">Date added — newest first</option><option value="added-oldest">Date added — oldest first</option><option value="edited-newest">Last edited — newest first</option><option value="edited-oldest">Last edited — oldest first</option></select></label><p>Dates use this device’s time zone. Older songs may have no recorded date added; they stay visible without a date range and sort after dated songs. Last edited includes saved folder and key changes.</p>{dateFrom&&dateTo&&dateFrom>dateTo&&<p role="alert">From date must be on or before Through date.</p>}</fieldset><nav className="alphabet-filter" aria-label="Filter by first letter">{['All',...'ABCDEFGHIJKLMNOPQRSTUVWXYZ','#'].map(value=><button key={value} aria-pressed={letter===value} onClick={()=>setLetter(value)}>{value}</button>)}</nav><button className="favorite-filter" aria-pressed={favoritesOnly} onClick={()=>setFavoritesOnly(!favoritesOnly)}>{favoritesOnly?'★ Favorites only — show all':'☆ Show my favorites'}</button></details>}
-              {!library.sharedSetlist&&(letter!=='All'||artistFilter!=='all'||favoritesOnly||dateActive)&&<p className="active-filters">Filters: {letter!=='All'&&`Title ${letter} · `}{artistFilter!=='all'&&`Artist: ${artistFilter==='__none'?'Not listed':artists.find(([value])=>value===artistFilter)?.[1]??artistFilter} · `}{favoritesOnly&&'Favorites '}{dateActive&&`${dateField==='created_at'?'Date added':'Last edited'}: ${dateFrom||'any start'} through ${dateTo||'any end'} · Sort: ${{title:'Title A–Z','added-newest':'Added newest first','added-oldest':'Added oldest first','edited-newest':'Edited newest first','edited-oldest':'Edited oldest first'}[dateSort]} `}<button onClick={()=>{setLetter('All');setArtistFilter('all');setFavoritesOnly(false);clearDateFilters()}}>Clear song filters</button></p>}
+              {!library.sharedSetlist&&<details className="song-filters library-toggle"><summary>Song filters</summary><label>Author / singer<select value={artistFilter} onChange={event=>setArtistFilter(event.target.value)}><option value="all">All artists</option><option value="__none">No artist listed</option>{artists.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label><label className="song-sort">Sort songs<select aria-label="Sort songs" value={dateSort} onChange={event=>setDateSort(event.target.value as SongDateSort)}>{(Object.entries(songSortLabels) as [SongDateSort,string][]).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>{dateSort.startsWith('added')&&<p className="storage-note">Songs without a recorded date added appear last.</p>}<nav className="alphabet-filter" aria-label="Filter by first letter">{['All',...'ABCDEFGHIJKLMNOPQRSTUVWXYZ','#'].map(value=><button key={value} aria-pressed={letter===value} onClick={()=>setLetter(value)}>{value}</button>)}</nav><button className="favorite-filter" aria-pressed={favoritesOnly} onClick={()=>setFavoritesOnly(!favoritesOnly)}>{favoritesOnly?'★ Favorites only — show all':'☆ Show my favorites'}</button></details>}
+              {!library.sharedSetlist&&(letter!=='All'||artistFilter!=='all'||favoritesOnly||dateSort!=='title')&&<p className="active-filters">Filters: {letter!=='All'&&`Title ${letter} · `}{artistFilter!=='all'&&`Artist: ${artistFilter==='__none'?'Not listed':artists.find(([value])=>value===artistFilter)?.[1]??artistFilter} · `}{favoritesOnly&&'Favorites '}{dateSort!=='title'&&`Sort: ${songSortLabels[dateSort]} `}<button onClick={()=>{setLetter('All');setArtistFilter('all');setFavoritesOnly(false);resetSongSort()}}>Clear song filters</button></p>}
               {folder!=='all'&&<p>Folder: {folderNames.find(item=>item.id===folder)?.name??'Selected folder'} <button onClick={()=>selectFolder('all')}>Show all songs</button></p>}
               <div className="song-list">
                 {filteredSongs.map((song) => (
