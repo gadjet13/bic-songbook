@@ -51,3 +51,10 @@ test('hosting endpoints and other origins are not intercepted',()=>{
     s.handlers.fetch({request:{url,method:'GET',mode:'cors'},respondWith:()=>assert.fail('Unexpected interception')})
   }
 })
+
+
+test('offline readiness checks every current asset and detects partial cache loss',async()=>{
+ const s=setup();await installAndActivate(s);let work,result;
+ const ask=async()=>{s.handlers.message({data:{type:'BIC_OFFLINE_STATUS'},ports:[{postMessage:value=>{result=value}}],waitUntil:value=>{work=value}});await work;return result};
+ assert.equal((await ask()).ready,true);s.records.delete('/index.html');assert.equal((await ask()).ready,false)
+});

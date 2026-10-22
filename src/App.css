@@ -290,3 +290,30 @@ select:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
 .book-column {overflow-x:auto;}
 
 .book-column {min-height:0;overflow-y:hidden;}
+
+.chord-position-editor {border:1px solid var(--border);border-radius:10px;margin:16px 0;padding:12px;}
+.chord-position-editor>summary {cursor:pointer;font-weight:700;}
+.position-controls {display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-block:12px;}
+.position-controls span {flex:1 1 200px;}
+.position-preview {border:1px solid var(--border);border-radius:8px;padding:12px;max-height:520px;overflow:auto;background:var(--song);}
+.position-heading {font-weight:700;margin:14px 0 8px;}
+.position-line {margin:10px 0 18px;}
+.position-scroll {overflow-x:auto;padding-bottom:4px;}
+.position-track {position:relative;display:inline-block;min-width:100%;font:16px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;}
+.position-chords {position:relative;min-height:4px;}
+.position-chord {position:absolute;min-height:30px!important;height:30px;padding:2px 7px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--accent);font:700 14px/1.4 ui-monospace,monospace;white-space:nowrap;touch-action:none;cursor:grab;}
+.position-chord[aria-pressed='true'] {outline:2px solid var(--accent);outline-offset:1px;}
+.position-lyrics {white-space:nowrap;position:relative;}
+.position-target {display:inline-block;min-height:38px!important;min-width:1ch;padding:0;border:0;border-bottom:2px solid var(--border);border-radius:0;color:var(--text);background:transparent;white-space:pre;font:inherit;vertical-align:top;cursor:crosshair;}
+.position-target:disabled {opacity:1;cursor:default;}
+.position-target:hover:not(:disabled),.position-target[data-target] {background:var(--soft);border-bottom-color:var(--accent);}
+
+.offline-setlist-badge {display:block;font-size:13px;font-weight:600;}
+.offline-setlist-badge.offline-ready {color:var(--accent);}
+.offline-setlist-status {border:1px solid var(--border);border-radius:10px;padding:14px;margin:14px 0;}
+.offline-setlist-status.offline-ready {background:var(--soft);}
+
+.song-date-filters {display:flex;flex-wrap:wrap;gap:12px;margin:12px 0;border:1px solid var(--border);border-radius:8px;padding:12px;}
+.song-date-filters label {flex:1 1 170px;min-width:0;}
+.song-date-filters input,.song-date-filters select {width:100%;min-width:0;box-sizing:border-box;}
+.song-date-filters p {flex-basis:100%;margin:4px 0;font-size:.9rem;}

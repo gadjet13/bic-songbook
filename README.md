@@ -114,7 +114,7 @@ From a personal song, open **Add to setlist** and choose an existing setlist, or
 
 Individual song sharing and downloaded song files are separate from private setlist sharing. A shared song file/link contains the song content; send it only to intended recipients.
 
-Account approval and saving changes require internet. Saved songbooks and setlists can now be read offline on the same device. Song history and deleted-song recovery are also planned.
+Account approval and saving changes require internet. Saved songbooks and setlists can now be read offline on the same device. Song history and deleted-song recovery are available.
 
 ## Editing and deploying the website
 
@@ -252,7 +252,7 @@ Setlist search prioritizes your personal versions. Matching church songs are off
 
 On a received live setlist, **Save to my setlists** lets you keep its name or enter a new name. It copies the current order and arrangements into your personal songbook, reusing exactly matching personal songs and creating separate copies for different versions. Your existing edited songs are never overwritten. This creates an independent setlist: later edits on either side do not affect the other. The original received setlist stays available and keeps updating. At 25 personal setlists, the replacement options still apply; copying/replacement runs as one transaction.
 
-Unsaved song/setlist edits, new-setlist names and unconverted pasted chord sheets are protected when navigating away. You can discard changes or stay. Browsers may show their own generic warning on reload/close. These warnings remain separate from browser-local song draft recovery, described below. Setlist edits are protected by warnings but do not yet have persistent draft recovery.
+Unsaved song/setlist edits, new-setlist names and unconverted pasted chord sheets are protected when navigating away. You can discard changes or stay. Browsers may show their own generic warning on reload/close. These warnings remain separate from browser-local song draft recovery, described below. Setlist edits also have browser-local draft recovery, described below.
 
 Reading mode requests a screen wake lock while visible and releases it on exit. A status shows whether it is active. Device/browser support, battery-saving settings and manual locks can prevent it. It retries when you return to the app; it cannot override all device settings.
 
@@ -272,7 +272,7 @@ The login checkbox defaults to on and applies to email and Google OAuth. Auth se
 
 ## Song draft recovery and setlist keys (October 19)
 
-Unsaved new and edited songs, including raw pasted chord sheets, are saved automatically on this browser under the signed-in user and songbook scope. Recover/discard controls appear on the song list. Recovery never writes to the database: users review and save explicitly. A revision mismatch or missing original offers recovery as a new song, preserving the current database version. Successful saves, confirmed Cancel/Discard, and sign-out clear the relevant drafts. Drafts use the Remember me storage choice, so unchecked sessions do not survive a fresh tab session. Drafts do not sync, and browser clearing/quota restrictions can prevent recovery; editor status distinguishes persistent storage from memory-only fallback. Setlist drafts are not included.
+Unsaved new and edited songs, including raw pasted chord sheets, are saved automatically on this browser under the signed-in user and songbook scope. Recover/discard controls appear on the song list. Recovery never writes to the database: users review and save explicitly. A revision mismatch or missing original offers recovery as a new song, preserving the current database version. Successful saves, confirmed Cancel/Discard, and sign-out clear the relevant drafts. Drafts use the Remember me storage choice, so unchecked sessions do not survive a fresh tab session. Drafts do not sync, and browser clearing/quota restrictions can prevent recovery; editor status distinguishes persistent storage from memory-only fallback. Setlist draft recovery is now available too, as described below.
 
 Personal and received setlists show an ordered Saved key overview using saved base keys, with repeated and missing entries preserved. Setlist editing also shows each song’s key alongside reorder controls. This does not change saved keys or temporary reading-mode transposition. The illustrated START_HERE guide is included in this batch. No SQL migration is needed.
 
@@ -289,3 +289,19 @@ The reader measures unwrapped lines on opening and width changes, fits font size
 ### Readable automatic sizing
 
 The default text size is 16px. Previously saved sizes below 12px reset to 16px on startup. Opening reading mode starts with the current size and checks each size in descending 1px steps, stopping at the first that fits the measured column. Automatic reduction stops at 12px: longer lines then wrap at spaces, with chords inside a word kept together. Manual text-size controls remain available.
+
+
+## Setlist recovery, visual chord positions and offline checks (October 20)
+
+**Setlist drafts:** unsaved names and song order are saved in this browser under your account. Open **My Setlists → Recover setlist draft**, review, then **Save setlist**. Names entered through a song’s **Create setlist with this song** flow are included. Successful save, confirmed Cancel/Discard and sign-out clear the relevant drafts. If the original setlist changed or was deleted, recovery offers a new independent setlist; it never silently replaces the saved version. The 25-list limit still applies. Drafts follow Remember me: persistent browser storage when checked, tab storage otherwise. They do not sync; blocked/full storage can leave a draft only in memory, as shown in the editor status.
+
+**Visual chord positions:** in Add/Edit Song, open **Adjust chord positions visually**. Drag a chord to a lyric character, or select it and tap its destination. Arrows move one character; keyboard left/right works on a focused chord. Chords can move between lyric lines, with close chords separated into lanes. Lyrics, sections and chord spelling stay unchanged. **Undo last move** reverses the most recent movement while its result is still in the editor. Save the song afterward. The original text editor remains available.
+
+**Per-setlist offline checks:** personal and received setlist cards show a status; open a setlist for details and **Save latest for offline**. **Ready offline** requires the stored setlist order and song versions, saved sign-in identity, and the current app worker’s cached application files to be verified on this device. Missing/outdated data requests a save; unverified app files never show Ready. A received list checks its own shared versions. Refresh while online, stay signed in, then test airplane mode before worship. A green status verifies the current saved copy, not future remote changes, device storage retention or continued access approval. Offline editing and syncing remain deferred. No SQL migration is required for this update.
+
+
+## Song date filters (October 21)
+
+Open **Song filters → Song dates**. Choose **Date added** or **Last edited**, then an optional **From date / Through date** range (both endpoints included). Sort by title or by either date, newest/oldest first. Date filters combine with search, folders, first-letter, artist and favorites filters. The active-filter summary stays visible when collapsed; **Clear song filters** resets dates and sorting too. Dates follow the device’s time zone. Unknown dates sort last and do not match date ranges.
+
+The database now records date added for newly created songs. Older songs have no reliable recorded added date and are left unknown rather than assigned today’s date. Last edited uses the existing server timestamp, including saved folder/key changes. Offline copies need an online refresh to receive current timestamps. Shared setlist order is preserved. The database change has already been applied; `database/song-added-date.sql` is reference only, not a manual setup step.

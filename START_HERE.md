@@ -1,6 +1,6 @@
 # BIC Worship DB — Start here
 
-A first-time user guide. Updated October 19, 2026; includes the Remember me update.
+A first-time user guide. Updated October 21, 2026; includes setlist draft recovery, visual chord positioning and offline checks.
 
 Open [BIC Worship DB](https://bic-songbook.netlify.app/). Installing an app is optional.
 
@@ -34,7 +34,7 @@ A new personal song’s first saved version is also added to the church collecti
 1. Open **My songbook → + Add Song → Paste chord sheet**.
 1. Paste the title, section headings and chords above the lyrics. To mark the title explicitly, type literal asterisks: `**Song title**`. Bold formatting alone is not retained.
 1. Press **Convert into editor**. Check the title, estimated key and chord positions in the editing fields.
-1. Move `{chord}` markers to adjust their position, then save. Conversion alone does not save.
+1. Open **Adjust chord positions visually**. Drag a chord to a lyric character, or select the chord and tap its destination. Use arrows for one-character adjustments, and **Undo last move** if needed. Moving chords between lyric lines is supported. You can also edit `{chord}` markers directly. Save afterward; conversion and positioning alone do not save.
 
 ```text
 **Morning Song**
@@ -68,6 +68,8 @@ Open a folder card to see its songs. Use the **My Songbook** breadcrumb to retur
 
 You can also open a personal song → **Add to setlist**, then choose an existing list or **Create setlist with this song**. Each account can keep 25 personal setlists. At the limit, you can replace the oldest, choose another to replace, or cancel. Deleting a setlist keeps the songs but ends its outgoing shares.
 
+Unsaved setlist names and song order are saved in this browser. After returning, open **My Setlists → Recover setlist draft**, review and save. If the original changed or was deleted, recovery offers a new independent list. This also covers new names entered from **Add to setlist** on a song. Save, confirmed Cancel/Discard and sign-out clear drafts. Keep Remember me checked for recovery after closing the browser; drafts never sync between devices.
+
 ## 6. Add friends and share
 
 1. Open **Menu → My friend ID**. Choose a unique ID using 3–24 letters, numbers or underscores; for example `@your_name`. You can change it later without losing friends or shares.
@@ -87,10 +89,10 @@ Sharing gives read-only access to that setlist and its songs, not your whole son
 1. Open the saved setlist and choose **Start setlist → Reading mode**.
 1. Text starts at 16px by default. Reading mode checks the current size, then decreases it 1px at a time only if needed. It stops as soon as lines fit, with a 12px automatic minimum. Use **A− / A+** for text size afterward. If a line must wrap, it breaks at spaces; chord markers inside a word stay with that word. Use page arrows or swipe. At the last page, Next continues to the next song; at the first page, Previous returns to the previous song’s last page when available.
 1. Transpose changes the displayed key. To make it permanent in your editable personal song, choose **Save in X as base key**. Transpose then resets to zero.
-1. Before leaving Wi-Fi, open **Menu → Offline use → Save latest for offline**. Wait for the saved timestamp.
+1. Before leaving Wi-Fi, open **Menu → Offline use → Save latest for offline**. Wait for the saved timestamp. Check the status on each setlist card, or open it for details. **Ready offline** verifies the stored order, song versions, saved sign-in and app files on this device. If it says **Save for offline**, save again online; if app files cannot be verified, refresh online and recheck. A received list checks its own shared versions.
 1. Stay signed in. Test airplane mode and reopen the setlist on that device before the service.
 
-Offline mode supports reading, transposing and page turning. Editing, sharing and new login need internet. Received lists use their last saved version. Check the screen-awake status in reading mode; device settings may still release it.
+Offline mode supports reading, transposing and page turning. Editing, sharing and new login need internet. Received lists use their last saved version. A ready label confirms the current saved copy, not future changes on the server. Browser storage can still be cleared, so test airplane mode before each service. Check the screen-awake status in reading mode; device settings may still release it.
 
 ## 8. Copy, back up and recover
 
@@ -120,3 +122,10 @@ Connect to the internet and refresh after a successful deployment. If it persist
 **I need to sign in again.**
 Check Remember me and use the same regular browser and website address. Avoid private mode and settings that clear site data on exit.
 
+
+
+## Song date filters (October 21)
+
+Open **Song filters → Song dates**. Choose **Date added** or **Last edited**, then an optional **From date / Through date** range (both endpoints included). Sort by title or by either date, newest/oldest first. Date filters combine with search, folders, first-letter, artist and favorites filters. The active-filter summary stays visible when collapsed; **Clear song filters** resets dates and sorting too. Dates follow the device’s time zone. Unknown dates sort last and do not match date ranges.
+
+The database now records date added for newly created songs. Older songs have no reliable recorded added date and are left unknown rather than assigned today’s date. Last edited uses the existing server timestamp, including saved folder/key changes. Offline copies need an online refresh to receive current timestamps. Shared setlist order is preserved. The database change has already been applied; `database/song-added-date.sql` is reference only, not a manual setup step.

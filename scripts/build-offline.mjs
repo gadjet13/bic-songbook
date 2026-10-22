@@ -43,6 +43,18 @@ self.addEventListener('activate', event => {
     await self.clients.claim();
   })());
 });
+self.addEventListener('message', event => {
+  if (event.data?.type !== 'BIC_OFFLINE_STATUS' || !event.ports?.[0]) return;
+  event.waitUntil((async () => {
+    let ready = false;
+    try {
+      const cache = await caches.open(CACHE);
+      const saved = await Promise.all(ASSETS.map(path => cache.match(path)));
+      ready = saved.every(response => response && response.ok);
+    } catch {}
+    event.ports[0].postMessage({type: 'BIC_OFFLINE_STATUS', ready});
+  })());
+});
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (event.request.method !== 'GET' || url.origin !== self.location.origin) return;
@@ -71,3 +83,4 @@ self.addEventListener('fetch', event => {
     return await fetch(event.request);
   })());
 });`)
+
