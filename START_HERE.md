@@ -1,6 +1,6 @@
 # BIC Worship DB — Start here
 
-A first-time user guide. Updated October 21, 2026; includes setlist draft recovery, visual chord positioning and offline checks.
+A first-time user guide. Updated October 28, 2026; includes setlist draft recovery, visual chord positioning and offline checks.
 
 Open [BIC Worship DB](https://bic-songbook.netlify.app/). Installing an app is optional.
 
@@ -15,7 +15,7 @@ Prefer an illustrated web page? After deployment, open [the start-up guide](http
 1. Open [bic-songbook.netlify.app](https://bic-songbook.netlify.app/) in your browser. Installing the app is optional.
 1. Choose **Continue with Google**, or **Create an account** to use email and a password. Confirm your email if asked.
 1. Keep **Remember me on this device** checked on your own device. Uncheck it on a shared device.
-1. Ask the church owner or a manager to approve your account, then press **Refresh library**.
+1. Choose your **@ID** when prompted and press **Save ID and continue**. This submits your access request. Wait for a manager or the church account to approve it, then press **Check approval**.
 
 Already have an account? Use the same login method and email. Private browsing or clearing site data can forget your login.
 
@@ -129,3 +129,16 @@ Check Remember me and use the same regular browser and website address. Avoid pr
 Open **Song filters → Sort songs**. Choose **Title A–Z / Z–A**, **Date added — newest / oldest first**, or **Last edited — newest / oldest first**. Sorting rearranges all matching songs; it does not hide songs by date. This replaces the October 21 date-range controls. Sorting works with search, folders, first-letter, artist and favorites filters. The active summary remains visible when collapsed, and **Clear song filters** resets sorting to Title A–Z too. Received setlists keep their owner's order.
 
 Older songs without a recorded added date appear last in both date-added directions. New songs record their added date; last edited uses the server timestamp, including saved folder/key changes. Refresh online to update offline copies. The existing added-date database change remains applied; no new SQL step is needed.
+
+
+## Joining with an @ID and pending access requests (October 28)
+
+After first sign-in, personal accounts without a friend ID see **Choose your @ID**. Choose a unique 3–24-character ID using letters, numbers or underscores, then **Save ID and continue**. Existing personal accounts without IDs are prompted too; IDs remain changeable from Menu → My friend ID. The church owner is exempt. An existing saved offline session remains readable without an online onboarding check.
+
+For an unapproved account, saving the ID also submits an access request. The waiting screen shows **Awaiting approval** and **Check approval**. Users who already have an ID but have not submitted can choose **Request access**. A declined user can explicitly **Request access again**; simply refreshing does not resubmit a declined request.
+
+Managers and the church owner see **Pending access requests (count)** above their normal content. Expand it to see the sign-in display name, @ID (or ID not chosen yet), email and request time. **Approve** grants ordinary member access; **Decline** asks for confirmation and leaves the login account intact without library access. It does not delete songs or accounts. No email is sent. Check the email/ID: display names are supplied by the sign-in account and are not verified identities.
+
+Existing confirmed accounts without access were included in the pending queue. Approved accounts stay out of it. Requests refresh on focus and every 30 seconds while visible; users can also refresh manually. Members cannot read the queue or approve requests. Stale/repeated decisions are rejected server-side and cannot demote an existing manager or owner. Existing manual access management and the Show/Hide registered-accounts list remain available in Menu.
+
+The database change has already been applied. `database/registration-requests.sql` is reference only; no manual SQL step is needed. Regression SQL in `tests/registration-access.sql` uses temporary test accounts in a transaction that rolls back. This update does not change church song-editing permissions.

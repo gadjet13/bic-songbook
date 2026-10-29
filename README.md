@@ -12,8 +12,8 @@ This README describes the current source. Website changes become available after
 ## Getting started
 
 1. Open the website and choose **Continue with Google**.
-2. If your account is awaiting approval, ask the church owner or a manager to approve your email address.
-3. After approval, refresh the library.
+2. Choose your **@ID** when prompted and press **Save ID and continue** to submit an access request.
+3. Wait for the church owner or a manager to approve it, then press **Check approval**.
 4. Choose **My songbook** or **Bukchon International Chapel**. The church owner account opens directly into the church songbook.
 
 On a phone or tablet, use the app's installation help or your browser's **Install app / Add to Home Screen** option. This installs the website as a home-screen app; it does not require an app-store download.
@@ -305,3 +305,16 @@ The default text size is 16px. Previously saved sizes below 12px reset to 16px o
 Open **Song filters → Sort songs**. Choose **Title A–Z / Z–A**, **Date added — newest / oldest first**, or **Last edited — newest / oldest first**. Sorting rearranges all matching songs; it does not hide songs by date. This replaces the October 21 date-range controls. Sorting works with search, folders, first-letter, artist and favorites filters. The active summary remains visible when collapsed, and **Clear song filters** resets sorting to Title A–Z too. Received setlists keep their owner's order.
 
 Older songs without a recorded added date appear last in both date-added directions. New songs record their added date; last edited uses the server timestamp, including saved folder/key changes. Refresh online to update offline copies. The existing added-date database change remains applied; no new SQL step is needed.
+
+
+## Joining with an @ID and pending access requests (October 28)
+
+After first sign-in, personal accounts without a friend ID see **Choose your @ID**. Choose a unique 3–24-character ID using letters, numbers or underscores, then **Save ID and continue**. Existing personal accounts without IDs are prompted too; IDs remain changeable from Menu → My friend ID. The church owner is exempt. An existing saved offline session remains readable without an online onboarding check.
+
+For an unapproved account, saving the ID also submits an access request. The waiting screen shows **Awaiting approval** and **Check approval**. Users who already have an ID but have not submitted can choose **Request access**. A declined user can explicitly **Request access again**; simply refreshing does not resubmit a declined request.
+
+Managers and the church owner see **Pending access requests (count)** above their normal content. Expand it to see the sign-in display name, @ID (or ID not chosen yet), email and request time. **Approve** grants ordinary member access; **Decline** asks for confirmation and leaves the login account intact without library access. It does not delete songs or accounts. No email is sent. Check the email/ID: display names are supplied by the sign-in account and are not verified identities.
+
+Existing confirmed accounts without access were included in the pending queue. Approved accounts stay out of it. Requests refresh on focus and every 30 seconds while visible; users can also refresh manually. Members cannot read the queue or approve requests. Stale/repeated decisions are rejected server-side and cannot demote an existing manager or owner. Existing manual access management and the Show/Hide registered-accounts list remain available in Menu.
+
+The database change has already been applied. `database/registration-requests.sql` is reference only; no manual SQL step is needed. Regression SQL in `tests/registration-access.sql` uses temporary test accounts in a transaction that rolls back. This update does not change church song-editing permissions.

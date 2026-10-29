@@ -1,3 +1,5 @@
+import RegistrationGate from './RegistrationGate'
+import AccessRequests from './AccessRequests'
 import useOfflineReadiness from './useOfflineReadiness'
 import OfflineSetlistStatus from './OfflineSetlistStatus'
 import { useEffect, useRef, useState } from 'react'
@@ -191,7 +193,9 @@ export default function SharedApp() {
     {offline&&<p className="notice" role="status">Offline · Reading saved copies · {offlineStatus}</p>}
     {notice && <p role="status" className="notice">{notice}</p>}
     {loading && <p className="storage-note">Loading library…</p>}
-    {!role && !loading && <main><h1>Welcome!</h1><p>Ask the songbook owner to approve your account’s email address, then press Refresh library.</p></main>}
+    <RegistrationGate key={session.user.id} userId={session.user.id} offline={offline} onRefresh={refresh}>
+    {!offline&&(role==='owner'||role==='manager')&&<AccessRequests key={session.user.id} userId={session.user.id}/>}
+
     {role && role!=='owner' && book==='home' && !sharedList && <main className="songbook-home"><h1 className="brand"><img src="/bic-logo.png" alt="BIC" />BIC Worship DB</h1><p><a href="/guide.html" target="_blank" rel="noopener">ⓘ User guide</a></p><nav aria-label="Home tabs"><button aria-pressed={homeTab==='songbooks'} onClick={()=>setHomeTab('songbooks')}>Songbooks</button><button aria-pressed={homeTab==='friends'} onClick={()=>setHomeTab('friends')}>Friends</button></nav>{homeTab==='friends'?offline?<p>Friend management needs an internet connection.</p>:<FriendPicker ownerId={session.user.id}/>:<><h2>Your songbooks</h2><p>Choose a songbook to visit.</p><div className="songbook-cards">
       <button onClick={()=>{openBook('personal')}}><strong>My songbook</strong><span>Your versions, folders, and personal setlists.</span></button>
       <button onClick={()=>{openBook('church')}}><strong>Bukchon International Chapel</strong><span>Visit the church songbook · Shared with approved members.</span></button>
@@ -204,6 +208,7 @@ export default function SharedApp() {
       update:async song=>{if(offline||!navigator.onLine)throw new Error('Reconnect before saving songs.');const saved=await updateSong(song);setSongs(current=>current.map(s=>s.id===saved.id?saved:s));void refresh();return saved},
       remove:async song=>{if(offline||!navigator.onLine)throw new Error('Reconnect before deleting songs.');await removeSong(song);setSongs(current=>current.filter(s=>s.id!==song.id));void refresh()}
     }}/>}</>}
+    </RegistrationGate>
   </>
 }
 
