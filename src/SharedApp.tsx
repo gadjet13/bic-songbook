@@ -42,7 +42,7 @@ export default function SharedApp() {
   const [showAccounts,setShowAccounts]=useState(false)
   const [sharedLists,setSharedLists]=useState<SharedSetlist[]>([])
   const [sharedList,setSharedList]=useState<SharedSetlist|null>(null)
-  const [accounts,setAccounts]=useState<{email:string;member_role:string}[]>([])
+  const [accounts,setAccounts]=useState<{email:string;member_role:string;handle:string|null}[]>([])
   const [memberEmail,setMemberEmail]=useState('')
   const [memberRole,setMemberRole]=useState('viewer')
   const bookRef=useRef(book)
@@ -121,7 +121,7 @@ export default function SharedApp() {
       if(!next){await clearOffline(session.user.id);setOfflineBundle(null);setRole(null);setSongs([]);setSharedLists([]);setSharedList(null);setOfflineStatus('Access not approved.');return}
       const [personal,church,folders,lists,favorites,shares]=await Promise.all([
         next==='owner'?Promise.resolve([]):loadSongs(session.user.id),loadSongs(null),
-        next==='owner'?Promise.resolve({data:[],error:null}):cloud.from('songbook_folders').select('id,name').eq('owner_id',session.user.id).order('name'),
+        next==='owner'?Promise.resolve({data:[],error:null}):cloud.from('songbook_folders').select('id,name,created_at,updated_at').eq('owner_id',session.user.id).order('name'),
         next==='owner'?Promise.resolve({data:[],error:null}):cloud.from('songbook_setlists').select('*').eq('owner_id',session.user.id).order('title'),
         cloud.from('songbook_favorites').select('song_id').eq('user_id',session.user.id),
         next==='owner'?Promise.resolve({data:[],error:null}):cloud.from('songbook_setlist_shares').select('id,title,sender_email,songs').eq('recipient_id',session.user.id).order('updated_at',{ascending:false})
@@ -185,16 +185,17 @@ export default function SharedApp() {
       <label>Friend’s ID or email<input type="text" required value={memberEmail} onChange={e=>setMemberEmail(e.target.value)}/></label>
       <label>Permission<select value={memberRole} onChange={e=>setMemberRole(e.target.value)}><option value="viewer">View church songs + manage personal songbook</option>{role==='owner'&&<option value="manager">Manager — approve members, no church editing</option>}<option value="remove">Remove access</option></select></label>
       <button disabled={busy}>Update access</button></form>
-      <button disabled={busy} onClick={()=>void action(async()=>{if(showAccounts){setShowAccounts(false);return}const {data,error}=await cloud!.rpc('list_songbook_accounts');if(error)throw error;setAccounts(data??[]);setShowAccounts(true)})}>{showAccounts?'Hide registered accounts':'Show registered accounts'}</button>
-      {showAccounts&&<div className="account-list"><table><thead><tr><th>Account email</th><th>Access</th></tr></thead><tbody>{accounts.map(account=><tr key={account.email}><td>{account.email}</td><td>{account.member_role==='editor'?'Member (church view only)':account.member_role}</td></tr>)}</tbody></table></div>}
+      <button disabled={busy} onClick={()=>void action(async()=>{if(showAccounts){setShowAccounts(false);return}const {data,error}=await cloud!.rpc('list_songbook_accounts_with_ids');if(error)throw error;setAccounts(data??[]);setShowAccounts(true)})}>{showAccounts?'Hide registered accounts':'Show registered accounts'}</button>
+      {showAccounts&&<div className="account-list"><table><thead><tr><th>Account email</th><th>Friend ID</th><th>Access</th></tr></thead><tbody>{accounts.map(account=><tr key={account.email}><td>{account.email}</td><td>{account.handle?'@'+account.handle:'—'}</td><td>{account.member_role==='editor'?'Member (church view only)':account.member_role}</td></tr>)}</tbody></table></div>}
       </details>}
+    {!offline&&(role==='owner'||role==='manager')&&<AccessRequests key={session.user.id} userId={session.user.id}/>}
     <details><summary>Offline use</summary><p>{offlineStatus}</p><p>Saved songs, folders, favorites and setlists are available for reading. Offline editing and sharing are disabled. Shared setlists use their last saved version.</p><button disabled={loading||offline} onClick={()=>void refresh()}>Save latest for offline</button><button disabled={busy} onClick={()=>void action(async()=>{await clearOffline(session.user.id);forgetIdentity();setOfflineBundle(null);setOfflineStatus('Offline data removed. Online refresh saves it again.');if(offline){setSongs([]);setRole(null);setSharedLists([]);setSharedList(null)}})}>Clear saved offline data</button></details>
     </MenuSection>
     {offline&&<p className="notice" role="status">Offline · Reading saved copies · {offlineStatus}</p>}
     {notice && <p role="status" className="notice">{notice}</p>}
     {loading && <p className="storage-note">Loading library…</p>}
     <RegistrationGate key={session.user.id} userId={session.user.id} offline={offline} onRefresh={refresh}>
-    {!offline&&(role==='owner'||role==='manager')&&<AccessRequests key={session.user.id} userId={session.user.id}/>}
+
 
     {role && role!=='owner' && book==='home' && !sharedList && <main className="songbook-home"><h1 className="brand"><img src="/bic-logo.png" alt="BIC" />BIC Worship DB</h1><p><a href="/guide.html" target="_blank" rel="noopener">ⓘ User guide</a></p><nav aria-label="Home tabs"><button aria-pressed={homeTab==='songbooks'} onClick={()=>setHomeTab('songbooks')}>Songbooks</button><button aria-pressed={homeTab==='friends'} onClick={()=>setHomeTab('friends')}>Friends</button></nav>{homeTab==='friends'?offline?<p>Friend management needs an internet connection.</p>:<FriendPicker ownerId={session.user.id}/>:<><h2>Your songbooks</h2><p>Choose a songbook to visit.</p><div className="songbook-cards">
       <button onClick={()=>{openBook('personal')}}><strong>My songbook</strong><span>Your versions, folders, and personal setlists.</span></button>

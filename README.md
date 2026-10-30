@@ -279,7 +279,7 @@ Personal and received setlists show an ordered Saved key overview using saved ba
 
 ## Collapsible library and dedicated setlist pages (October 19)
 
-My Setlists, My folders and Song filters start collapsed. Filters include first letter, artist (the Author / singer field), and favorites, with a visible active-filter summary. Unfiled is no longer a navigation item: songs without a folder remain in All songs. Folder membership remains one folder per song. Add to folder supports existing/new folders, removing membership, and opening the destination folder. Song history and deleted-song recovery appear at the bottom.
+My Setlists, My folders and Song filters start collapsed. Filters include first letter, artist (the Author / singer field), and favorites, with a visible active-filter summary. Unfiled is no longer a navigation item: songs without a folder remain in All songs. Folder membership remains one folder per song. Add to folder supports existing/new folders, removing membership, and opening the destination folder. Song history stays at the bottom of its song page; deleted-song recovery is now in Menu below Complete backup / restore.
 
 Setlist cards open a dedicated page with browser Back navigation. Opening a song from that page and going back returns to the setlist. Copy is below Start/Edit; Sharing is collapsible and contains recipient selection without inline friend management. Friends are managed from the home tab.
 
@@ -313,8 +313,21 @@ After first sign-in, personal accounts without a friend ID see **Choose your @ID
 
 For an unapproved account, saving the ID also submits an access request. The waiting screen shows **Awaiting approval** and **Check approval**. Users who already have an ID but have not submitted can choose **Request access**. A declined user can explicitly **Request access again**; simply refreshing does not resubmit a declined request.
 
-Managers and the church owner see **Pending access requests (count)** above their normal content. Expand it to see the sign-in display name, @ID (or ID not chosen yet), email and request time. **Approve** grants ordinary member access; **Decline** asks for confirmation and leaves the login account intact without library access. It does not delete songs or accounts. No email is sent. Check the email/ID: display names are supplied by the sign-in account and are not verified identities.
+Managers and the church owner open **Menu → Pending access requests (count)**. Expand it to see the sign-in display name, @ID (or ID not chosen yet), email and request time. **Approve** grants ordinary member access; **Decline** asks for confirmation and leaves the login account intact without library access. It does not delete songs or accounts. No email is sent. Check the email/ID: display names are supplied by the sign-in account and are not verified identities.
 
 Existing confirmed accounts without access were included in the pending queue. Approved accounts stay out of it. Requests refresh on focus and every 30 seconds while visible; users can also refresh manually. Members cannot read the queue or approve requests. Stale/repeated decisions are rejected server-side and cannot demote an existing manager or owner. Existing manual access management and the Show/Hide registered-accounts list remain available in Menu.
 
 The database change has already been applied. `database/registration-requests.sql` is reference only; no manual SQL step is needed. Regression SQL in `tests/registration-access.sql` uses temporary test accounts in a transaction that rolls back. This update does not change church song-editing permissions.
+
+
+## Menu layout, library sorting and offline-copy recovery (October 29)
+
+**Menu:** Pending access requests is now inside Menu for managers and the church owner. Show registered accounts includes each person's @ID, or a dash when none is set (including the church owner). After opening a songbook, the Menu order is Export songs only / Import songs, then Complete backup / restore, then Recover deleted songs. Saved-version Song history stays on its song page.
+
+**Sort setlists and folders:** open My Setlists or My folders, expand its Sort control, and choose Name A–Z / Z–A, Date added newest / oldest, or Last edited newest / oldest. This rearranges cards only, never the songs within a setlist. Missing dates sort last. Folder timestamps begin with this update; existing unknown folder dates remain unknown. Folder last-edited tracks folder renaming, not edits to songs inside it. Older setlist creation dates may be approximate, as previously documented. Refresh online to update device-local copies with dates.
+
+**Recover the last offline save:** inside Complete backup / restore, choose Preview last offline save. It reads this account's latest snapshot from this device and shows its saved time, songbook, song/folder/setlist/favorite counts and a song preview. Review it, then Restore offline save as copies and confirm. Current work is kept. IDs are remapped, setlist order/repeats and folder memberships are preserved, and restored folders/lists get recovery names. Missing setlist-song references are reported and skipped. Received setlists, friend nicknames, access permissions and history are not in this offline recovery copy. Only the current songbook is restored; church restoration remains owner-only. Restore requires internet and respects the 25-personal-setlist limit; an invalid/over-limit import rolls back. Repeated restores create duplicates.
+
+This is the latest snapshot still stored, not an archive: online refreshes can replace it, and signing out or clearing site data can remove it. A preview captures a fixed copy so later background refreshes do not alter what you confirm. Keep downloaded complete backups and use Song history for earlier versions. The existing file-based complete restore still adds copies too.
+
+Database changes for folder dates and the manager-only account-ID listing are already applied. `database/menu-library-dates.sql` is reference only; no manual SQL step is needed.

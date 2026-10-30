@@ -1,0 +1,3 @@
+import {librarySortLabels} from './lib/library-sort'
+import type {LibrarySort} from './lib/library-sort'
+export default function LibrarySortControl({label,value,onChange}:{label:string;value:LibrarySort;onChange:(sort:LibrarySort)=>void}){return <details className="library-sort"><summary>Sort {label.toLowerCase()} · {librarySortLabels[value]}</summary><label>Sort {label.toLowerCase()}<select aria-label={'Sort '+label.toLowerCase()} value={value} onChange={event=>onChange(event.target.value as LibrarySort)}>{Object.entries(librarySortLabels).map(([key,name])=><option value={key} key={key}>{name}</option>)}</select></label>{(value.startsWith('added')||value.startsWith('edited'))&&<p className="storage-note">Items without a recorded date appear last.</p>}</details>}

@@ -501,9 +501,11 @@ function App({library}: {library: SharedLibrary}) {
       <main>
         <MenuSection><div className="library-tools">
           <button onClick={() => downloadSongs(songList)}>Export songs only</button>
-          {!library.sharedSetlist&&!library.offline&&<CompleteBackup church={!library.ownerId} canEdit={library.canEdit} onChanged={library.refresh}/>}
+
           <label className="import-label" hidden={!library.canEdit}>Import songs<input type="file" accept=".json,application/json" onChange={event => { void importFile(event.target.files?.[0]); event.target.value = '' }} /></label>
         </div>
+        {!library.sharedSetlist&&!library.offline&&<CompleteBackup key={library.userId+'-'+library.ownerId} userId={library.userId} church={!library.ownerId} canEdit={library.canEdit} onChanged={library.refresh}/>}
+        {!library.sharedSetlist&&library.canEdit&&<SongHistory ownerId={library.ownerId} currentSongs={songList} onChanged={library.refresh}/>}
         <p className="storage-note">{library.bookName} · {library.offline?'Reading saved copies. Reconnect to edit or share.':'Changes save online. Export a backup whenever you need one.'}</p></MenuSection>
         {!selectedSong&&library.sharedSetlist&&library.sharedSetlistId&&<OfflineSetlistStatus snapshot={library.offlineReadiness} userId={library.userId} list={{id:library.sharedSetlistId,title:library.bookName}} songs={songList} shared offline={library.offline} onSave={library.refresh} disabled={library.loading}/>}
         {!selectedSong && library.sharedSetlist && <SetlistKeyOverview songs={songList}/>}
@@ -844,7 +846,6 @@ function App({library}: {library: SharedLibrary}) {
             )}
           </div>
         )}
-        {libraryPage&&library.canEdit&&<SongHistory ownerId={library.ownerId} currentSongs={songList} onChanged={library.refresh}/>}
         {selectedSong&&!isEditing&&!readingMode&&library.canEdit&&<SongHistory key={'history-'+selectedSong.id} song={selectedSong} ownerId={library.ownerId} currentSongs={songList} onChanged={library.refresh} onRestored={song=>setSelectedSong(song)}/>}
       </main>
     </div>
