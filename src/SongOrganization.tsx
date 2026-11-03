@@ -29,7 +29,7 @@ export function useFavorites(userId: string, offlineFavorites?:number[]) {
 }
 export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLists,churchSongs,onSongsChanged,personalName,activeId,onNavigate,onBack,offlineSnapshot,refreshing}: {offlineSnapshot?:OfflineSnapshot;refreshing?:boolean;activeId:string|null;onNavigate:(id:string,saved?:boolean)=>void;onBack:()=>void;personalName:string;churchSongs:Song[];onSongsChanged:()=>Promise<void>;offlineLists?:OfflineList[];songs:Song[];canEdit:boolean;ownerId:string|null;onOpen:(songs:Song[])=>void}) {
  const [expanded,setExpanded]=useState(false)
- const [listSort,setListSort]=useState<LibrarySort>('name-asc')
+ const [listSort,setListSort]=useState<LibrarySort>('added-newest')
  const [church,setChurch]=useState(churchSongs),[churchError,setChurchError]=useState('')
  useEffect(()=>{let active=true;if(offlineLists){setChurch(churchSongs);return}setChurch(churchSongs);void loadSongs(null).then(rows=>{if(active){setChurch(rows);setChurchError('')}}).catch(error=>{if(active)setChurchError(message(error))});return()=>{active=false}},[ownerId,churchSongs,offlineLists])
  const [personal,setPersonal]=useState(songs)

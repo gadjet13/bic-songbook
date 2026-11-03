@@ -1,3 +1,5 @@
+import SongFlowEditor from './SongFlowEditor'
+import {hasFlowConflicts,mapFlowCursor,syncLinkedSections} from './lib/song-flow'
 import {songSortLabels,sortSongsByDate} from './lib/song-dates'
 import type {SongDateSort} from './lib/song-dates'
 import OfflineSetlistStatus from './OfflineSetlistStatus'
@@ -138,6 +140,8 @@ function App({library}: {library: SharedLibrary}) {
   const [queueIndex,setQueueIndex]=useState(0)
   const [startOnLastPage,setStartOnLastPage]=useState(false)
   const [readingMode, setReadingMode] = useState(false)
+  const [readingChoice,setReadingChoice]=useState(false)
+  const [readingContent,setReadingContent]=useState<'lyrics'|'chords'>('chords')
   const wakeStatus=useReadingWakeLock(readingMode)
   const [fontSize, setFontSize] = useState(() => {
     try { const saved = Number(localStorage.getItem('bic-songbook-font-size')); return saved >= 12 && saved <= 32 ? saved : 16 } catch { return 16 }
@@ -220,6 +224,8 @@ function App({library}: {library: SharedLibrary}) {
   const [editedKey, setEditedKey] =
     useState('')
 
+
+  useEffect(()=>{setReadingChoice(false)},[selectedSong?.id,isEditing])
 
   const [isAddingSong, setIsAddingSong] =
     useState(false)
@@ -378,6 +384,7 @@ function App({library}: {library: SharedLibrary}) {
     else {setIsAddingSong(false);selectSong(song,true)}
   }
   async function overwriteDuplicate(song:Song,draft:{title:string;artist:string;key:string;content:string}){
+    if(hasFlowConflicts(draft.content))throw new Error('Resolve the different section versions in Song flow before overwriting.')
     const target=duplicateTarget(song)
     if(!target||!library.canEdit)throw new Error('You can only overwrite an existing song in your own editable songbook.')
     if(!draft.title.trim())throw new Error('Enter a title first.')
@@ -395,8 +402,14 @@ function App({library}: {library: SharedLibrary}) {
     const song=freshestSong(selectedSong,songList)
     setSelectedSong(song);setEditedTitle(song.title);setEditedArtist(song.artist);setEditedKey(song.key);setEditedContent(song.content);setIsEditing(true)
   }
+  function editLinkedText(element:HTMLTextAreaElement,current:string,setContent:(value:string)=>void){
+    const next=element.value,start=element.selectionStart,end=element.selectionEnd,value=syncLinkedSections(current,next)
+    setContent(value)
+    if(value!==next)requestAnimationFrame(()=>{if(element.isConnected&&element.value===value)element.setSelectionRange(mapFlowCursor(next,value,start),mapFlowCursor(next,value,end))})
+  }
   const saveSong = async () => {
     if(savingSong)return
+    if(hasFlowConflicts(editedContent)){setNotice('Resolve the different section versions in Song flow before saving.');return}
     if (!editedTitle.trim()) { setNotice('Please enter a song title.'); return }
     if (!selectedSong) {
       return
@@ -421,6 +434,7 @@ function App({library}: {library: SharedLibrary}) {
   }
 
   const addSong = async () => {
+    if(hasFlowConflicts(newSongContent)){setNotice('Resolve the different section versions in Song flow before saving.');return}
     if (!newSongTitle.trim()) {
       return
     }
@@ -526,6 +540,7 @@ function App({library}: {library: SharedLibrary}) {
             <div className="add-song-form">
               <h2>Add New Song</h2><ChordSheetPaste raw={newRaw} onRawChange={setNewRaw} onApply={(content,title,key)=>{setNewSongContent(content);if(title)setNewSongTitle(title);if(key)setNewSongKey(key)}}/>{library.ownerId && <p className="storage-note">The first saved version also goes to the church songbook. Later edits stay in your personal songbook.</p>}
 
+              <SongFlowEditor content={newSongContent} onChange={setNewSongContent} disabled={savingSong||library.offline}/>
               <label>
                 Song Title
                 <input
@@ -580,9 +595,7 @@ function App({library}: {library: SharedLibrary}) {
 {C}Amazing grace`}
                   value={newSongContent}
                   onChange={(event) =>
-                    setNewSongContent(
-                      event.target.value,
-                    )
+                    editLinkedText(event.currentTarget,newSongContent,setNewSongContent)
                   }
                 />
 
@@ -591,11 +604,13 @@ function App({library}: {library: SharedLibrary}) {
                 </small>
               </label>
 
-              <ChordPositionEditor content={newSongContent} onChange={setNewSongContent} disabled={savingSong||library.offline}/>
+              <ChordPositionEditor content={newSongContent} onChange={value=>setNewSongContent(current=>syncLinkedSections(current,value))} disabled={savingSong||library.offline}/>
               <DuplicateSongNotice onOpen={openDuplicate} canOverwrite={song=>!!library.canEdit&&!!duplicateTarget(song)} onOverwrite={song=>overwriteDuplicate(song,{title:newSongTitle,artist:newSongArtist,key:newSongKey,content:newSongContent})} title={newSongTitle} personal={!!library.ownerId} onUseExisting={song=>{setNewSongTitle(song.title);setNewSongArtist(song.artist);setNewSongKey(song.key);setNewSongContent(song.content)}}/>
               <div className="edit-buttons">
                 <button
                   className="save-button"
+                  disabled={savingSong||library.offline||hasFlowConflicts(newSongContent)}
+                  title={hasFlowConflicts(newSongContent)?'Resolve section variations in Song flow first':undefined}
                   onClick={addSong}
                 >
                   Save Song
@@ -691,6 +706,7 @@ function App({library}: {library: SharedLibrary}) {
 
             {isEditing ? (
               <>
+                <SongFlowEditor key={'flow-'+selectedSong.id} content={editedContent} onChange={setEditedContent} disabled={savingSong||library.offline}/>
                 <label>
                   Song Title
 
@@ -740,9 +756,7 @@ function App({library}: {library: SharedLibrary}) {
                     className="song-editor"
                     value={editedContent}
                     onChange={(event) =>
-                      setEditedContent(
-                        event.target.value,
-                      )
+                      editLinkedText(event.currentTarget,editedContent,setEditedContent)
                     }
                   />
 
@@ -751,12 +765,12 @@ function App({library}: {library: SharedLibrary}) {
                   </small>
                 </label>
 
-                <ChordPositionEditor content={editedContent} onChange={setEditedContent} disabled={savingSong||library.offline}/>
+                <ChordPositionEditor content={editedContent} onChange={value=>setEditedContent(current=>syncLinkedSections(current,value))} disabled={savingSong||library.offline}/>
                 <DuplicateSongNotice onOpen={openDuplicate} canOverwrite={song=>!!library.canEdit&&!!duplicateTarget(song)} onOverwrite={song=>overwriteDuplicate(song,{title:editedTitle,artist:editedArtist,key:editedKey,content:editedContent})} title={editedTitle} personal={!!library.ownerId} excludeId={library.ownerId?undefined:selectedSong.id} onUseExisting={song=>{setEditedTitle(song.title);setEditedArtist(song.artist);setEditedKey(song.key);setEditedContent(song.content)}}/>
                 <div className="edit-buttons">
                   <button
                     className="save-button"
-                    disabled={savingSong||library.offline} onClick={saveSong}
+                    disabled={savingSong||library.offline||hasFlowConflicts(editedContent)} title={hasFlowConflicts(editedContent)?'Resolve section variations in Song flow first':undefined} onClick={saveSong}
                   >
                     Save Changes
                   </button>
@@ -821,7 +835,7 @@ function App({library}: {library: SharedLibrary}) {
                 +
               </button>
               {!isEditing && library.ownerId && library.canEdit && <button className="save-key-button" disabled={savingKey||transpose===0||!/^([A-G](?:#|b)?)(m|maj|min)?$/.test(selectedSong.key)} onClick={()=>void saveInCurrentKey()}>{savingKey?'Saving…':`Save in ${getCurrentKey(selectedSong.key,transpose)} as base key`}</button>}
-              {!isEditing && <button className="reading-toggle" aria-pressed={readingMode} onClick={() => setReadingMode(!readingMode)}>{readingMode ? 'Exit reading mode' : 'Reading mode'}</button>}
+              {!isEditing && <button className="reading-toggle" aria-pressed={readingMode} onClick={() => {if(readingMode)setReadingMode(false);else setReadingChoice(value=>!value)}}>{readingMode ? 'Exit reading mode' : 'Reading mode'}</button>}
             </div>
             {!isEditing && <div className="reading-tools" role="group" aria-label="Song text size">
                 <span>Text size</span>
@@ -830,9 +844,11 @@ function App({library}: {library: SharedLibrary}) {
                 <button aria-label="Increase song text size" disabled={fontSize >= 32} onClick={() => setFontSize(size => Math.min(32, size + 2))}>A+</button>
               </div>}
             </div>
+            {!isEditing&&readingChoice&&!readingMode&&<fieldset className="reading-choice"><legend>Reading mode content</legend><p>Choose what to show. Your saved song stays unchanged.</p><button onClick={()=>{setReadingContent('lyrics');setReadingChoice(false);setReadingMode(true)}}>Lyrics only</button><button onClick={()=>{setReadingContent('chords');setReadingChoice(false);setReadingMode(true)}}>Lyrics + chords</button><button onClick={()=>setReadingChoice(false)}>Cancel reading mode</button></fieldset>}
             {!isEditing && (<>
+              {readingMode&&<label className="reader-content-choice">Reading content<select aria-label="Reading content" value={readingContent} onChange={event=>setReadingContent(event.target.value as 'lyrics'|'chords')}><option value="lyrics">Lyrics only</option><option value="chords">Lyrics + chords</option></select></label>}
               {readingMode&&<small role="status">{wakeStatus}</small>}
-              {readingMode ? <SongPages key={selectedSong.id+'-'+queueIndex} fontSize={fontSize} onFitFontSize={setFontSize} startOnLastPage={startOnLastPage} onPreviousSong={queueIndex > 0 && setlistQueue.length ? () => {setQueueIndex(queueIndex-1);selectSong(setlistQueue[queueIndex-1]);setStartOnLastPage(true);setReadingMode(true)} : undefined} onNextSong={queueIndex < setlistQueue.length - 1 ? () => {setQueueIndex(queueIndex+1);selectSong(setlistQueue[queueIndex+1]);setReadingMode(true)} : undefined}>{displaySong(selectedSong.content, transpose, getCurrentKey(selectedSong.key, transpose),true)}</SongPages> : <div className="song-display" style={{fontSize: `${fontSize}px`}} tabIndex={0} aria-label="Song lyrics and chords">
+              {readingMode ? <SongPages key={selectedSong.id+'-'+queueIndex+'-'+readingContent} fontSize={fontSize} onFitFontSize={setFontSize} startOnLastPage={startOnLastPage} onPreviousSong={queueIndex > 0 && setlistQueue.length ? () => {setQueueIndex(queueIndex-1);selectSong(setlistQueue[queueIndex-1]);setStartOnLastPage(true);setReadingMode(true)} : undefined} onNextSong={queueIndex < setlistQueue.length - 1 ? () => {setQueueIndex(queueIndex+1);selectSong(setlistQueue[queueIndex+1]);setReadingMode(true)} : undefined}>{displaySong(selectedSong.content, transpose, getCurrentKey(selectedSong.key, transpose),true,readingContent==='chords')}</SongPages> : <div className="song-display" style={{fontSize: `${fontSize}px`}} tabIndex={0} aria-label="Song lyrics and chords">
                 {displaySong(
                   selectedSong.content,
                   transpose,
@@ -857,7 +873,9 @@ function displaySong(
   transpose: number,
   currentKey: string,
   wrapWords=false,
+  showChords=true,
 ) {
+  if(!showChords)content=lyricsOnly(content)
   const useFlats = currentKey.includes('b')
 
   const groups: { heading?: string; lines: string[] }[] = []
@@ -873,7 +891,7 @@ function displaySong(
       groups[groups.length - 1].lines.push(line)
     }
   }
-  return groups.map((group, index) => <div className="song-block" key={index}>
+  return groups.map((group, index) => <div className={showChords?'song-block':'song-block lyrics-only-block'} key={index}>
     {group.heading && <div className="song-section">{group.heading}</div>}
     {group.lines.map((line, lineIndex) => <div className="song-line" key={lineIndex}>
       {wrapWords?readingWords(parseLine(line,transpose,useFlats)).map((word,wordIndex)=>word.kind==='space'?word.text:<span className="song-word" key={wordIndex}>{word.parts.map((segment,segmentIndex)=><span key={segmentIndex} style={segment.chord?{minWidth:`${(segment.chord.length+.7)*.65}em`}:undefined} className={segment.chord&&!segment.lyrics.trim()?'song-segment chord-only':'song-segment'}><span className="chord">{segment.chord}</span><span className="lyrics">{segment.lyrics}</span></span>)}</span>):parseLine(line, transpose, useFlats).map((segment, segmentIndex) => <span style={segment.chord ? {minWidth: `${(segment.chord.length + 0.7) * 0.65}em`} : undefined} className={segment.chord && !segment.lyrics.trim() ? "song-segment chord-only" : "song-segment"} key={segmentIndex}>

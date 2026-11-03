@@ -1,6 +1,6 @@
 # BIC Worship DB — Start here
 
-A first-time user guide. Updated October 29, 2026; includes setlist draft recovery, visual chord positioning and offline checks.
+A first-time user guide. Updated November 3, 2026; includes setlist draft recovery, visual chord positioning and offline checks.
 
 Open [BIC Worship DB](https://bic-songbook.netlify.app/). Installing an app is optional.
 
@@ -86,7 +86,7 @@ Sharing gives read-only access to that setlist and its songs, not your whole son
 
 *Workflow illustration, not an app screenshot; layouts vary by device.*
 
-1. Open the saved setlist and choose **Start setlist → Reading mode**.
+1. Open the saved setlist and choose **Start setlist → Reading mode**, then choose **Lyrics only** or **Lyrics + chords**.
 1. Text starts at 16px by default. Reading mode checks the current size, then decreases it 1px at a time only if needed. It stops as soon as lines fit, with a 12px automatic minimum. Use **A− / A+** for text size afterward. If a line must wrap, it breaks at spaces; chord markers inside a word stay with that word. Use page arrows or swipe. At the last page, Next continues to the next song; at the first page, Previous returns to the previous song’s last page when available.
 1. Transpose changes the displayed key. To make it permanent in your editable personal song, choose **Save in X as base key**. Transpose then resets to zero.
 1. Before leaving Wi-Fi, open **Menu → Offline use → Save latest for offline**. Wait for the saved timestamp. Check the status on each setlist card, or open it for details. **Ready offline** verifies the stored order, song versions, saved sign-in and app files on this device. If it says **Save for offline**, save again online; if app files cannot be verified, refresh online and recheck. A received list checks its own shared versions.
@@ -155,3 +155,23 @@ The database change has already been applied. `database/registration-requests.sq
 This is the latest snapshot still stored, not an archive: online refreshes can replace it, and signing out or clearing site data can remove it. A preview captures a fixed copy so later background refreshes do not alter what you confirm. Keep downloaded complete backups and use Song history for earlier versions. The existing file-based complete restore still adds copies too.
 
 Database changes for folder dates and the manager-only account-ID listing are already applied. `database/menu-library-dates.sql` is reference only; no manual SQL step is needed.
+
+
+## Setlist default order and reading content (November 3)
+
+Personal setlist cards now default to **Date added — newest first**. You can still choose any other sort. Folder cards keep their existing **Name A–Z** default. Neither setting changes the order of songs inside a setlist.
+
+When opening **Reading mode**, choose **Lyrics only** or **Lyrics + chords**, or cancel. Lyrics only keeps the lyrics and section labels and removes chord spacing from the page layout. **Reading content** also lets you switch while reading; pages are recalculated for the chosen layout. The choice stays active across next/previous songs in a setlist. It affects display only, including saved offline reading, and never edits stored arrangements or transpositions. No database change is needed.
+
+
+## Horizontal song flow and linked sections (November 3)
+
+Add/Edit Song now has a **Song flow** panel above the main editing fields. Sections are compact horizontal items that wrap on small screens. Existing [Verse 1] / [Chorus] headings and legacy # headings are recognized; chord-only lines remain chords. Opening text without a heading is kept at the start, with an option to name it and include it in the movable flow.
+
+Drag a handle, or select a section and use the move arrows. The + insertion markers choose exactly where to add a new section or repeat an existing one. Select a section for its lyrics/chords, name, insert-after and remove controls. Removing one occurrence keeps the others. **Undo last flow change** reverses the latest flow edit while its result is still current; later edits in another editor disable that stale undo. All changes remain a draft until Save.
+
+Repeated section names with matching text are **linked**. Editing their lyrics/chords through the section editor, regular text editor or visual chord-position editor updates matching occurrences. Rename a particular occurrence, for example **Chorus 2**, before giving it a different arrangement. Copying/importing a complete chord sheet preserves its separate versions for review rather than silently forcing them to match.
+
+Existing sections with the same name but different lyrics/chords are highlighted and stay unchanged. Resolve them before saving: **Keep variations as separate sections** gives distinct numbered labels while keeping every version, or **Use selected version for all ... sections** explicitly replaces the differing versions in the draft. Renaming individual occurrences also works. Equal labels are compared without case differences and repeated spaces; differing final blank lines alone do not create conflicts.
+
+Flow edits are included in browser-local song draft recovery. Saving retains the complete expanded song text, so existing reading, lyrics-only mode, transposition, copying, history, backups and live setlist sharing continue to use the arrangement. No database migration or new backup format is needed. This combined patch also includes the earlier November 3 newest-setlist default and lyrics/chords reading choices; folders remain A–Z by default.
