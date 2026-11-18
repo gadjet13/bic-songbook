@@ -159,6 +159,10 @@ node --test tests/cloud.test.cjs tests/offline-worker.test.mjs tests/save-key.te
 
 Netlify uses `npm run build` and publishes `dist`, as configured in `netlify.toml`. Set the two public environment variables in Netlify too; changes to build variables require a new deployment.
 
+### ChatGPT chord connector
+
+See the [connector staging guide](CONNECTOR_SETUP.md) for the test deployment, Supabase OAuth settings, and verification steps.
+
 ### Database and login maintenance
 
 The live database is already configured. **Do not rerun the database SQL files on the existing project.** Some files are reference snapshots of changes already applied. The early `SETUP.md` describes the original launch and contains historical status and permissions; use this README for current behavior. A fresh installation needs a reviewed, ordered database setup, not a blind replay of every file.

@@ -1,3 +1,4 @@
+import ConnectorConsent, { authReturnUrl, isConnectorConsent } from './ConnectorConsent'
 import RegistrationGate from './RegistrationGate'
 import AccessRequests from './AccessRequests'
 import useOfflineReadiness from './useOfflineReadiness'
@@ -160,7 +161,7 @@ export default function SharedApp() {
     <form onSubmit={event=>{event.preventDefault(); void action(async()=>{
       if(recovery) {const {error}=await cloud!.auth.updateUser({password});if(error)throw error;setRecovery(false);setPassword('');setNotice('Password updated.');history.replaceState(history.state,'',location.pathname);return}
       loginPersistence.setRememberMe(rememberMe)
-      const result=signup ? await cloud!.auth.signUp({email,password,options:{emailRedirectTo:location.origin}}) : await cloud!.auth.signInWithPassword({email,password})
+      const result=signup ? await cloud!.auth.signUp({email,password,options:{emailRedirectTo:authReturnUrl()}}) : await cloud!.auth.signInWithPassword({email,password})
       if(result.error)throw result.error
       setPassword('')
       if(signup && !result.data.session) setNotice('Check your email to confirm your account, then sign in.')
@@ -170,10 +171,11 @@ export default function SharedApp() {
     {!recovery&&<><label className="remember-login"><input type="checkbox" checked={rememberMe} disabled={busy} onChange={event=>{setRememberMe(event.target.checked);loginPersistence.setRememberMe(event.target.checked)}}/> Remember me on this device</label><p className="storage-note">{rememberMe?'Stay signed in when you return using this browser.':'Keep this login only for this tab session.'} Use Sign out on shared devices.</p>{rememberMe&&!loginPersistence.canRemember()&&<p role="status">This browser is blocking saved login. Allow site storage to stay signed in after closing the browser.</p>}</>}
     <button disabled={busy}>{busy ? 'Please wait…' : recovery ? 'Save password' : signup ? 'Create account' : 'Sign in'}</button>
     </form>
-    {!recovery && <><button disabled={busy} onClick={()=>void action(async()=>{loginPersistence.setRememberMe(rememberMe);const {error}=await cloud!.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin}});if(error)throw error})}>Continue with Google</button><button disabled={busy} onClick={()=>{setSignup(!signup);setNotice('')}}>{signup ? 'Already have an account? Sign in' : 'Create an account'}</button>
+    {!recovery && <><button disabled={busy} onClick={()=>void action(async()=>{loginPersistence.setRememberMe(rememberMe);const {error}=await cloud!.auth.signInWithOAuth({provider:'google',options:{redirectTo:authReturnUrl()}});if(error)throw error})}>Continue with Google</button><button disabled={busy} onClick={()=>{setSignup(!signup);setNotice('')}}>{signup ? 'Already have an account? Sign in' : 'Create an account'}</button>
     <button disabled={busy || !email} onClick={()=>void action(async()=>{const {error}=await cloud!.auth.resetPasswordForEmail(email,{redirectTo:location.origin});if(error)throw error;setNotice('If this account exists, you will receive a password reset email.')})}>Forgot password</button></>}
     <p role="status">{notice}</p><p>New accounts need the owner’s approval before viewing the library.</p>
   </main>
+  if (isConnectorConsent()) return <ConnectorConsent key={session.user.id} userId={session.user.id} />
   return <>
     <MenuSection>
     <div className="account-bar"><span>{session.user.email} · {role ?? 'Awaiting access'}</span>
