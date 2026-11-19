@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { saveSetlistNote } from './lib/setlist-preferences'
 
-export default function SetlistSongNote({ userId, listId, songId, note, offline }:{
-  userId:string; listId:string; songId:number; note:string; offline:boolean
+export default function SetlistSongNote({ userId, listId, songId, note, offline, label }:{
+  userId:string; listId:string; songId:number; note:string; offline:boolean; label?:string
 }) {
   const [draft,setDraft]=useState<string|null>(null)
   const [busy,setBusy]=useState(false)
@@ -16,7 +16,7 @@ export default function SetlistSongNote({ userId, listId, songId, note, offline 
     finally { setBusy(false) }
   }
   return <details className="stage-notes">
-    <summary>My notes{note?' · Saved':''}</summary>
+    <summary>{label??(note?'My notes · Saved':'My notes')}</summary>
     <label>Private song note<textarea maxLength={1000} rows={3} value={text} readOnly={offline||busy}
       onChange={event=>{setDraft(event.target.value);setMessage('')}}/></label>
     {offline ? <small>Reconnect to edit and sync notes.</small> :

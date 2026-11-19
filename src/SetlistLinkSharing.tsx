@@ -2,67 +2,75 @@ import { useEffect, useRef, useState } from 'react'
 import { cloud } from './lib/cloud'
 import { setlistLink } from './lib/setlist-links'
 
-export default function SetlistLinkSharing({ listId }: { listId: string }) {
-  const [token, setToken] = useState<string | null>(null)
-  const [busy, setBusy] = useState(true)
-  const [notice, setNotice] = useState('')
-  const linkField = useRef<HTMLInputElement>(null)
-  const active = useRef(false)
+async function manage(listId:string, operation:'status'|'enable'|'disable'){
+  const {data,error}=await cloud!.rpc('manage_setlist_link',{target:listId,operation})
+  if(error)throw error
+  return data as string|null
+}
 
-  async function manage(operation: 'status' | 'enable' | 'disable') {
-    const { data, error } = await cloud!.rpc('manage_setlist_link', { target: listId, operation })
-    if (error) throw error
-    return data as string | null
+export function useSetlistLink(listId:string|null, newLink:Promise<string|null>|null){
+  const [status,setStatus]=useState<{id:string;token:string|null;busy:boolean;notice:string}|null>(null)
+  const current=status?.id===listId?status:null
+  const linkField=useRef<HTMLInputElement>(null)
+  const activeId=useRef(listId)
+  activeId.current=listId
+
+  useEffect(()=>{
+    if(!listId)return
+    let active=true
+    const request=newLink??manage(listId,'status')
+    setStatus({id:listId,token:null,busy:true,notice:''})
+    void request.then(token=>{
+      if(active)setStatus({id:listId,token,busy:false,notice:''})
+    }).catch(error=>{
+      if(active)setStatus({id:listId,token:null,busy:false,notice:newLink
+        ? 'Set saved. The link could not be created. Choose Copy setlist link to retry.'
+        : String(error.message)})
+    })
+    return ()=>{active=false}
+  },[listId,newLink])
+
+  async function copyLink(){
+    if(!listId||!current||current.busy)return
+    setStatus({...current,busy:true,notice:''})
+    try{
+      const next=await manage(listId,'enable')
+      if(activeId.current!==listId)return
+      if(!next)throw new Error('Could not create the setlist link.')
+      let notice='Setlist link copied.'
+      try{await navigator.clipboard.writeText(setlistLink(next))}
+      catch{notice='Select and copy the setlist link below.';requestAnimationFrame(()=>linkField.current?.select())}
+      if(activeId.current===listId)setStatus({id:listId,token:next,busy:false,notice})
+    }catch(error){
+      if(activeId.current===listId)setStatus({...current,busy:false,notice:(error as Error).message})
+    }
   }
 
-  useEffect(() => {
-    active.current = true
-    void manage('status').then(result => {
-      if (active.current) setToken(result)
-    }).catch(error => {
-      if (active.current) setNotice(error.message)
-    }).finally(() => { if (active.current) setBusy(false) })
-    return () => { active.current = false }
-  }, [listId])
-
-  async function copyLink() {
-    setBusy(true)
-    setNotice('')
-    try {
-      const next = await manage('enable')
-      if (!next || !active.current) return
-      setToken(next)
-      try {
-        await navigator.clipboard.writeText(setlistLink(next))
-        setNotice('Setlist link copied.')
-      } catch {
-        setNotice('Select and copy the setlist link below.')
-        requestAnimationFrame(() => linkField.current?.select())
-      }
-    } catch (error) { setNotice((error as {message: string}).message) }
-    finally { if (active.current) setBusy(false) }
+  async function disableLink(){
+    if(!listId||!current||current.busy||!window.confirm('Turn off this link and remove access for people who joined through it? Email invitations will still work.'))return
+    setStatus({...current,busy:true,notice:''})
+    try{
+      await manage(listId,'disable')
+      if(activeId.current===listId)setStatus({id:listId,token:null,busy:false,notice:'Setlist link turned off.'})
+    }catch(error){
+      if(activeId.current===listId)setStatus({...current,busy:false,notice:(error as Error).message})
+    }
   }
+  return {token:current?.token??null,busy:!current||current.busy,notice:current?.notice??'',linkField,copyLink,disableLink}
+}
 
-  async function disableLink() {
-    if (!window.confirm('Turn off this link and remove access for people who joined through it? Email invitations will still work.')) return
-    setBusy(true)
-    setNotice('')
-    try {
-      await manage('disable')
-      if (!active.current) return
-      setToken(null)
-      setNotice('Setlist link turned off.')
-    } catch (error) { setNotice((error as {message: string}).message) }
-    finally { if (active.current) setBusy(false) }
-  }
+export function createSetlistLink(listId:string){
+  const request=manage(listId,'enable')
+  // The saved set mounts the link controls on the next render.
+  void request.catch(()=>{})
+  return request
+}
 
-  return <section aria-label="Share by link">
-    <p>Anyone with the link and an approved songbook account can open this live set.</p>
-    <button type="button" disabled={busy} onClick={()=>void copyLink()}>Copy setlist link</button>
-    {token && <>
-      <button type="button" disabled={busy} onClick={()=>void disableLink()}>Turn off link</button>
-      <label>Setlist link<input ref={linkField} readOnly value={setlistLink(token)} onFocus={event=>event.currentTarget.select()}/></label>
-    </>}
-    {notice && <p role="status">{notice}</p>}
+export default function SetlistLinkSharing({link}:{link:ReturnType<typeof useSetlistLink>}){
+  return <section className="setlist-quick-share" aria-label="Share by link">
+    <button type="button" className="worship-primary" disabled={link.busy} onClick={()=>void link.copyLink()}>Copy setlist link</button>
+    {link.token&&<label>Setlist link<input ref={link.linkField} readOnly value={setlistLink(link.token)}
+      onFocus={event=>event.currentTarget.select()}/></label>}
+    {link.notice&&<p role="status">{link.notice}</p>}
   </section>
 }
