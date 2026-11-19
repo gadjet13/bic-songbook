@@ -11,7 +11,7 @@ export const isConnectorConsent = () =>
 
 function currentAuthorizationId() {
   const value = new URLSearchParams(location.search).get('authorization_id')
-  return value && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value) ? value : null
+  return value && value.length <= 256 && !/[^A-Za-z0-9_-]/.test(value) ? value : null
 }
 
 export function authReturnUrl() {
