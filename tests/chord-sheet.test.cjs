@@ -14,3 +14,8 @@ test('retains a standalone bar chart and detects the title immediately above it'
  assert.equal(result.content,bars+'\n[Verse]\nFirst lyric');
  assert.equal(exp.convertChordSheet('D G\n'+bars).content,'{D} {G}\n'+bars);
 });
+
+test('pastes chord lines with attached beat slashes without swallowing the lyric line',()=>{
+ const result=exp.convertChordSheet('[Verse]\nD      D/ F#m    Bm A\nForever Yours');
+ assert.equal(result.content,'[Verse]\n{D}Forever{D/} Yo{F#m}urs{Bm}{A}');
+});

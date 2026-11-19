@@ -1,5 +1,5 @@
 import { readingWords } from './lib/reader-lines'
-import { barChordParts, lyricsOnly, transposeChord } from './lib/chord/transpose'
+import { barChordParts, formatStoredChordRows, lyricsOnly, transposeChord } from './lib/chord/transpose'
 
 export function displaySong(
   content: string,
@@ -8,7 +8,7 @@ export function displaySong(
   wrapWords=false,
   showChords=true,
 ) {
-  if(!showChords)content=lyricsOnly(content)
+  content = showChords ? formatStoredChordRows(content) : lyricsOnly(content)
   const useFlats = currentKey.includes('b')
 
   const groups: { heading?: string; lines: string[] }[] = []
@@ -16,7 +16,7 @@ export function displaySong(
     const trimmed = line.trim()
     // A chord-only line such as [C] must remain a legacy chord, not a section.
     const bracket = trimmed.match(/^\[([^\]]+)\]$/)
-    const legacyChord = bracket && /^[A-G](?:#|b)?(?:m|maj|min|dim|aug|sus|add|\d|#|b|[-+()])*(?:\/[A-G](?:#|b)?)?$/.test(bracket[1])
+    const legacyChord = bracket && /^[A-G](?:#|b)?(?:m|maj|min|dim|aug|sus|add|\d|#|b|[-+()])*(?:\/[A-G](?:#|b)?)?\/*$/.test(bracket[1])
     const heading = trimmed.startsWith('# ') ? trimmed.slice(2) : bracket && !legacyChord ? bracket[1] : undefined
     if (heading !== undefined) groups.push({ heading, lines: [] })
     else {
@@ -48,7 +48,7 @@ function parseLine(
   useFlats: boolean,
 ) {
   const chordRegex =
-    /\[([A-G](?:#|b)?[^/\]\s]*(?:\/[A-G](?:#|b)?)?)\]|\{([A-G](?:#|b)?[^/}\s]*(?:\/[A-G](?:#|b)?)?)\}/g
+    /\[([A-G](?:#|b)?[^/\]\s]*(?:\/[A-G](?:#|b)?)?\/*)\]|\{([A-G](?:#|b)?[^/}\s]*(?:\/[A-G](?:#|b)?)?\/*)\}/g
 
   const matches = [
     ...line.matchAll(chordRegex),
