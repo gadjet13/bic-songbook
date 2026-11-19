@@ -1,16 +1,18 @@
+import { cachedPreference } from './lib/setlist-preferences'
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { Song } from './App'
 import { displaySong } from './SongChart'
-import { arrangedSong, capoStorageKey, readCapo, setlistSoundingKey, songKey } from './lib/setlist-arrangement'
+import { arrangedSong, setlistSoundingKey, songKey } from './lib/setlist-arrangement'
 
 type PrintMode = 'order' | 'lyrics' | 'chords'
 
-export default function SetlistPrint({title,songs,userId,listId}:{
+export default function SetlistPrint({title,songs,userId,listId,legacyListId=listId}:{
   title:string
   songs:(Song|undefined)[]
   userId:string
   listId:string
+  legacyListId?:string
 }) {
   const [mode,setMode]=useState<PrintMode>('order')
   const [useCapo,setUseCapo]=useState(false)
@@ -52,7 +54,7 @@ export default function SetlistPrint({title,songs,userId,listId}:{
       </ol>
       {mode!=='order'&&songs.map((song,index)=>{
         if(!song)return null
-        const fret=mode==='chords'&&useCapo&&songKey(song.key)?readCapo(capoStorageKey(userId,listId,song.id)):0
+        const fret=mode==='chords'&&useCapo&&songKey(song.key)?cachedPreference(userId,listId,song.id,legacyListId).capo:0
         const chart=arrangedSong(song,fret)
         const sounding=setlistSoundingKey(song.key,song.setlist_key)
         return <section className="setlist-print-song" key={index}>

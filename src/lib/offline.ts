@@ -3,7 +3,7 @@ import { loginPersistence } from './login-storage'
 import type { Song } from '../App'
 import type {LibraryDates} from './library-sort'
 export type OfflineList=LibraryDates&SetlistOrder&{id:string;title:string;revision:number}
-export type OfflineShared={id:string;title:string;sender_email:string;songs:Song[]}
+export type OfflineShared={id:string;setlist_id?:string;title:string;sender_email:string;songs:Song[]}
 export type OfflineBundle={userId:string;role:string;savedAt:string;personal:Song[];church:Song[];folders:(LibraryDates&{id:string;name:string})[];setlists:OfflineList[];favorites:number[];shared:OfflineShared[]}
 const dbName='bic-worship-offline-v1'
 function open():Promise<IDBDatabase>{return new Promise((resolve,reject)=>{const request=indexedDB.open(dbName,1);request.onupgradeneeded=()=>request.result.createObjectStore('accounts',{keyPath:'userId'});request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error)})}
