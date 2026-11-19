@@ -161,6 +161,7 @@ function App({library}: {library: SharedLibrary}) {
   const [readingMode, setReadingMode] = useState(false)
   const [fullSetReading,setFullSetReading]=useState(false)
   const returnToFullSetButton=useRef(false)
+  const fullSetCard=useRef<string|null>(null)
   const stageView=readingMode&&setlistQueue.length>0
   const [readingChoice,setReadingChoice]=useState(false)
   const [readingContent,setReadingContent]=useState<'lyrics'|'chords'>('chords')
@@ -193,7 +194,9 @@ function App({library}: {library: SharedLibrary}) {
     document.body.classList.toggle('full-set-reading',fullSetReading)
     if(!fullSetReading&&returnToFullSetButton.current){
       returnToFullSetButton.current=false
-      requestAnimationFrame(()=>document.querySelector<HTMLElement>('[data-read-full-set]')?.focus())
+      const card=fullSetCard.current
+      const trigger=card?`[data-read-full-set="${CSS.escape(card)}"]`:'[data-read-full-set=""]'
+      requestAnimationFrame(()=>document.querySelector<HTMLElement>(trigger)?.focus())
     }
     return ()=>document.body.classList.remove('full-set-reading')
   },[fullSetReading])
@@ -286,6 +289,7 @@ function App({library}: {library: SharedLibrary}) {
       activeSetlistSongEditor.current=null
       setSetlistSongEditor(null)
       if(historyFullSetRef.current&&!event.state?.bicFullSet)returnToFullSetButton.current=true
+      if(event.state?.bicFullSet)fullSetCard.current=typeof event.state.bicFullSet==='string'?event.state.bicFullSet:null
       setFullSetReading(!!event.state?.bicFullSet)
       setSetlistId(event.state?.bicSetlist??null)
       if(typeof event.state?.bicSetlistIndex==='boolean')setLibraryView(event.state.bicSetlistIndex?'setlists':'songs')
@@ -488,9 +492,17 @@ function App({library}: {library: SharedLibrary}) {
   )
   const filteredSongs = library.sharedSetlist?matchingSongs:sortSongsByDate(matchingSongs,dateSort)
 
-  function readFullSet(){
+  function readFullSet(listId?:string){
     if(!allowNavigation())return
-    history.pushState({...history.state,bicFullSet:true},'',location.href)
+    const next={...history.state,bicFullSet:listId??true}
+    if(listId){
+      next.bicSetlist=listId
+      delete next.bicSong
+      delete next.bicMode
+      setSetlistId(listId)
+    }
+    history.pushState(next,'',location.href)
+    fullSetCard.current=listId??null
     setFullSetReading(true)
   }
   function exitFullSet(){
@@ -704,7 +716,7 @@ function App({library}: {library: SharedLibrary}) {
 
       <main>
         {!selectedSong&&library.sharedSetlist&&<div className="setlist-primary-actions">
-          <button className="worship-primary" data-read-full-set onClick={readFullSet}>Read full set</button>
+          <button className="worship-primary" data-read-full-set="" onClick={()=>readFullSet()}>Read full set</button>
           <button disabled={!songList.length} onClick={()=>startSetlist(songList)}>Start shared setlist</button>
         </div>}
         <MenuSection><div className="library-tools">

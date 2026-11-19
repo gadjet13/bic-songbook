@@ -8,6 +8,17 @@ async function manage(listId:string, operation:'status'|'enable'|'disable'){
   return data as string|null
 }
 
+export async function copySetlistLink(token:string|null){
+  if(!token)throw new Error('Could not create the setlist link.')
+  const url=setlistLink(token)
+  try{
+    await navigator.clipboard.writeText(url)
+    return null
+  }catch{
+    return url
+  }
+}
+
 export function useSetlistLink(listId:string|null, newLink:Promise<string|null>|null){
   const [status,setStatus]=useState<{id:string;token:string|null;busy:boolean;notice:string}|null>(null)
   const current=status?.id===listId?status:null
@@ -36,11 +47,10 @@ export function useSetlistLink(listId:string|null, newLink:Promise<string|null>|
     try{
       const next=await manage(listId,'enable')
       if(activeId.current!==listId)return
-      if(!next)throw new Error('Could not create the setlist link.')
-      let notice='Setlist link copied.'
-      try{await navigator.clipboard.writeText(setlistLink(next))}
-      catch{notice='Select and copy the setlist link below.';requestAnimationFrame(()=>linkField.current?.select())}
-      if(activeId.current===listId)setStatus({id:listId,token:next,busy:false,notice})
+      const fallback=await copySetlistLink(next)
+      if(activeId.current!==listId)return
+      setStatus({id:listId,token:next,busy:false,notice:fallback?'Select and copy the setlist link below.':'Setlist link copied.'})
+      if(fallback)requestAnimationFrame(()=>linkField.current?.select())
     }catch(error){
       if(activeId.current===listId)setStatus({...current,busy:false,notice:(error as Error).message})
     }
