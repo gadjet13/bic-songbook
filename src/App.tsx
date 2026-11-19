@@ -1,3 +1,4 @@
+import { arrangedSong, setlistSoundingKey, songKey } from './lib/setlist-arrangement'
 import SongFlowEditor from './SongFlowEditor'
 import {hasFlowConflicts,mapFlowCursor,syncLinkedSections} from './lib/song-flow'
 import {songSortLabels,sortSongsByDate} from './lib/song-dates'
@@ -33,6 +34,7 @@ import { freshestSong } from './lib/editor-song'
 import SongOrganization, { useFavorites } from './SongOrganization'
 
 export type Song = {
+  setlist_key?: string | null
   created_at?: string | null
   updated_at?: string | null
   folder_id?: string | null
@@ -143,6 +145,7 @@ function App({library}: {library: SharedLibrary}) {
   const [startOnLastPage,setStartOnLastPage]=useState(false)
   const [readingMode, setReadingMode] = useState(false)
   const stageView=readingMode&&setlistQueue.length>0
+  const [capoPreferences,setCapoPreferences]=useState<Record<string,number>>({})
   const [readingChoice,setReadingChoice]=useState(false)
   const [readingContent,setReadingContent]=useState<'lyrics'|'chords'>('chords')
   const wakeStatus=useReadingWakeLock(readingMode)
@@ -182,6 +185,17 @@ function App({library}: {library: SharedLibrary}) {
     }
     setSelectedSong(songList[nextIndex]);setSetlistQueue(songList);setQueueIndex(nextIndex)
   },[library.songs,library.sharedSetlist])
+  const capoScope=selectedSong&&(setlistId??library.sharedSetlistId)
+    ? ['bic-setlist-capo',library.userId,setlistId??library.sharedSetlistId,selectedSong.id].join(':') : null
+  const capo=stageView&&capoScope ? (capoPreferences[capoScope]??readCapo(capoScope)) : 0
+  const plannedSong=stageView&&selectedSong?{...selectedSong,setlist_key:setlistQueue[queueIndex]?.setlist_key}:null
+  const stageSong=plannedSong?arrangedSong(plannedSong,capo):null
+  function changeCapo(fret:number){
+    if(!capoScope)return
+    setCapoPreferences(values=>({...values,[capoScope]:fret}))
+    try{localStorage.setItem(capoScope,String(fret))}catch{/* Keep the setting for this session. */}
+  }
+
   const historySongRef=useRef<Song|null>(null)
   historySongRef.current=selectedSong
   useEffect(()=>{
@@ -700,6 +714,14 @@ function App({library}: {library: SharedLibrary}) {
               <div className="stage-progress"><span>Song {queueIndex+1} of {setlistQueue.length}</span>
                 {setlistQueue[queueIndex+1]&&<span>Next: {setlistQueue[queueIndex+1].title}</span>}
               </div>
+              {selectedSong&&<div className="stage-actions">
+                <span>Sounding key: {setlistSoundingKey(selectedSong.key,plannedSong?.setlist_key)||'Not set'}</span>
+                {songKey(selectedSong.key)&&<label>My capo<select
+                  value={capo} onChange={event=>changeCapo(Number(event.target.value))}>
+                  {Array.from({length:12},(_,fret)=><option key={fret} value={fret}>{fret===0?'No capo':fret}</option>)}
+                </select></label>}
+                {!!capo&&stageSong&&<span>Chord shapes: {stageSong.key}</span>}
+              </div>}
               <div className="stage-actions">
                 <label>Jump to song<select value={queueIndex} onChange={event=>goToSetlistSong(Number(event.target.value))}>
                   {setlistQueue.map((song,index)=><option key={index} value={index}>{index+1}. {song.title}</option>)}
@@ -831,7 +853,7 @@ function App({library}: {library: SharedLibrary}) {
               </div>
             )}
 
-            <div className="reader-controls"><div className="transpose">
+            <div className="reader-controls">{!stageView&&<div className="transpose">
               <button
                 disabled={savingKey}
                 aria-label="Transpose down one semitone"
@@ -859,7 +881,7 @@ function App({library}: {library: SharedLibrary}) {
               </button>
               {!isEditing && library.ownerId && library.canEdit && <button className="save-key-button" disabled={savingKey||transpose===0||!/^([A-G](?:#|b)?)(m|maj|min)?$/.test(selectedSong.key)} onClick={()=>void saveInCurrentKey()}>{savingKey?'Saving…':`Save in ${getCurrentKey(selectedSong.key,transpose)} as base key`}</button>}
               {!isEditing && !stageView && <button className="reading-toggle" aria-pressed={readingMode} onClick={() => {if(readingMode)setReadingMode(false);else setReadingChoice(value=>!value)}}>{readingMode ? 'Exit reading mode' : 'Reading mode'}</button>}
-            </div>
+            </div>}
             {!isEditing && <div className="reading-tools" role="group" aria-label="Song text size">
                 <span>Text size</span>
                 <button aria-label="Decrease song text size" disabled={fontSize <= 6} onClick={() => setFontSize(size => Math.max(6, size - 2))}>A−</button>
@@ -871,7 +893,7 @@ function App({library}: {library: SharedLibrary}) {
             {!isEditing && (<>
               {readingMode&&!stageView&&<label className="reader-content-choice">Reading content<select aria-label="Reading content" value={readingContent} onChange={event=>setReadingContent(event.target.value as 'lyrics'|'chords')}><option value="lyrics">Lyrics only</option><option value="chords">Lyrics + chords</option></select></label>}
               {readingMode&&<small role="status">{wakeStatus}</small>}
-              {readingMode ? <SongPages key={selectedSong.id+'-'+queueIndex+'-'+readingContent} fontSize={fontSize} onFitFontSize={setFontSize} startOnLastPage={startOnLastPage} onPreviousSong={queueIndex>0&&setlistQueue.length?()=>goToSetlistSong(queueIndex-1,true):undefined} onNextSong={queueIndex<setlistQueue.length-1?()=>goToSetlistSong(queueIndex+1):undefined}>{displaySong(selectedSong.content, transpose, getCurrentKey(selectedSong.key, transpose),true,readingContent==='chords')}</SongPages> : <div className="song-display" style={{fontSize: `${fontSize}px`}} tabIndex={0} aria-label="Song lyrics and chords">
+              {readingMode ? <SongPages key={selectedSong.id+'-'+queueIndex+'-'+readingContent} fontSize={fontSize} onFitFontSize={setFontSize} startOnLastPage={startOnLastPage} onPreviousSong={queueIndex>0&&setlistQueue.length?()=>goToSetlistSong(queueIndex-1,true):undefined} onNextSong={queueIndex<setlistQueue.length-1?()=>goToSetlistSong(queueIndex+1):undefined}>{displaySong(stageSong?.content??selectedSong.content, stageSong?0:transpose, stageSong?.key??getCurrentKey(selectedSong.key,transpose),true,readingContent==='chords')}</SongPages> : <div className="song-display" style={{fontSize: `${fontSize}px`}} tabIndex={0} aria-label="Song lyrics and chords">
                 {displaySong(
                   selectedSong.content,
                   transpose,
@@ -889,6 +911,13 @@ function App({library}: {library: SharedLibrary}) {
       </main>
     </div>
   )
+}
+
+function readCapo(key:string){
+  try{
+    const value=Number(localStorage.getItem(key))
+    return Number.isInteger(value)&&value>=0&&value<=11?value:0
+  }catch{return 0}
 }
 
 function displaySong(
