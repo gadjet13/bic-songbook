@@ -361,3 +361,26 @@ select:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
 .flow-warning {padding:10px;border:1px dashed var(--accent);border-radius:8px;margin:10px 0;background:var(--soft);}
 .flow-preamble {padding:10px;border:1px solid var(--border);border-radius:8px;}
 .flow-linked-note {font-weight:600;}
+
+/* Library navigation and actions */
+.library-tabs, .song-search-toolbar, .setlist-tools { display: flex; gap: .75rem; align-items: center; }
+.library-tabs { margin-block: 1rem; border-bottom: 1px solid currentColor; }
+.library-tabs button { flex: 1; border: 0; background: transparent; color: inherit; }
+.library-tabs button[aria-pressed="true"] { border-bottom: 3px solid #8b63c3; font-weight: 700; }
+.song-search-toolbar { margin-block: 1rem; }
+.song-search-toolbar input { flex: 1; min-width: 0; min-height: 44px; padding: .65rem .8rem; border: 1px solid currentColor; border-radius: .5rem; background: inherit; color: inherit; }
+.song-search-toolbar .add-song-button { margin: 0; white-space: nowrap; }
+.song-list .song-item { flex-direction: row; justify-content: space-between; align-items: center; gap: .75rem; }
+.song-item .library-song-name { display: grid; gap: .15rem; margin: 0; color: inherit; overflow-wrap: anywhere; }
+.library-song-name small { font-size: .875rem; }
+.song-item .library-song-key { flex-shrink: 0; margin: 0; }
+.setlist-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: .8rem; }
+.library-setlist-card { display: grid; gap: .45rem; align-content: start; padding: .9rem; border: 1px solid #8b63c366; border-radius: .75rem; }
+.library-setlist-card p { margin: 0; }
+.library-setlist-card .setlist-card-title { border: 0; padding: 0; text-align: left; background: transparent; color: inherit; font-weight: 700; overflow-wrap: anywhere; }
+.library-setlist-card .primary-action { background: #634691; border: 1px solid #634691; border-radius: .5rem; color: white; }
+.library-setlist-card .primary-action:disabled { opacity: .55; }
+@media (max-width: 380px) {
+  .song-search-toolbar { flex-wrap: wrap; }
+  .song-search-toolbar input, .song-search-toolbar .add-song-button { flex: 1 1 100%; }
+}
