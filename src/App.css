@@ -409,3 +409,5 @@ select:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
   .setlist-print-song .chord { color: #000; }
   .setlist-print-song .lyrics-only-block .chord { display: none; }
 }
+
+.song-line.song-bar-row { white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
