@@ -1,3 +1,5 @@
+import ReaderChartEditor from './ReaderChartEditor'
+import type { ChartPitch } from './lib/reader-chart-edit'
 import ReadingColumns from './ReadingColumns'
 import ReadingTextSize, { maxReadingTextSize, minReadingTextSize } from './ReadingTextSize'
 import type { ReaderColumns } from './lib/reader-lines'
@@ -5,7 +7,7 @@ import FullSetlistReader from './FullSetlistReader'
 import type { FullReaderControls } from './FullSetlistReader'
 import SetlistSongNote from './SetlistSongNote'
 import { cachedPreference, flushSetlistCapos, initializeSetlistCapo, legacyCapo, loadSetlistPreferences, preferencesChanged, queueSetlistCapo } from './lib/setlist-preferences'
-import { arrangedSong, setlistSoundingKey, songKey } from './lib/setlist-arrangement'
+import { arrangedSong, arrangementPitch, setlistSoundingKey, songKey } from './lib/setlist-arrangement'
 import SongFlowEditor from './SongFlowEditor'
 import {hasFlowConflicts,mapFlowCursor,syncLinkedSections} from './lib/song-flow'
 import {songSortLabels,sortSongsByDate} from './lib/song-dates'
@@ -137,6 +139,8 @@ export type SharedLibrary = {
   update: (song: Song) => Promise<Song>
   remove: (song: Song) => Promise<void>
 }
+type ReaderEdit = {song:Song; occurrence:string; pitch:ChartPitch; content:string; scroll:number; trigger:HTMLElement}
+
 function App({library}: {library: SharedLibrary}) {
   const {favorites,toggle:toggleFavorite,error:favoriteError,busy:favoriteBusy}=useFavorites(library.userId,library.offline?library.offlineData?.favorites:undefined)
   const [folder,setFolder]=useState('all')
@@ -161,6 +165,10 @@ function App({library}: {library: SharedLibrary}) {
   const [startOnLastPage,setStartOnLastPage]=useState(false)
   const [readingMode, setReadingMode] = useState(false)
   const [fullSetReading,setFullSetReading]=useState(false)
+  const [readerEdit,setReaderEdit]=useState<ReaderEdit|null>(null)
+  const [readerSaving,setReaderSaving]=useState(false)
+  const [readerError,setReaderError]=useState('')
+  const readerSavePending=useRef(false)
   const returnToFullSetButton=useRef(false)
   const fullSetCard=useRef<string|null>(null)
   const stageView=readingMode&&setlistQueue.length>0
@@ -187,10 +195,19 @@ function App({library}: {library: SharedLibrary}) {
   useEffect(() => {
     document.body.classList.toggle('song-reading-mode', readingMode)
     if (readingMode) window.scrollTo(0, 0)
-    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') setReadingMode(false) }
-    window.addEventListener('keydown', escape)
-    return () => { document.body.classList.remove('song-reading-mode'); window.removeEventListener('keydown', escape) }
+    return () => document.body.classList.remove('song-reading-mode')
   }, [readingMode])
+  useEffect(()=>{
+    if(!readingMode)return
+    const escape = (event: KeyboardEvent) => {
+      if(event.key!=='Escape'||event.defaultPrevented||history.state?.bicFullSet)return
+      if(readerEdit){
+        if(!(event.target instanceof HTMLElement&&event.target.matches('input,textarea,select')))cancelReaderEdit()
+      }else setReadingMode(false)
+    }
+    window.addEventListener('keydown', escape)
+    return () => window.removeEventListener('keydown', escape)
+  }, [readingMode,readerEdit])
   useEffect(()=>{
     document.body.classList.toggle('full-set-reading',fullSetReading)
     if(!fullSetReading&&returnToFullSetButton.current){
@@ -286,6 +303,7 @@ function App({library}: {library: SharedLibrary}) {
   },[selectedSong?.id])
   useEffect(()=>{
     const back=(event:PopStateEvent)=>{
+      setReaderEdit(null)
       setlistReturnFocus.current=null
       activeSetlistSongEditor.current=null
       setSetlistSongEditor(null)
@@ -367,6 +385,54 @@ function App({library}: {library: SharedLibrary}) {
   const dirtySong=!!isEditing&&!!selectedSong&&(editedTitle!==selectedSong.title||editedArtist!==selectedSong.artist||editedKey!==selectedSong.key||editedContent!==selectedSong.content||!!editedRaw.trim())
   const dirtyNew=isAddingSong&&!!(newSongTitle.trim()||newSongArtist.trim()||newSongContent.trim()||newRaw.trim()||newSongKey!=='C')
   useUnsavedChanges(dirtySong||dirtyNew)
+  const readerDirty=!!readerEdit&&readerEdit.content!==readerEdit.song.content
+  useUnsavedChanges(readerDirty,readerSaving)
+  useEffect(()=>{
+    if(!readerEdit||!readerDirty)return
+    const {song,content}=readerEdit
+    setSongDrafts(writeSongDraft(recoveryKey,{id:'song:'+song.id,songId:song.id,baseRevision:song.revision,
+      title:song.title,artist:song.artist,key:song.key,content,raw:'',folderId:song.folder_id??null,updatedAt:new Date().toISOString()}))
+  },[readerEdit,readerDirty,recoveryKey])
+
+  function unlockReader(song:Song,pitch:ChartPitch,occurrence:string,trigger:HTMLElement){
+    if(!canEditInReader||readerSavePending.current||!allowNavigation())return
+    const draft=readSongDrafts(recoveryKey).find(row=>row.songId===song.id)
+    if(draft&&(!canResumeSongDraft(draft,song)||draft.raw||draft.title!==song.title||draft.artist!==song.artist||draft.key!==song.key||
+      (draft.folderId??null)!==(song.folder_id??null))){
+      setNotice('Recover your existing draft from the Songs tab before editing this chart in the reader.')
+      return
+    }
+    setNotice('');setReaderError('')
+    setReaderEdit({song,pitch,occurrence,content:draft?.content??song.content,scroll:window.scrollY,trigger})
+    requestAnimationFrame(()=>document.querySelector<HTMLElement>('[data-reader-edit-heading]')?.focus())
+  }
+  function lockReader(){
+    if(!readerEdit)return
+    const {trigger,scroll}=readerEdit
+    setReaderEdit(null);setReaderError('')
+    requestAnimationFrame(()=>{window.scrollTo(0,scroll);trigger.focus({preventScroll:true})})
+  }
+  function cancelReaderEdit(){
+    if(!readerEdit||readerSavePending.current)return
+    if(readerDirty&&!window.confirm('Discard your unsaved chart changes?'))return
+    clearDraft('song:'+readerEdit.song.id)
+    lockReader()
+  }
+  async function saveReaderEdit(){
+    if(!readerEdit||readerSavePending.current)return
+    if(!readerDirty){clearDraft('song:'+readerEdit.song.id);lockReader();return}
+    if(!canEditInReader||hasFlowConflicts(readerEdit.content))return
+    readerSavePending.current=true;setReaderSaving(true);setReaderError('')
+    try{
+      const saved=await library.update({...readerEdit.song,content:readerEdit.content})
+      setSelectedSong(current=>current?.id===saved.id?saved:current)
+      setSetlistQueue(queue=>queue.map(song=>song.id===saved.id?{...saved,setlist_key:song.setlist_key}:song))
+      clearDraft('song:'+saved.id)
+      lockReader()
+      setNotice('Chart saved.')
+    }catch(error){setReaderError(error instanceof Error?error.message:String((error as {message?:string})?.message??error))}
+    finally{readerSavePending.current=false;setReaderSaving(false)}
+  }
   useEffect(()=>{
     if(library.sharedSetlist||!library.canEdit)return
     const draft:SongDraft|null=dirtyNew?{id:'new',songId:null,title:newSongTitle,artist:newSongArtist,key:newSongKey,content:newSongContent,raw:newRaw,folderId:folder==='all'||folder==='unfiled'?null:folder,updatedAt:new Date().toISOString()}:dirtySong&&selectedSong?{id:'song:'+selectedSong.id,songId:selectedSong.id,baseRevision:selectedSong.revision,title:editedTitle,artist:editedArtist,key:editedKey,content:editedContent,raw:editedRaw,folderId:selectedSong.folder_id??null,updatedAt:new Date().toISOString()}:null
@@ -507,8 +573,9 @@ function App({library}: {library: SharedLibrary}) {
     setFullSetReading(true)
   }
   function exitFullSet(){
+    if(readerSavePending.current)return
     if(history.state?.bicFullSet)history.back()
-    else {returnToFullSetButton.current=true;setFullSetReading(false)}
+    else if(allowNavigation()){setReaderEdit(null);returnToFullSetButton.current=true;setFullSetReading(false)}
   }
   function openSetlist(id:string,saved=false){
     if(!saved&&!allowNavigation())return
@@ -543,7 +610,8 @@ function App({library}: {library: SharedLibrary}) {
 
   function goToSetlistSong(index:number,fromPreviousPage=false){
     const song=setlistQueue[index]
-    if(!song||!allowNavigation())return
+    if(!song||readerSavePending.current||!allowNavigation())return
+    setReaderEdit(null)
     selectSong(song,true)
     setQueueIndex(index);setStartOnLastPage(fromPreviousPage);setReadingMode(true)
   }
@@ -700,10 +768,18 @@ function App({library}: {library: SharedLibrary}) {
     }
   }
 
+  const canEditInReader=!!library.ownerId&&library.canEdit&&!library.offline&&!library.sharedSetlist
+  const readerEditor=readerEdit?<ReaderChartEditor key={readerEdit.occurrence} content={readerEdit.content}
+    onChange={content=>setReaderEdit({...readerEdit,content})}
+    pitch={readerEdit.pitch} baseKey={readerEdit.song.key} busy={readerSaving} canSave={!readerDirty||canEditInReader}
+    error={readerError||(!canEditInReader?'Reconnect to save your chart.':'')} dirty={readerDirty}
+    onSave={()=>void saveReaderEdit()} onCancel={cancelReaderEdit}/>:null
   const fullReader:FullReaderControls|null=fullSetReading?{
     userId:library.userId,preferenceId,legacyId:oldPreferenceId,offline:!!library.offline,
     content:readingContent,changeContent:setReadingContent,changeCapo,exit:exitFullSet,
-    wakeStatus,preferenceError,fontSize,changeFontSize:setFontSize,readerColumns,changeColumns:setReaderColumns
+    wakeStatus,preferenceError,fontSize,changeFontSize:setFontSize,readerColumns,changeColumns:setReaderColumns,
+    onUnlock:canEditInReader?unlockReader:undefined,editingOccurrence:readerEdit?.occurrence,editor:readerEditor,
+    cancelEditing:cancelReaderEdit
   }:null
   if(fullReader&&library.sharedSetlist)return <div className="app"><main>
     <FullSetlistReader title={library.bookName} songs={songList} controls={fullReader}/>
@@ -868,11 +944,11 @@ function App({library}: {library: SharedLibrary}) {
           <div className="song-view">
             <button
               className="back-button"
-              disabled={savingSong}
+              disabled={savingSong||readerSaving}
               onClick={() => {
                 if(setlistSongEditor){cancelEditing();return}
                 if(history.state?.bicSong)history.back()
-                else {setSelectedSong(null);setIsEditing(false);setReadingMode(false);setSetlistQueue([])}
+                else if(allowNavigation()){setReaderEdit(null);setSelectedSong(null);setIsEditing(false);setReadingMode(false);setSetlistQueue([])}
               }}
             >
               {setlistId?'← Back to setlist':'← Back to songs'}
@@ -890,7 +966,7 @@ function App({library}: {library: SharedLibrary}) {
               {selectedSong&&<div className="stage-actions">
                 <span>Sounding key: {setlistSoundingKey(selectedSong.key,plannedSong?.setlist_key)||'Not set'}</span>
                 {songKey(selectedSong.key)&&<label>My capo<select
-                  value={capo} onChange={event=>changeCapo(selectedSong.id,Number(event.target.value))}>
+                  disabled={!!readerEdit} value={capo} onChange={event=>changeCapo(selectedSong.id,Number(event.target.value))}>
                   {Array.from({length:12},(_,fret)=><option key={fret} value={fret}>{fret===0?'No capo':fret}</option>)}
                 </select></label>}
                 {!!capo&&stageSong&&<span>Chord shapes: {stageSong.key}</span>}
@@ -904,7 +980,7 @@ function App({library}: {library: SharedLibrary}) {
                   <button aria-pressed={readingContent==='lyrics'} onClick={()=>setReadingContent('lyrics')}>Lyrics</button>
                   <button aria-pressed={readingContent==='chords'} onClick={()=>setReadingContent('chords')}>Chords</button>
                 </div>
-                <button onClick={()=>{if(history.state?.bicSong)history.back();else{setSelectedSong(null);setSetlistQueue([]);setReadingMode(false)}}}>Exit setlist</button>
+                <button disabled={readerSaving} onClick={()=>{if(history.state?.bicSong)history.back();else if(!readerSavePending.current&&allowNavigation()){setReaderEdit(null);setSelectedSong(null);setSetlistQueue([]);setReadingMode(false)}}}>Exit setlist</button>
               </div>
               {localPreferenceId&&songId&&<SetlistSongNote key={localPreferenceId+':'+songId}
                 userId={library.userId} listId={localPreferenceId} songId={songId}
@@ -1035,7 +1111,7 @@ function App({library}: {library: SharedLibrary}) {
 
             <div className="reader-controls">{!stageView&&<div className="transpose">
               <button
-                disabled={savingKey}
+                disabled={savingKey||!!readerEdit}
                 aria-label="Transpose down one semitone"
                 onClick={() =>
                   changeTranspose(-1)
@@ -1051,7 +1127,7 @@ function App({library}: {library: SharedLibrary}) {
               </span>
 
               <button
-                disabled={savingKey}
+                disabled={savingKey||!!readerEdit}
                 aria-label="Transpose up one semitone"
                 onClick={() =>
                   changeTranspose(1)
@@ -1059,8 +1135,8 @@ function App({library}: {library: SharedLibrary}) {
               >
                 +
               </button>
-              {!isEditing && library.ownerId && library.canEdit && <button className="save-key-button" disabled={savingKey||transpose===0||!/^([A-G](?:#|b)?)(m|maj|min)?$/.test(selectedSong.key)} onClick={()=>void saveInCurrentKey()}>{savingKey?'Saving…':`Save in ${getCurrentKey(selectedSong.key,transpose)} as base key`}</button>}
-              {!isEditing && !stageView && <button className="reading-toggle" aria-pressed={readingMode} onClick={() => {if(readingMode)setReadingMode(false);else setReadingChoice(value=>!value)}}>{readingMode ? 'Exit reading mode' : 'Reading mode'}</button>}
+              {!isEditing && library.ownerId && library.canEdit && <button className="save-key-button" disabled={savingKey||!!readerEdit||transpose===0||!/^([A-G](?:#|b)?)(m|maj|min)?$/.test(selectedSong.key)} onClick={()=>void saveInCurrentKey()}>{savingKey?'Saving…':`Save in ${getCurrentKey(selectedSong.key,transpose)} as base key`}</button>}
+              {!isEditing && !stageView && <button className="reading-toggle" aria-pressed={readingMode} onClick={() => {if(readerEdit)cancelReaderEdit();else if(readingMode)setReadingMode(false);else setReadingChoice(value=>!value)}}>{readerEdit?'Cancel chart editing':readingMode?'Exit reading mode':'Reading mode'}</button>}
             </div>}
             {!isEditing&&!readingMode&&<ReadingTextSize value={fontSize} onChange={setFontSize}/>}
             </div>
@@ -1072,7 +1148,14 @@ function App({library}: {library: SharedLibrary}) {
                 <ReadingTextSize value={fontSize} onChange={setFontSize}/>
               </div>}
               {readingMode&&<small role="status">{wakeStatus}</small>}
-              {readingMode ? <SongPages key={selectedSong.id+'-'+queueIndex+'-'+readingContent} columnPreference={readerColumns} fontSize={fontSize} onFitFontSize={setFontSize} startOnLastPage={startOnLastPage} onPreviousSong={queueIndex>0&&setlistQueue.length?()=>goToSetlistSong(queueIndex-1,true):undefined} onNextSong={queueIndex<setlistQueue.length-1?()=>goToSetlistSong(queueIndex+1):undefined}>{displaySong(stageSong?.content??selectedSong.content, stageSong?0:transpose, stageSong?.key??getCurrentKey(selectedSong.key,transpose),true,readingContent==='chords')}</SongPages> : <div className="song-display" style={{fontSize: `${fontSize}px`}} tabIndex={0} aria-label="Song lyrics and chords">
+              {readingMode&&canEditInReader&&<button type="button" hidden={!!readerEdit} onClick={event=>{
+                const key=getCurrentKey(selectedSong.key,transpose)
+                const pitch=plannedSong?arrangementPitch(plannedSong,capo)??{semitones:0,key:selectedSong.key,flats:selectedSong.key.includes('b')}
+                  :{semitones:transpose,key,flats:key.includes('b')}
+                unlockReader(selectedSong,pitch,'single-'+selectedSong.id,event.currentTarget)
+              }}>Unlock editing</button>}
+              {readingMode&&readerEditor}
+              {readingMode ? <div hidden={!!readerEdit}><SongPages key={selectedSong.id+'-'+queueIndex+'-'+readingContent} columnPreference={readerColumns} fontSize={fontSize} onFitFontSize={setFontSize} startOnLastPage={startOnLastPage} onPreviousSong={queueIndex>0&&setlistQueue.length?()=>goToSetlistSong(queueIndex-1,true):undefined} onNextSong={queueIndex<setlistQueue.length-1?()=>goToSetlistSong(queueIndex+1):undefined}>{displaySong(stageSong?.content??selectedSong.content, stageSong?0:transpose, stageSong?.key??getCurrentKey(selectedSong.key,transpose),true,readingContent==='chords')}</SongPages></div> : <div className="song-display" style={{fontSize: `${fontSize}px`}} tabIndex={0} aria-label="Song lyrics and chords">
                 {displaySong(
                   selectedSong.content,
                   transpose,

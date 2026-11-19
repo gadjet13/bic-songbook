@@ -45,7 +45,7 @@ export default function SongPages({ children, fontSize, onFitFontSize, onNextSon
     const element = viewport.current!
     let active = true
     const rebuild = () => {
-      if (!active) return
+      if (!active || !element.clientWidth) return
       const count = readerColumnCount(columnPreference,window.innerWidth)
       const height = Math.max(80, window.innerHeight - element.getBoundingClientRect().top - (navigation.current?.offsetHeight || 44) - 24)
       const measuring = measure.current!

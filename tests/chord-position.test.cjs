@@ -6,3 +6,24 @@ test('cross-line moves preserve line endings and cannot put a chord into a secti
 test('Unicode boundaries do not split surrogate pairs',()=>{const input='{C}A😀B';assert.equal(api.movePositionedChord(input,0,0,0,2).content,'A{C}😀B');assert.equal(lyrics(api.movePositionedChord(input,0,0,0,3).content),'A😀B')});
 test('multiple chords at one position stay present and keep deterministic order',()=>{const input='{C}{G}word {Am}next';const moved=api.movePositionedChord(input,0,2,0,0);assert.equal(moved.content,'{C}{G}{Am}word next');assert.equal(moved.index,2)});
 test('many repeated moves preserve every lyric character and chord token',()=>{let current='[Verse]\n{C}Hello {G/B}friends\n{Am}Beautiful 😀 day';const original=current;for(let i=0;i<150;i++){const lines=current.split('\n'),source=1+i%2,parsed=api.parseChordPositions(lines[source]);if(!parsed.chords.length)continue;const target=1+(i+1)%2,position=i%api.parseChordPositions(lines[target]).lyrics.length;const moved=api.movePositionedChord(current,source,0,target,position);assert(moved);current=moved.content;assert.equal(lyrics(current),lyrics(original));assert.equal(tokens(current),tokens(original))}});
+
+test('lyric editing keeps chord anchors through insertions, deletions, and line breaks',()=>{
+ const chart='# Verse 1 [slight soft]\r\n{D}Hi [A/C#]there\r\n{Em}Again'
+ const insert=api.editPositionedLyrics(chart,1,'Well Hi there',5)
+ assert.equal(insert.content,'# Verse 1 [slight soft]\r\nWell {D}Hi [A/C#]there\r\n{Em}Again')
+ const split=api.editPositionedLyrics(chart,1,'Hi \nthere',4)
+ assert.equal(split.content,'# Verse 1 [slight soft]\r\n{D}Hi \r\n[A/C#]there\r\n{Em}Again')
+ assert.equal(split.caret,0)
+ assert.equal(split.line,2)
+ assert.equal(api.editPositionedLyrics(chart,1,'Hie',2).content,'# Verse 1 [slight soft]\r\n{D}Hi[A/C#]e\r\n{Em}Again')
+ assert.equal(api.editPositionedLyrics(split.content,2,'there',0,true).content,chart)
+ assert.equal(api.editPositionedLyrics(chart,1,'[Chorus]',8),null)
+});
+
+test('insert and replace chords without changing source around the edited token',()=>{
+ const chart='# Verse 1 [slight soft]\n{D}A😀 [A/C#]word'
+ assert.equal(api.putPositionedChord(chart,1,3,'Bm'),'# Verse 1 [slight soft]\n{D}A😀{Bm} [A/C#]word')
+ assert.equal(api.putPositionedChord(chart,1,4,'G/B',1),'# Verse 1 [slight soft]\n{D}A😀 [G/B]word')
+ assert.equal(api.putPositionedChord(chart,0,0,'A'),chart)
+ assert.equal(api.putPositionedChord(chart,1,2,'A'),chart)
+});
