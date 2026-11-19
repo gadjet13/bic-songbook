@@ -1,4 +1,4 @@
-const chord=/^[A-G](?:#|b)?(?:(?:maj|min|dim|aug|sus|add|omit|no|m|M)|\d|[#b()+-])*(?:\/[A-G](?:#|b)?)?$/
+const chord=/^[A-G](?:#|b)?(?:(?:maj|min|dim|aug|sus|add|omit|no|m|M)|\d|[#b()+-])*(?:\/[A-G](?:#|b)?)?\/*$/
 export type PositionedChord={token:string;label:string;position:number;index:number}
 export type ChordLine={lyrics:string;chords:PositionedChord[];ending:string;heading:boolean}
 export function parseChordPositions(line:string):ChordLine{

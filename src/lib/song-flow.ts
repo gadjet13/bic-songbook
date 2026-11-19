@@ -1,6 +1,6 @@
 export type FlowSection={label:string;heading:string;body:string;start:number;bodyStart:number}
 export type FlowDocument={preamble:string;sections:FlowSection[];newline:string}
-const chord=/^[A-G](?:#|b)?(?:(?:maj|min|dim|aug|sus|add|omit|no|m|M)|\d|[#b()+-])*(?:\/[A-G](?:#|b)?)?$/
+const chord=/^[A-G](?:#|b)?(?:(?:maj|min|dim|aug|sus|add|omit|no|m|M)|\d|[#b()+-])*(?:\/[A-G](?:#|b)?)?\/*$/
 export const sectionKey=(label:string)=>label.trim().replace(/\s+/g,' ').toLowerCase()
 export const sectionBodyKey=(body:string)=>body.replace(/\r\n/g,'\n').replace(/(?:\n[ \t]*)+$/,'')
 function headingLabel(line:string){const text=line.trim();if(text.startsWith('# '))return text.slice(2).trim()||null;const match=text.match(/^\[([^\]\r\n]+)\]$/);return match&&!chord.test(match[1])?match[1].trim()||null:null}

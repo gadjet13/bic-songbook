@@ -1,13 +1,14 @@
-const chordPattern = /^[A-G](?:#|b)?(?:(?:maj|min|dim|aug|sus|add|omit|no|m|M)|\d|[#b()+-])*(?:\/[A-G](?:#|b)?)?$/
+import { alignChordRow, barChordParts, chordRowPositions, isChordToken } from './chord/transpose'
+
 const repeatPattern = /^x[1-9]\d*$/i
 const pageMarker = /^Page\s+\d+\s*\/\s*\d+$/i
 
 type ChordSheetWarning = { line: number; kind: 'past-lyrics' | 'unrecognized-row' }
 
 function chordRow(line: string) {
-  const chords = [...line.matchAll(/\S+/g)]
-  const repeat = repeatPattern.test(chords.at(-1)?.[0] ?? '') ? chords.pop()?.[0] : undefined
-  return chords.length && chords.every(match => chordPattern.test(match[0])) ? { chords, repeat } : null
+  const repeatMatch = /\s+(x[1-9]\d*)\s*$/i.exec(line)
+  const chords = chordRowPositions(repeatMatch ? line.slice(0, repeatMatch.index) : line)
+  return chords ? { chords, repeat: repeatMatch?.[1] } : null
 }
 
 function isSection(line: string) {
@@ -16,8 +17,8 @@ function isSection(line: string) {
 
 function looksLikeChordRow(line: string) {
   const tokens = line.trim().split(/\s+/)
-  return tokens.length > 1 && tokens.some(token => chordPattern.test(token)) &&
-    tokens.every(token => chordPattern.test(token) || repeatPattern.test(token) ||
+  return tokens.length > 1 && tokens.some(isChordToken) &&
+    tokens.every(token => isChordToken(token) || repeatPattern.test(token) ||
       /^[A-G][#b]?[^\s]*[\d/?#][^\s]*$/.test(token) || /^\|+$/.test(token))
 }
 
@@ -31,8 +32,8 @@ export function convertChordSheet(raw: string): { title: string; content: string
     const candidate = lines[first].text.trim()
     const next = lines.slice(first + 1).find(({ text }) => !!text.trim())?.text
     if (/^\*\*.+\*\*$/.test(candidate)) title = candidate.slice(2, -2)
-    else if (next && (chordRow(next) || isSection(next)) && candidate.length <= 100 &&
-      !/[{}\[\]#]/.test(candidate) && !chordRow(candidate) && !looksLikeChordRow(candidate)) title = candidate
+    else if (next && (chordRow(next) || barChordParts(next) || isSection(next)) && candidate.length <= 100 &&
+      !/[{}\[\]#]/.test(candidate) && !chordRow(candidate) && !barChordParts(candidate) && !looksLikeChordRow(candidate)) title = candidate
     if (title) lines.splice(first, 1)
   }
 
@@ -42,25 +43,20 @@ export function convertChordSheet(raw: string): { title: string; content: string
     const { text, number } = lines[index]
     const row = chordRow(text)
     if (!row) {
-      if (looksLikeChordRow(text)) warnings.push({ line: number, kind: 'unrecognized-row' })
+      if (!barChordParts(text) && looksLikeChordRow(text)) warnings.push({ line: number, kind: 'unrecognized-row' })
       output.push(text)
       continue
     }
     const next = lines[index + 1]?.text
-    if (row.repeat || !next?.trim() || isSection(next) || chordRow(next) || looksLikeChordRow(next)) {
-      const chords = row.chords.map(match => `{${match[0]}}`).join(' ')
+    if (row.repeat || !next?.trim() || isSection(next) || chordRow(next) || barChordParts(next) || looksLikeChordRow(next)) {
+      const chords = row.chords.map(({chord}) => `{${chord}}`).join(' ')
       output.push(row.repeat ? `${chords}  ${row.repeat}` : chords)
       continue
     }
-    if (row.chords.some(match => match.index! >= next.trimEnd().length)) {
+    if (row.chords.some(({column}) => column >= next.trimEnd().length)) {
       warnings.push({ line: number, kind: 'past-lyrics' })
     }
-    let converted = next
-    for (const match of row.chords.reverse()) {
-      const position = Math.min(match.index!, next.length)
-      converted = converted.slice(0, position) + `{${match[0]}}` + converted.slice(position)
-    }
-    output.push(converted.trimEnd())
+    output.push(alignChordRow(row.chords, next))
     index++
   }
   return { title, content: output.join('\n').trim(), warnings }
