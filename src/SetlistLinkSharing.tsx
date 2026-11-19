@@ -57,7 +57,7 @@ export function useSetlistLink(listId:string|null, newLink:Promise<string|null>|
   }
 
   async function disableLink(){
-    if(!listId||!current||current.busy||!window.confirm('Turn off this link and remove access for people who joined through it? Email invitations will still work.'))return
+    if(!listId||!current||current.busy||!window.confirm('Turn off this link and remove access for people who joined through it?'))return
     setStatus({...current,busy:true,notice:''})
     try{
       await manage(listId,'disable')

@@ -40,8 +40,7 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLi
  const [personal,setPersonal]=useState(songs)
  useEffect(()=>{setPersonal(previous=>{const merged=new Map(previous.map(song=>[song.id,song]));for(const song of songs){const old=merged.get(song.id);if(!old||(song.revision??0)>=(old.revision??0))merged.set(song.id,song)}return [...merged.values()]})},[songs])
  const [lists,setLists]=useState<Setlist[]>([]),[selected,setSelected]=useState<Setlist|null>(null)
- const [title,setTitle]=useState(''),[entries,setEntries]=useState<SetlistEntry[]>([]),[search,setSearch]=useState(''),[recipient,setRecipient]=useState('')
- const [shares,setShares]=useState<{id:string;recipient_email:string}[]>([]),[friends,setFriends]=useState<{email:string;nickname:string}[]>([])
+ const [title,setTitle]=useState(''),[entries,setEntries]=useState<SetlistEntry[]>([]),[search,setSearch]=useState('')
  const [editing,setEditing]=useState(false),[limit,setLimit]=useState(false),[busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[loaded,setLoaded]=useState(false)
  const [createdLink,setCreatedLink]=useState<{id:string;request:Promise<string|null>}|null>(null)
  const [cardLink,setCardLink]=useState<{id:string;fallback:string|null}|null>(null)
@@ -81,7 +80,7 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLi
   else{setTitle(list.title);setEntries(setlistEntries(list));setEditing(true)}
  }
  useEffect(()=>{
-  setLimit(false);setPickerOpen(false);setSearch('');setRecipient('');setNotice('');setCardLink(null)
+  setLimit(false);setPickerOpen(false);setSearch('');setNotice('');setCardLink(null)
   if(activeId==='new'){
    const draft=pendingDraft.current??(ownerId?readSetlistDrafts(ownerId).find(row=>row.id==='new'):undefined)
    if(draft)applyDraft(draft,null)
@@ -98,9 +97,6 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLi
   setDrafts(saveSetlistDraft(ownerId,{id,listId:selected?.id??null,baseRevision:selected?.revision,title,songIds:ids,songEntries:entries,updatedAt:new Date().toISOString()}))
   setDraftStatus(loginPersistence.isPersisted(setlistDraftKey(ownerId))?'Setlist draft saved on this browser. Save setlist to update the database.':'Draft is only in memory. Browser storage is unavailable or full; save before closing this tab.')
  },[ownerId,canEdit,activeId,editing,dirty,title,JSON.stringify(entries),selected?.id,selected?.revision])
- async function loadShares(id:string){if(offlineLists)return;const {data,error}=await cloud!.from('songbook_setlist_shares').select('id,recipient_email').eq('setlist_id',id).eq('shared_by_email',true);if(error)throw error;setShares(data??[])}
- useEffect(()=>{setShares([]);if(selected&&!offlineLists)void loadShares(selected.id).catch(error=>setNotice(message(error)))},[selected?.id,offlineLists])
- async function loadFriends(){if(!ownerId||offlineLists)return;const {data,error}=await cloud!.from('songbook_friends').select('email,nickname').eq('owner_id',ownerId).order('email');if(error)throw error;setFriends(data??[])}
  async function action(fn:()=>Promise<void>){
   if(actionPending.current)return
   actionPending.current=true;setBusy(true);setNotice('')
@@ -265,7 +261,9 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLi
  <SetlistKeyOverview songs={slots(selected)} onOpen={index=>{const playable=queue(selected);onOpen(playable,selected.id,slots(selected).slice(0,index).filter(Boolean).length,selected.song_ids.length-playable.length)}}/>
  <div className="setlist-copy-row"><SetlistCopy songs={queue(selected)}/></div>
  {ownerId&&<SetlistPrint title={selected.title} songs={slots(selected)} userId={ownerId} listId={selected.id}/>}
- {!offlineLists&&<details className="setlist-sharing" onToggle={event=>{if(event.currentTarget.open)void loadFriends().catch(error=>setNotice(message(error)))}}><summary>Sharing</summary><p>Anyone with the link and an approved songbook account can open this live set.</p>{link.token&&<button type="button" disabled={link.busy} onClick={()=>void link.disableLink()}>Turn off link</button>}<h3>Invite by email</h3>{!!friends.length&&<label>Choose recipient<select value={recipient} onChange={event=>setRecipient(event.target.value)}><option value="">Choose a friend or enter an email below</option>{friends.map(friend=><option key={friend.email} value={friend.email}>{friend.nickname||friend.email}</option>)}</select></label>}<form onSubmit={event=>{event.preventDefault();void action(async()=>{const {error}=await cloud!.rpc('share_setlist',{list_id:selected.id,recipient_email_address:recipient});if(error)throw error;await loadShares(selected.id);setRecipient('');setNotice('Shared. Your friend can find it under Shared with me. Saved changes update automatically.')})}}><label>Share with account email<input type="email" required value={recipient} onChange={event=>setRecipient(event.target.value)}/></label><button disabled={busy}>Share setlist</button></form>{shares.map(share=><p key={share.id}>{share.recipient_email} <button disabled={busy} onClick={()=>void action(async()=>{const {error}=await cloud!.from('songbook_setlist_shares').delete().eq('id',share.id);if(error)throw error;await loadShares(selected.id)})}>Revoke sharing</button></p>)}</details>}
+ {sharingId&&link.token&&<details className="setlist-sharing"><summary>Manage share link</summary>
+  <button type="button" disabled={link.busy} onClick={()=>void link.disableLink()}>Turn off link</button>
+ </details>}
  {canEdit&&<details className="setlist-delete"><summary>Delete setlist</summary><button disabled={busy} onClick={()=>deleteSetlist(selected)}>Delete this setlist</button></details>}
  </>}<p role="status">{notice}</p></section>
 }

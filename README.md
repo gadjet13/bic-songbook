@@ -4,7 +4,7 @@ First time using the app? Read [START_HERE.md](START_HERE.md), the illustrated b
 
 A church songbook for browsing lyrics and chords, preparing setlists, and keeping your own arrangements in your preferred key.
 
-**Website:** [bic-songbook.netlify.app](https://bic-songbook.netlify.app)  
+**Website:** [bic-songbook.netlify.app](https://bic-songbook.netlify.app)
 **Source:** [gadjet13/bic-songbook](https://github.com/gadjet13/bic-songbook)
 
 This README describes the current source. Website changes become available after the corresponding GitHub commit successfully deploys on Netlify.
@@ -33,7 +33,7 @@ The church owner account is **bukchoninternationalchapel@gmail.com**. The manage
 
 ### Approving friends
 
-Open **Menu → Manage friends’ access**. Your friend must first sign in to create an account. Enter their account email, choose a permission, and select **Update access**. This does not send an invitation email.
+Open **Menu → Manage account access**. Your friend must first sign in to create an account. Enter their account email, choose a permission, and select **Update access**. This does not send an invitation email.
 
 **Show registered accounts** lists confirmed account email addresses and their current access, including accounts awaiting approval. Only the owner and managers can use this list. Removing access does not delete the person's login account or stored songs.
 
@@ -90,13 +90,11 @@ Create or edit a setlist, search by song title, or artist, and select a result t
 
 Setlists use songs from the same songbook. Choosing a church-only result automatically copies it to My songbook before adding that version to a personal setlist. Deleting a setlist does not delete its songs. Deleted songs appear as missing entries and are skipped when reading.
 
-Open a saved personal setlist, expand **Sharing**, enter another approved personal account’s email, then choose **Share setlist**. They find it under **Shared with me** on the front page. Only that setlist and its included songs are shared read-only. Saved song edits, title changes, additions, removals and reordering update automatically. The open recipient view checks every 15 seconds while visible, and refreshes on focus. Sharing sends no email. Church accounts cannot send or receive setlists. Revoke sharing to remove access; deleting the original setlist removes its shares. Already copied or downloaded content cannot be recalled.
+Saving a new set in the planner prepares a share link and shows it with **Copy setlist link** on the saved set. Approved members who open it land on the overview and can choose **Read full set** for every chart on one scrolling page, or **Start shared setlist** for the existing stage view. **Jump to song** takes you to a numbered occurrence. **Manage share link → Turn off link** removes access for members who joined only by link. People granted access before link sharing can still open their received sets.
 
-Saving a new set in the planner prepares a share link and shows it with **Copy setlist link** on the saved set. Approved members who open it land on the overview and can choose **Read full set** for every chart on one scrolling page, or **Start shared setlist** for the existing stage view. **Jump to song** takes you to a numbered occurrence. **Sharing → Turn off link** removes access for members who joined only by link. A separate email invitation continues to work.
+For deployments upgrading from email sharing, apply `database/link-only-setlist-sharing.sql` after `database/setlist-links-and-preferences.sql` to retire the old API endpoints. Existing share records and legacy version 2 backups are supported.
 
 In stage view, **My notes** and **My capo** are private account preferences for that song in this set. Repeated songs use the same personal preferences and can have different sounding keys. Notes are omitted from printouts. Saved notes can be read offline, and capo changes made offline sync when you reconnect.
-
-After the first share, the recipient is remembered in your friends list. Manage friends, nicknames and removal from the home-page **Friends** tab. Inside a setlist, open **Sharing** to choose a remembered recipient or enter their email. Removing a friend does not revoke existing shares.
 
 Choose **Copy entire setlist → Copy with chords / Copy lyrics** to copy all included songs in setlist order, with song titles. Chord copying uses each song’s saved base key. Missing/deleted songs are skipped.
 
@@ -210,15 +208,11 @@ You can also open a personal song and choose **Add to setlist**, select an exist
 
 `database/live-sharing-friends.sql` is already applied. Do not rerun it. Existing shares now follow the owner’s saved changes.
 
-### Friends tab
-
-On the front page, choose **Friends** to add an approved personal account by email before sharing, give them a private nickname, rename or remove them. Adding a friend does not approve an account, send an invitation or share any songs. `database/add-friends.sql` is already applied; do not rerun it.
-
 ## Complete backups, history and chord-sheet paste
 
-**Menu → Complete backup / restore → Download complete backup** exports the current songbook’s songs, folders, personal setlists, favorites and private friend nicknames. Church exports contain church songs and your church-song favorites. Backups contain lyrics and friend emails; keep them safe. Access approvals, outgoing share permissions, received setlists and song history are not included.
+**Menu → Complete backup / restore → Download complete backup** exports the current songbook’s songs, folders, personal setlists and favorites. Church exports contain church songs and your church-song favorites. Backups contain song lyrics; keep them safe. Access approvals, outgoing share permissions, received setlists and song history are not included.
 
-**Restore complete backup** imports additional copies in one database transaction. Existing work stays unchanged; repeated restores create duplicates. Folder names and setlist names get a restored suffix. Song IDs and folder references are remapped, keeping setlist order and repeated songs. Personal restore does not create more church copies. Friends are restored only if their account is still approved. Reopen folders/setlists after restoring to reload their choices. Existing songs-only files still work through Import songs.
+**Restore complete backup** imports additional copies in one database transaction. Existing work stays unchanged; repeated restores create duplicates. Folder names and setlist names get a restored suffix. Song IDs and folder references are remapped, keeping setlist order and repeated songs. Personal restore does not create more church copies. Reopen folders/setlists after restoring to reload their choices. Existing songs-only files still work through Import songs.
 
 **Song history** on an editable song shows recent saved versions. Preview one and restore it; the replaced version remains in history. **Recover deleted songs** on the song list restores a deleted song with its original ID so setlists can find it again. Songs whose folders were deleted remain in All songs. Church history is available only to the church owner; managers cannot read or restore other users’ histories. History begins with this update and cannot recover versions or deletions from before it. The UI lists up to 100 recent entries at a time.
 
@@ -275,7 +269,7 @@ Reading mode requests a screen wake lock while visible and releases it on exit. 
 
 ## October 16 update
 
-Songbooks now use responsive cards and All/A–Z/# title filters. Personal folders open like folders, with a breadcrumb back to all songs. Setlists use cards and show saved keys. Setlist search includes BIC songs and prioritizes personal versions. In the menu, choose My friend ID to set a unique, changeable @ID (3–24 letters, numbers or underscores). Friends can find and confirm you by ID or email; existing connections survive ID changes. Church accounts have no friend ID. Managers may also use IDs when granting access. Plain pasted titles can precede a section heading; **Title** explicitly marks a title. The friend-ID database changes are already applied; no manual SQL is needed.
+Songbooks now use responsive cards and All/A–Z/# title filters. Personal folders open like folders, with a breadcrumb back to all songs. Setlists use cards and show saved keys. Setlist search includes BIC songs and prioritizes personal versions. In the menu, choose My account ID to set a unique, changeable @ID (3–24 letters, numbers or underscores). Church accounts have no account ID. Managers may also use IDs when granting access. Plain pasted titles can precede a section heading; **Title** explicitly marks a title.
 
 
 
@@ -295,7 +289,7 @@ Personal and received setlists show an ordered Saved key overview using saved ba
 
 My Setlists, My folders and Song filters start collapsed. Filters include first letter, artist (the Author / singer field), and favorites, with a visible active-filter summary. Unfiled is no longer a navigation item: songs without a folder remain in All songs. Folder membership remains one folder per song. Add to folder supports existing/new folders, removing membership, and opening the destination folder. Song history stays at the bottom of its song page; deleted-song recovery is now in Menu below Complete backup / restore.
 
-Setlist cards open a dedicated page with browser Back navigation. Opening a song from that page and going back returns to the setlist. Copy is below Start/Edit; Sharing is collapsible and contains recipient selection without inline friend management. Friends are managed from the home tab.
+On a setlist card, choose the green play button to read the full set, the title to edit, or the link button to copy its share link.
 
 The reader measures unwrapped lines on opening and width changes, fits font size down to 12px, and groups lyric words across chord markers so wrapping only happens at whitespace. Manual A+ can deliberately cause wrapping. Oversized wrapped source lines are packed by measured visual rows to avoid clipping across columns/pages. An unbroken word wider than a column at 12px remains intact and can scroll horizontally; it is not split at a chord marker.
 
@@ -323,7 +317,7 @@ Older songs without a recorded added date appear last in both date-added directi
 
 ## Joining with an @ID and pending access requests (October 28)
 
-After first sign-in, personal accounts without a friend ID see **Choose your @ID**. Choose a unique 3–24-character ID using letters, numbers or underscores, then **Save ID and continue**. Existing personal accounts without IDs are prompted too; IDs remain changeable from Menu → My friend ID. The church owner is exempt. An existing saved offline session remains readable without an online onboarding check.
+After first sign-in, personal accounts without a account ID see **Choose your @ID**. Choose a unique 3–24-character ID using letters, numbers or underscores, then **Save ID and continue**. Existing personal accounts without IDs are prompted too; IDs remain changeable from Menu → My account ID. The church owner is exempt. An existing saved offline session remains readable without an online onboarding check.
 
 For an unapproved account, saving the ID also submits an access request. The waiting screen shows **Awaiting approval** and **Check approval**. Users who already have an ID but have not submitted can choose **Request access**. A declined user can explicitly **Request access again**; simply refreshing does not resubmit a declined request.
 
@@ -340,7 +334,7 @@ The database change has already been applied. `database/registration-requests.sq
 
 **Sort setlists and folders:** open My Setlists or My folders, expand its Sort control, and choose Name A–Z / Z–A, Date added newest / oldest, or Last edited newest / oldest. This rearranges cards only, never the songs within a setlist. Missing dates sort last. Folder timestamps begin with this update; existing unknown folder dates remain unknown. Folder last-edited tracks folder renaming, not edits to songs inside it. Older setlist creation dates may be approximate, as previously documented. Refresh online to update device-local copies with dates.
 
-**Recover the last offline save:** inside Complete backup / restore, choose Preview last offline save. It reads this account's latest snapshot from this device and shows its saved time, songbook, song/folder/setlist/favorite counts and a song preview. Review it, then Restore offline save as copies and confirm. Current work is kept. IDs are remapped, setlist order/repeats and folder memberships are preserved, and restored folders/lists get recovery names. Missing setlist-song references are reported and skipped. Received setlists, friend nicknames, access permissions and history are not in this offline recovery copy. Only the current songbook is restored; church restoration remains owner-only. Restore requires internet and respects the 25-personal-setlist limit; an invalid/over-limit import rolls back. Repeated restores create duplicates.
+**Recover the last offline save:** inside Complete backup / restore, choose Preview last offline save. It reads this account's latest snapshot from this device and shows its saved time, songbook, song/folder/setlist/favorite counts and a song preview. Review it, then Restore offline save as copies and confirm. Current work is kept. IDs are remapped, setlist order/repeats and folder memberships are preserved, and restored folders/lists get recovery names. Missing setlist-song references are reported and skipped. Received setlists, access permissions and history are not in this offline recovery copy. Only the current songbook is restored; church restoration remains owner-only. Restore requires internet and respects the 25-personal-setlist limit; an invalid/over-limit import rolls back. Repeated restores create duplicates.
 
 This is the latest snapshot still stored, not an archive: online refreshes can replace it, and signing out or clearing site data can remove it. A preview captures a fixed copy so later background refreshes do not alter what you confirm. Keep downloaded complete backups and use Song history for earlier versions. The existing file-based complete restore still adds copies too.
 
