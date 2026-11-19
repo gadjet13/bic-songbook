@@ -92,6 +92,10 @@ Setlists use songs from the same songbook. Choosing a church-only result automat
 
 Open a saved personal setlist, expand **Sharing**, enter another approved personal account’s email, then choose **Share setlist**. They find it under **Shared with me** on the front page. Only that setlist and its included songs are shared read-only. Saved song edits, title changes, additions, removals and reordering update automatically. The open recipient view checks every 15 seconds while visible, and refreshes on focus. Sharing sends no email. Church accounts cannot send or receive setlists. Revoke sharing to remove access; deleting the original setlist removes its shares. Already copied or downloaded content cannot be recalled.
 
+To share one link with the team, open **Sharing → Copy setlist link**. Approved members who open it go straight to the live set, and it appears under **Shared with me**. **Turn off link** removes access for members who joined only by link. A separate email invitation continues to work.
+
+In stage view, **My notes** and **My capo** are private account preferences for that song in this set. Repeated songs use the same personal preferences and can have different sounding keys. Notes are omitted from printouts. Saved notes can be read offline, and capo changes made offline sync when you reconnect.
+
 After the first share, the recipient is remembered in your friends list. Manage friends, nicknames and removal from the home-page **Friends** tab. Inside a setlist, open **Sharing** to choose a remembered recipient or enter their email. Removing a friend does not revoke existing shares.
 
 Choose **Copy entire setlist → Copy with chords / Copy lyrics** to copy all included songs in setlist order, with song titles. Chord copying uses each song’s saved base key. Missing/deleted songs are skipped.

@@ -1,4 +1,6 @@
-import { arrangedSong, capoStorageKey, readCapo, setlistSoundingKey, songKey } from './lib/setlist-arrangement'
+import SetlistSongNote from './SetlistSongNote'
+import { cachedPreference, flushSetlistCapos, initializeSetlistCapo, legacyCapo, loadSetlistPreferences, preferencesChanged, queueSetlistCapo } from './lib/setlist-preferences'
+import { arrangedSong, setlistSoundingKey, songKey } from './lib/setlist-arrangement'
 import SongFlowEditor from './SongFlowEditor'
 import {hasFlowConflicts,mapFlowCursor,syncLinkedSections} from './lib/song-flow'
 import {songSortLabels,sortSongsByDate} from './lib/song-dates'
@@ -111,6 +113,7 @@ function getCurrentKey(
 export type SharedLibrary = {
   offlineReadiness?:OfflineSnapshot
   sharedSetlistId?:string
+  sourceSetlistId?:string
   loading?: boolean
   offline?: boolean
   personalName?: string
@@ -153,7 +156,6 @@ function App({library}: {library: SharedLibrary}) {
   const [startOnLastPage,setStartOnLastPage]=useState(false)
   const [readingMode, setReadingMode] = useState(false)
   const stageView=readingMode&&setlistQueue.length>0
-  const [capoPreferences,setCapoPreferences]=useState<Record<string,number>>({})
   const [readingChoice,setReadingChoice]=useState(false)
   const [readingContent,setReadingContent]=useState<'lyrics'|'chords'>('chords')
   const wakeStatus=useReadingWakeLock(readingMode)
@@ -193,15 +195,51 @@ function App({library}: {library: SharedLibrary}) {
     }
     setSelectedSong(songList[nextIndex]);setSetlistQueue(songList);setQueueIndex(nextIndex)
   },[library.songs,library.sharedSetlist])
-  const capoScope=selectedSong&&(setlistId??library.sharedSetlistId)
-    ? capoStorageKey(library.userId,(setlistId??library.sharedSetlistId)!,selectedSong.id) : null
-  const capo=stageView&&capoScope ? (capoPreferences[capoScope]??readCapo(capoScope)) : 0
+  const preferenceId=library.sourceSetlistId??(setlistId==='new'?null:setlistId)
+  const oldPreferenceId=library.sharedSetlistId??preferenceId
+  const localPreferenceId=preferenceId??oldPreferenceId
+  const [,refreshPreferences]=useState(0)
+  const [preferenceError,setPreferenceError]=useState('')
+  useEffect(()=>{
+    const refresh=()=>refreshPreferences(value=>value+1)
+    window.addEventListener(preferencesChanged,refresh)
+    window.addEventListener('storage',refresh)
+    return ()=>{window.removeEventListener(preferencesChanged,refresh);window.removeEventListener('storage',refresh)}
+  },[])
+  useEffect(()=>{
+    if(!preferenceId||library.offline)return
+    let active=true
+    const load=()=>void loadSetlistPreferences(library.userId,preferenceId).then(()=>{
+      if(active)setPreferenceError('')
+    }).catch(error=>{
+      if(active)setPreferenceError(String(error.message))
+    })
+    setPreferenceError('')
+    load()
+    window.addEventListener('focus',load)
+    return ()=>{active=false;window.removeEventListener('focus',load)}
+  },[preferenceId,library.userId,library.offline])
+  const songId=selectedSong?.id
+  const preference=localPreferenceId&&songId&&oldPreferenceId
+    ? cachedPreference(library.userId,localPreferenceId,songId,oldPreferenceId) : null
+  const capo=stageView?preference?.capo??0:0
   const plannedSong=stageView&&selectedSong?{...selectedSong,setlist_key:setlistQueue[queueIndex]?.setlist_key}:null
   const stageSong=plannedSong?arrangedSong(plannedSong,capo):null
+  useEffect(()=>{
+    if(!songId||!stageView||!preferenceId||!oldPreferenceId||library.offline||
+      !preference||preference.savedCapo!==null||preference.pending)return
+    const legacy=legacyCapo(library.userId,oldPreferenceId,songId)
+    if(legacy!==null)void initializeSetlistCapo(library.userId,preferenceId,songId,legacy).catch(error=>{
+      setPreferenceError(String(error.message))
+    })
+  },[preferenceId,oldPreferenceId,library.userId,library.offline,songId,stageView,preference?.savedCapo,preference?.pending])
   function changeCapo(fret:number){
-    if(!capoScope)return
-    setCapoPreferences(values=>({...values,[capoScope]:fret}))
-    try{localStorage.setItem(capoScope,String(fret))}catch{/* Keep the setting for this session. */}
+    if(!localPreferenceId||!songId)return
+    queueSetlistCapo(library.userId,localPreferenceId,songId,fret,!preferenceId&&!!library.sharedSetlistId)
+    if(preferenceId&&!library.offline){
+      setPreferenceError('')
+      void flushSetlistCapos(library.userId).catch(error=>setPreferenceError(String(error.message)))
+    }
   }
 
   const historySongRef=useRef<Song|null>(null)
@@ -632,7 +670,7 @@ function App({library}: {library: SharedLibrary}) {
         {!selectedSong && library.sharedSetlist && <button disabled={!songList.length} onClick={()=>startSetlist(songList)}>Start shared setlist</button>}
         {!selectedSong&&library.sharedSetlist&&<div className="setlist-copy-row"><SetlistCopy songs={songList}/></div>}
         {!selectedSong&&library.sharedSetlist&&library.sharedSetlistId&&<SetlistPrint
-          title={library.bookName} songs={songList} userId={library.userId} listId={library.sharedSetlistId}/>}
+          title={library.bookName} songs={songList} userId={library.userId} listId={library.sourceSetlistId??library.sharedSetlistId} legacyListId={library.sharedSetlistId}/>}
         {libraryPage&&library.ownerId&&<nav className="library-tabs" aria-label="My songbook views"><button aria-pressed={!setlistIndex} onClick={()=>switchLibraryView('songs')}>Songs</button><button aria-pressed={setlistIndex} onClick={()=>switchLibraryView('setlists')}>Setlists</button></nav>}
         {libraryPage&&!setlistIndex&&!library.sharedSetlist&&<SongDraftRecovery drafts={songDrafts} canRestore={library.canEdit&&!library.loading} onRestore={recoverDraft} onDiscard={draft=>{if(window.confirm('Permanently discard this unsaved draft?'))clearDraft(draft.id)}}/>}
         {(isAddingSong||isEditing)&&draftStatus&&<p className="storage-note" role="status">{draftStatus}</p>}
@@ -793,6 +831,7 @@ function App({library}: {library: SharedLibrary}) {
                   {Array.from({length:12},(_,fret)=><option key={fret} value={fret}>{fret===0?'No capo':fret}</option>)}
                 </select></label>}
                 {!!capo&&stageSong&&<span>Chord shapes: {stageSong.key}</span>}
+                {preference?.pending&&<small role="status">Capo change waiting to sync.</small>}
               </div>}
               <div className="stage-actions">
                 <label>Jump to song<select value={queueIndex} onChange={event=>goToSetlistSong(Number(event.target.value))}>
@@ -804,6 +843,10 @@ function App({library}: {library: SharedLibrary}) {
                 </div>
                 <button onClick={()=>{if(history.state?.bicSong)history.back();else{setSelectedSong(null);setSetlistQueue([]);setReadingMode(false)}}}>Exit setlist</button>
               </div>
+              {localPreferenceId&&songId&&<SetlistSongNote key={localPreferenceId+':'+songId}
+                userId={library.userId} listId={localPreferenceId} songId={songId}
+                note={preference?.note??''} offline={!!library.offline||!preferenceId}/>}
+              {preferenceError&&<p role="status">{preferenceError}</p>}
               {skippedSetlistSongs>0&&<p role="status">{skippedSetlistSongs} unavailable {skippedSetlistSongs===1?'song skipped':'songs skipped'}.</p>}
             </section>}
             {!isEditing && !readingMode && library.copyToPersonal && <button onClick={async()=>{try{await library.copyToPersonal!(selectedSong);setNotice('Copied to My songbook. You can edit your copy there.')}catch(error){setNotice(String(error instanceof Error?error.message:error))}}}>Copy to My songbook</button>}
