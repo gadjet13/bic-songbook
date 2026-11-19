@@ -136,8 +136,15 @@ function App({library}: {library: SharedLibrary}) {
   const [artistFilter,setArtistFilter]=useState('all')
   const [dateSort,setDateSort]=useState<SongDateSort>('title')
   function resetSongSort(){setDateSort('title')}
-  const [libraryView,setLibraryView]=useState<'songs'|'setlists'>('songs')
-  const [setlistId,setSetlistId]=useState<string|null>(null)
+  const [libraryView,setLibraryView]=useState<'songs'|'setlists'>(()=>library.ownerId&&history.state?.bicSetlistIndex?'setlists':'songs')
+  const [setlistId,setSetlistId]=useState<string|null>(()=>library.ownerId?history.state?.bicSetlist??null:null)
+  const [setlistSongEditor,setSetlistSongEditor]=useState<{
+    onSaved: (song: Song) => void
+    returnFocus: HTMLElement
+  } | null>(null)
+  const setlistReturnFocus=useRef<HTMLElement|null>(null)
+  const activeSetlistSongEditor=useRef(setlistSongEditor)
+  activeSetlistSongEditor.current=setlistSongEditor
   const [folderNames,setFolderNames]=useState<{id:string;name:string}[]>([])
   const [favoritesOnly,setFavoritesOnly]=useState(false)
   const [setlistQueue,setSetlistQueue]=useState<Song[]>([])
@@ -200,7 +207,7 @@ function App({library}: {library: SharedLibrary}) {
   const historySongRef=useRef<Song|null>(null)
   historySongRef.current=selectedSong
   useEffect(()=>{
-    if(!selectedSong)return
+    if(!selectedSong||setlistSongEditor)return
     const state=history.state??{}
     if(state.bicSong===selectedSong.id)return
     const next={...state,bicSong:selectedSong.id}
@@ -210,7 +217,11 @@ function App({library}: {library: SharedLibrary}) {
   },[selectedSong?.id])
   useEffect(()=>{
     const back=(event:PopStateEvent)=>{
+      setlistReturnFocus.current=null
+      activeSetlistSongEditor.current=null
+      setSetlistSongEditor(null)
       setSetlistId(event.state?.bicSetlist??null)
+      if(typeof event.state?.bicSetlistIndex==='boolean')setLibraryView(event.state.bicSetlistIndex?'setlists':'songs')
       setFolder(event.state?.bicFolder??'all')
       if(event.state?.bicSong){
         const song=library.songs.find(item=>item.id===event.state.bicSong)
@@ -231,6 +242,7 @@ function App({library}: {library: SharedLibrary}) {
 
   const [isEditing, setIsEditing] = useState(false)
   const [savingSong,setSavingSong]=useState(false)
+  const songSaveInProgress=useRef(false)
   useEffect(()=>{
     if(isEditing||library.sharedSetlist)return
     setSelectedSong(current=>current?freshestSong(current,songList):null)
@@ -291,17 +303,60 @@ function App({library}: {library: SharedLibrary}) {
     setDraftStatus(loginPersistence.isPersisted(recoveryKey)?'Draft saved on this browser. Save the song to update the database.':'Draft is only in memory. Browser storage is unavailable or full; do not close this tab before saving.')
   },[recoveryKey,isAddingSong,isEditing,library.canEdit,library.sharedSetlist,dirtyNew,dirtySong,newSongTitle,newSongArtist,newSongKey,newSongContent,newRaw,editedTitle,editedArtist,editedKey,editedContent,editedRaw,selectedSong?.id,folder])
   function clearDraft(id:string){setSongDrafts(removeSongDraft(recoveryKey,id));setDraftStatus('')}
-  function recoverDraft(draft:SongDraft){
-    if(!library.canEdit||library.loading||!allowNavigation())return
-    const current=songList.find(song=>song.id===draft.songId)
+  function recoverDraft(draft:SongDraft, withinSet=false, selected?:Song){
+    if(!library.canEdit||(!withinSet&&(library.loading||!allowNavigation())))return
+    const current=selected??songList.find(song=>song.id===draft.songId)
     const canResume=canResumeSongDraft(draft,current)
     if(draft.songId!==null&&!canResume&&!window.confirm('This song changed or was deleted after the draft began. Recover it as a new song instead? The current saved version will stay unchanged.'))return
     if(canResume&&current){selectSong(current,true);setEditedTitle(draft.title);setEditedArtist(draft.artist);setEditedKey(draft.key);setEditedContent(draft.content);setEditedRaw(draft.raw);setIsEditing(true);setIsAddingSong(false)}
     else {if(draft.songId!==null&&songDrafts.some(row=>row.id==='new')){setNotice('Recover or discard your existing new-song draft first.');return}setSelectedSong(null);setNewSongTitle(draft.title);setNewSongArtist(draft.artist);setNewSongKey(draft.key);setNewSongContent(draft.content);setNewRaw(draft.raw);setFolder(draft.folderId??'all');setIsEditing(false);setIsAddingSong(true);if(draft.songId!==null)clearDraft(draft.id)}
     setNotice(canResume?'Draft recovered. Review and save when ready.':'Draft recovered as a new song. Review it before saving.')
   }
-  function startNewSong(){if(!allowNavigation())return;const draft=songDrafts.find(row=>row.id==='new');if(draft){recoverDraft(draft);return}setNewSongTitle('');setNewSongArtist('');setNewSongKey('C');setNewSongContent('');setNewRaw('');setIsAddingSong(true)}
-  function cancelNewSong(){if(!allowNavigation())return;clearDraft('new');setNewSongTitle('');setNewSongArtist('');setNewSongKey('C');setNewSongContent('');setNewRaw('');setIsAddingSong(false)}
+  function startNewSong(withinSet=false){
+    if(!withinSet&&!allowNavigation())return
+    const draft=songDrafts.find(row=>row.id==='new')
+    if(draft){recoverDraft(draft,withinSet);return}
+    setNewSongTitle('');setNewSongArtist('');setNewSongKey('C');setNewSongContent('');setNewRaw('');setIsAddingSong(true)
+  }
+  function openSetlistSongEditor(song:Song|null,onSaved:(song:Song)=>void,returnFocus:HTMLElement){
+    if(!library.canEdit)return
+    const draft=song&&songDrafts.find(row=>row.id==='song:'+song.id)
+    if(draft&&!canResumeSongDraft(draft,song)){
+      setNotice('This arrangement changed since your song draft began. Recover that draft from the Songs tab before editing here.')
+      return
+    }
+    setNotice('')
+    setSetlistSongEditor({onSaved,returnFocus})
+    if(draft&&song)recoverDraft(draft,true,song)
+    else if(song){selectSong(song,true);setIsEditing(true)}
+    else {setFolder('all');startNewSong(true)}
+    requestAnimationFrame(()=>document.querySelector<HTMLElement>('[data-setlist-song-heading]')?.focus())
+  }
+  function returnToSetlist(saved?:Song){
+    if(!setlistSongEditor||activeSetlistSongEditor.current!==setlistSongEditor)return
+    if(saved)setlistSongEditor.onSaved(saved)
+    setlistReturnFocus.current=setlistSongEditor.returnFocus
+    setSetlistSongEditor(null)
+    setSelectedSong(null);setIsEditing(false);setIsAddingSong(false);setNotice('')
+  }
+  useEffect(()=>{
+    if(setlistSongEditor)return
+    const button=setlistReturnFocus.current
+    if(!button)return
+    setlistReturnFocus.current=null
+    if(button.isConnected)button.focus()
+  },[setlistSongEditor])
+  function switchLibraryView(view:'songs'|'setlists'){
+    history.replaceState({...history.state,bicSetlistIndex:view==='setlists'},'',location.href)
+    setLibraryView(view)
+  }
+  function canCancelSong(dirty:boolean){
+    if(songSaveInProgress.current)return false
+    return setlistSongEditor
+      ? !dirty||window.confirm('Discard the unsaved song changes and return to the set?')
+      : allowNavigation()
+  }
+  function cancelNewSong(){if(!canCancelSong(dirtyNew))return;clearDraft('new');setNewSongTitle('');setNewSongArtist('');setNewSongKey('C');setNewSongContent('');setNewRaw('');setIsAddingSong(false);returnToSetlist()}
 
 
   const changeTranspose = (amount: number) => {
@@ -448,7 +503,7 @@ function App({library}: {library: SharedLibrary}) {
     if(value!==next)requestAnimationFrame(()=>{if(element.isConnected&&element.value===value)element.setSelectionRange(mapFlowCursor(next,value,start),mapFlowCursor(next,value,end))})
   }
   const saveSong = async () => {
-    if(savingSong)return
+    if(songSaveInProgress.current)return
     if(hasFlowConflicts(editedContent)){setNotice('Resolve the different section versions in Song flow before saving.');return}
     if (!editedTitle.trim()) { setNotice('Please enter a song title.'); return }
     if (!selectedSong) {
@@ -464,18 +519,22 @@ function App({library}: {library: SharedLibrary}) {
       content: editedContent,
     }
 
+    songSaveInProgress.current=true
     setSavingSong(true)
     try {
       const saved=await library.update(updatedSong)
       clearDraft('song:'+updatedSong.id);setEditedRaw('')
+      if(setlistSongEditor){returnToSetlist(saved);return}
       if(currentSongId.current===updatedSong.id){setSelectedSong(saved);setEditedTitle(saved.title);setEditedArtist(saved.artist);setEditedKey(saved.key);setEditedContent(saved.content);setIsEditing(false)}
     } catch(error){setNotice(String(error instanceof Error?error.message:error))}
-    finally{setSavingSong(false)}
+    finally{songSaveInProgress.current=false;setSavingSong(false)}
   }
 
   const addSong = async () => {
+    if(songSaveInProgress.current)return
     if(hasFlowConflicts(newSongContent)){setNotice('Resolve the different section versions in Song flow before saving.');return}
     if (!newSongTitle.trim()) {
+      setNotice('Please enter a song title.')
       return
     }
 
@@ -489,8 +548,14 @@ function App({library}: {library: SharedLibrary}) {
       content: newSongContent,
     }
 
-    try { const [saved] = await library.add([newSong]); clearDraft('new');setNewRaw('');setSelectedSong(saved) }
+    songSaveInProgress.current=true
+    setSavingSong(true)
+    try { const [saved] = await library.add([newSong]); clearDraft('new');setNewRaw('')
+      if(setlistSongEditor)returnToSetlist(saved)
+      else setSelectedSong(saved)
+    }
     catch (error) { setNotice(String(error instanceof Error ? error.message : error)); return }
+    finally {songSaveInProgress.current=false;setSavingSong(false)}
     setTranspose(0)
     setIsAddingSong(false)
 
@@ -520,7 +585,7 @@ function App({library}: {library: SharedLibrary}) {
   }
 
   const cancelEditing = () => {
-    if(!allowNavigation())return
+    if(!canCancelSong(dirtySong))return
     if (!selectedSong) {
       return
     }
@@ -532,6 +597,7 @@ function App({library}: {library: SharedLibrary}) {
     setEditedContent(selectedSong.content)
 
     setIsEditing(false)
+    returnToSetlist()
   }
 
   async function copySong(withoutChords: boolean) {
@@ -567,19 +633,19 @@ function App({library}: {library: SharedLibrary}) {
         {!selectedSong&&library.sharedSetlist&&<div className="setlist-copy-row"><SetlistCopy songs={songList}/></div>}
         {!selectedSong&&library.sharedSetlist&&library.sharedSetlistId&&<SetlistPrint
           title={library.bookName} songs={songList} userId={library.userId} listId={library.sharedSetlistId}/>}
-        {libraryPage&&library.ownerId&&<nav className="library-tabs" aria-label="My songbook views"><button aria-pressed={!setlistIndex} onClick={()=>setLibraryView('songs')}>Songs</button><button aria-pressed={setlistIndex} onClick={()=>setLibraryView('setlists')}>Setlists</button></nav>}
+        {libraryPage&&library.ownerId&&<nav className="library-tabs" aria-label="My songbook views"><button aria-pressed={!setlistIndex} onClick={()=>switchLibraryView('songs')}>Songs</button><button aria-pressed={setlistIndex} onClick={()=>switchLibraryView('setlists')}>Setlists</button></nav>}
         {libraryPage&&!setlistIndex&&!library.sharedSetlist&&<SongDraftRecovery drafts={songDrafts} canRestore={library.canEdit&&!library.loading} onRestore={recoverDraft} onDiscard={draft=>{if(window.confirm('Permanently discard this unsaved draft?'))clearDraft(draft.id)}}/>}
         {(isAddingSong||isEditing)&&draftStatus&&<p className="storage-note" role="status">{draftStatus}</p>}
 
-        {!selectedSong && !isAddingSong && library.ownerId && (setlistId||setlistIndex) && <SongOrganization offlineSnapshot={library.offlineReadiness} refreshing={library.loading} activeId={setlistId} onNavigate={openSetlist} onBack={backToSetlists} personalName={library.personalName??'My songbook'} churchSongs={library.offlineData?.church??[]} onSongsChanged={library.refresh} offlineLists={library.offline?library.offlineData?.setlists:undefined} ownerId={library.ownerId} songs={songList} canEdit={library.canEdit} onOpen={startSetlist}/>}
+        {(setlistSongEditor||(!selectedSong&&!isAddingSong)) && library.ownerId && (setlistId||setlistIndex) && <div hidden={!!setlistSongEditor}><SongOrganization offlineSnapshot={library.offlineReadiness} refreshing={library.loading} activeId={setlistId} onNavigate={openSetlist} onBack={backToSetlists} personalName={library.personalName??'My songbook'} churchSongs={library.offlineData?.church??[]} onSongsChanged={library.refresh} offlineLists={library.offline?library.offlineData?.setlists:undefined} ownerId={library.ownerId} songs={songList} canEdit={library.canEdit} onOpen={startSetlist} onSongEditor={openSetlistSongEditor}/></div>}
         {favoriteError && <p role="status" className="notice">{favoriteError}</p>}
         {notice && <p role="status" className="notice">{notice}<button aria-label="Dismiss notification" onClick={() => setNotice('')}>×</button></p>}
         {!setlistId && incoming && <section className="incoming"><h2>A friend shared “{incoming.title}”</h2><p>{incoming.artist} · Key: {incoming.key}</p><button disabled={!library.canEdit} onClick={async () => { try { const [song] = await library.add([incoming]); selectSong(song); setIncoming(null); history.replaceState(history.state, '', location.pathname + location.search) } catch (error) { setNotice(String(error instanceof Error ? error.message : error)) } }}>Add to this songbook</button><button onClick={() => {setIncoming(null); history.replaceState(history.state, '', location.pathname + location.search)}}>Dismiss</button></section>}
 
-        {!selectedSong&&(setlistId||setlistIndex) ? null : !selectedSong ? (
+        {!selectedSong&&!isAddingSong&&(setlistId||setlistIndex) ? null : !selectedSong ? (
           isAddingSong ? (
-            <div className="add-song-form">
-              <h2>Add New Song</h2><ChordSheetPaste title={newSongTitle} songKey={newSongKey} raw={newRaw} onRawChange={setNewRaw} onApply={(content,title,key)=>{setNewSongContent(content);if(title)setNewSongTitle(title);if(key)setNewSongKey(key)}}/>{library.ownerId && <p className="storage-note">The first saved version also goes to the church songbook. Later edits stay in your personal songbook.</p>}
+            <fieldset className="add-song-form song-form" disabled={savingSong}>
+              <h2 tabIndex={-1} data-setlist-song-heading>Add New Song</h2><ChordSheetPaste title={newSongTitle} songKey={newSongKey} raw={newRaw} onRawChange={setNewRaw} onApply={(content,title,key)=>{setNewSongContent(content);if(title)setNewSongTitle(title);if(key)setNewSongKey(key)}}/>{library.ownerId && <p className="storage-note">The first saved version also goes to the church songbook. Later edits stay in your personal songbook.</p>}
 
               <SongFlowEditor content={newSongContent} onChange={setNewSongContent} disabled={savingSong||library.offline}/>
               <label>
@@ -646,7 +712,7 @@ function App({library}: {library: SharedLibrary}) {
               </label>
 
               <ChordPositionEditor content={newSongContent} onChange={value=>setNewSongContent(current=>syncLinkedSections(current,value))} disabled={savingSong||library.offline}/>
-              <DuplicateSongNotice onOpen={openDuplicate} canOverwrite={song=>!!library.canEdit&&!!duplicateTarget(song)} onOverwrite={song=>overwriteDuplicate(song,{title:newSongTitle,artist:newSongArtist,key:newSongKey,content:newSongContent})} title={newSongTitle} personal={!!library.ownerId} onUseExisting={song=>{setNewSongTitle(song.title);setNewSongArtist(song.artist);setNewSongKey(song.key);setNewSongContent(song.content)}}/>
+              <DuplicateSongNotice onOpen={setlistSongEditor?undefined:openDuplicate} canOverwrite={song=>!!library.canEdit&&!!duplicateTarget(song)} onOverwrite={setlistSongEditor?undefined:song=>overwriteDuplicate(song,{title:newSongTitle,artist:newSongArtist,key:newSongKey,content:newSongContent})} title={newSongTitle} personal={!!library.ownerId} onUseExisting={song=>{setNewSongTitle(song.title);setNewSongArtist(song.artist);setNewSongKey(song.key);setNewSongContent(song.content)}}/>
               <div className="edit-buttons">
                 <button
                   className="save-button"
@@ -654,23 +720,24 @@ function App({library}: {library: SharedLibrary}) {
                   title={hasFlowConflicts(newSongContent)?'Resolve section variations in Song flow first':undefined}
                   onClick={addSong}
                 >
-                  Save Song
+                  {setlistSongEditor?'Save and add to set':'Save Song'}
                 </button>
 
                 <button
                   className="cancel-button"
+                  disabled={savingSong}
                   onClick={cancelNewSong}
                 >
                   Cancel
                 </button>
               </div>
-            </div>
+            </fieldset>
           ) : (
             <>
               <div className="song-search-toolbar">
                 <input type="search" aria-label="Search songs" placeholder="Search songs…" value={search}
                   onChange={event=>setSearch(event.target.value)}/>
-                {library.canEdit&&<button className="add-song-button" onClick={startNewSong}>+ Add Song</button>}
+                {library.canEdit&&<button className="add-song-button" onClick={()=>startNewSong()}>+ Add Song</button>}
               </div>
 
               {filteredSongs.length === 0 && <p>No songs found. Try another search or add a song.</p>}
@@ -700,7 +767,9 @@ function App({library}: {library: SharedLibrary}) {
           <div className="song-view">
             <button
               className="back-button"
+              disabled={savingSong}
               onClick={() => {
+                if(setlistSongEditor){cancelEditing();return}
                 if(history.state?.bicSong)history.back()
                 else {setSelectedSong(null);setIsEditing(false);setReadingMode(false);setSetlistQueue([])}
               }}
@@ -708,7 +777,7 @@ function App({library}: {library: SharedLibrary}) {
               {setlistId?'← Back to setlist':'← Back to songs'}
             </button>
 
-            <div className="song-heading"><h2 title={selectedSong.title}>{selectedSong.title}</h2>
+            <div className="song-heading"><h2 tabIndex={-1} data-setlist-song-heading title={selectedSong.title}>{selectedSong.title}</h2>
             {!isEditing && !readingMode && !library.sharedSetlist && <button className="favorite-filter" disabled={favoriteBusy||library.offline} aria-pressed={favorites.includes(selectedSong.id)} onClick={()=>void toggleFavorite(selectedSong.id)}>{favorites.includes(selectedSong.id)?'★ Remove favorite':'☆ Add to my favorites'}</button>}
 </div>
 
@@ -753,7 +822,8 @@ function App({library}: {library: SharedLibrary}) {
             </p>
 
             {isEditing ? (
-              <>
+              <fieldset className="song-form" disabled={savingSong}>
+                {setlistSongEditor&&<p>Saving changes updates your personal chart in every set that uses it, including live shared sets.</p>}
                 <SongFlowEditor key={'flow-'+selectedSong.id} content={editedContent} onChange={setEditedContent} disabled={savingSong||library.offline}/>
                 <label>
                   Song Title
@@ -814,23 +884,24 @@ function App({library}: {library: SharedLibrary}) {
                 </label>
 
                 <ChordPositionEditor content={editedContent} onChange={value=>setEditedContent(current=>syncLinkedSections(current,value))} disabled={savingSong||library.offline}/>
-                <DuplicateSongNotice onOpen={openDuplicate} canOverwrite={song=>!!library.canEdit&&!!duplicateTarget(song)} onOverwrite={song=>overwriteDuplicate(song,{title:editedTitle,artist:editedArtist,key:editedKey,content:editedContent})} title={editedTitle} personal={!!library.ownerId} excludeId={library.ownerId?undefined:selectedSong.id} onUseExisting={song=>{setEditedTitle(song.title);setEditedArtist(song.artist);setEditedKey(song.key);setEditedContent(song.content)}}/>
+                <DuplicateSongNotice onOpen={setlistSongEditor?undefined:openDuplicate} canOverwrite={song=>!!library.canEdit&&!!duplicateTarget(song)} onOverwrite={setlistSongEditor?undefined:song=>overwriteDuplicate(song,{title:editedTitle,artist:editedArtist,key:editedKey,content:editedContent})} title={editedTitle} personal={!!library.ownerId} excludeId={library.ownerId?undefined:selectedSong.id} onUseExisting={song=>{setEditedTitle(song.title);setEditedArtist(song.artist);setEditedKey(song.key);setEditedContent(song.content)}}/>
                 <div className="edit-buttons">
                   <button
                     className="save-button"
                     disabled={savingSong||library.offline||hasFlowConflicts(editedContent)} title={hasFlowConflicts(editedContent)?'Resolve section variations in Song flow first':undefined} onClick={saveSong}
                   >
-                    Save Changes
+                    {setlistSongEditor?'Save arrangement':'Save Changes'}
                   </button>
 
                   <button
                     className="cancel-button"
+                    disabled={savingSong}
                     onClick={cancelEditing}
                   >
                     Cancel
                   </button>
                 </div>
-              </>
+              </fieldset>
             ) : (
               <div className="song-actions">
                 <button disabled={library.offline} onClick={() => void shareSong(selectedSong)}>Share Song</button>

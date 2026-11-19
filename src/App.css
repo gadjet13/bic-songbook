@@ -415,3 +415,11 @@ select:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
 .chord-paste-preview dt { font-weight: 600; }
 .chord-paste-preview dd { margin: 0; }
 .chord-paste-chart { max-height: 55vh; overflow: auto; }
+
+.worship-planner-entry { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+button.worship-primary { background: #634691; border: 1px solid #634691; border-radius: .5rem; color: white; }
+button.worship-primary:disabled { opacity: .55; }
+.worship-set-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.worship-set-actions button, .worship-planner-entry button, .setlist-search-results button { min-height: 44px; }
+.worship-set-editor, .song-form { border: 0; padding: 0; margin: 0; min-inline-size: 0; }
+.setlist-search-results button { text-align: start; }
