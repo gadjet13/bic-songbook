@@ -2,7 +2,48 @@ const SHARP_NOTES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B']
 const FLAT_NOTES = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B']
 const ENHARMONIC: Record<string, string> = { Db:'C#', Eb:'D#', Gb:'F#', Ab:'G#', Bb:'A#' }
 
-const chordPattern = /^[A-G](?:#|b)?(?:(?:maj|min|dim|aug|sus|add|omit|no|m|M)|\d|[#b()+-])*(?:\/[A-G](?:#|b)?)?$/
+const chordPattern = /^[A-G](?:#|b)?(?:(?:maj|min|dim|aug|sus|add|omit|no|m|M)|\d|[#b()+-])*(?:\/[A-G](?:#|b)?)?\/*$/
+
+
+export function chordRowPositions(line: string) {
+  const tokens = Array.from(line.matchAll(/\S+/g))
+  if (!tokens.length || tokens.some(token => !chordPattern.test(token[0]))) return null
+  return tokens.map(token => ({ chord: token[0], column: token.index! }))
+}
+
+function storedChordRow(line: string) {
+  const row = chordRowPositions(line)
+  // A lyric consisting of just “A” (or another note name) is still a lyric.
+  return row && (row.length > 1 || row[0].chord.endsWith('/')) ? row : null
+}
+
+export function alignChordRow(row: NonNullable<ReturnType<typeof chordRowPositions>>, lyric: string) {
+  let content = lyric
+  for (const {chord, column} of [...row].reverse()) {
+    const position = Math.min(column, lyric.length)
+    content = content.slice(0, position) + `{${chord}}` + content.slice(position)
+  }
+  return content.trimEnd()
+}
+
+/** Compose older, unmarked chord rows for the reader without changing saved text. */
+export function formatStoredChordRows(content: string) {
+  const lines = content.split('\n')
+  const output: string[] = []
+  for (let index = 0; index < lines.length; index++) {
+    const row = storedChordRow(lines[index])
+    const next = lines[index + 1]
+    if (!row) output.push(lines[index])
+    else if (!next?.trim() || /[{}\[\]]/.test(next) || next.trimStart().startsWith('# ') ||
+             storedChordRow(next) || barChordParts(next)) {
+      output.push(row.map(({chord}) => `{${chord}}`).join(' ') + (lines[index].endsWith('\r') ? '\r' : ''))
+    } else {
+      output.push(alignChordRow(row, next.replace(/\r$/, '')) + (next.endsWith('\r') ? '\r' : ''))
+      index++
+    }
+  }
+  return output.join('\n')
+}
 
 /** Read a standalone bar chart while retaining its rhythmic notation verbatim. */
 export function barChordParts(line: string) {
@@ -26,17 +67,17 @@ function transposeNote(note: string, semitones: number, useFlats: boolean): stri
 }
 
 export function transposeChord(chord: string, semitones: number, useFlats = false): string {
-  const match = chord.match(/^([A-G](?:#|b)?)([^/]*?)(?:\/([A-G](?:#|b)?))?$/)
+  const match = chord.match(/^([A-G](?:#|b)?)([^/]*?)(?:\/([A-G](?:#|b)?))?(\/+)?$/)
   if (!match) return chord
-  const [, root, quality, bass] = match
+  const [, root, quality, bass, beats = ''] = match
   const newRoot = transposeNote(root, semitones, useFlats)
   const newBass = bass ? transposeNote(bass, semitones, useFlats) : null
-  return newBass ? `${newRoot}${quality}/${newBass}` : `${newRoot}${quality}`
+  return `${newRoot}${quality}${newBass ? `/${newBass}` : ''}${beats}`
 }
 
 /** Bake a displayed transposition into song text without changing section labels or lyrics. */
 export function transposeSongContent(content: string, semitones: number, useFlats = false): string {
-  return content.split('\n').map(line => {
+  return formatStoredChordRows(content).split('\n').map(line => {
     if (line.trim().startsWith('# ')) return line
     const barParts = barChordParts(line)
     if (barParts) {
@@ -56,7 +97,7 @@ export function transposeSongContent(content: string, semitones: number, useFlat
 export function lyricsOnly(content: string): string {
   return content.split('\n').map(line => {
     if (line.trim().startsWith('# ')) return line
-    if (barChordParts(line)) return line.endsWith('\r') ? '\r' : ''
+    if (barChordParts(line) || storedChordRow(line)) return line.endsWith('\r') ? '\r' : ''
     return line.replace(/\[([^\]\r\n]+)\]|\{([^}\r\n]+)\}/g, (token, legacy: string | undefined, modern: string | undefined) => {
       const chord = legacy ?? modern!
       return chordPattern.test(chord) ? '' : token

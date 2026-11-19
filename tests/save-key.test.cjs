@@ -30,3 +30,20 @@ test('leaves lyric lines with bar marks unchanged',()=>{
  assert.equal(transposeSongContent(words,2),words);
  assert.equal(exportsObject.lyricsOnly(words),words);
 });
+
+test('recognizes a saved chord row with an attached beat slash above lyrics',()=>{
+ const raw='D      D/ F#m    Bm A\nForever Yours';
+ const formatted=exportsObject.formatStoredChordRows(raw);
+ assert.equal(formatted,'{D}Forever{D/} Yo{F#m}urs{Bm}{A}');
+ assert.equal(exportsObject.lyricsOnly(formatted),'Forever Yours');
+ assert.equal(transposeSongContent(raw,2),'{E}Forever{E/} Yo{G#m}urs{C#m}{B}');
+ assert.equal(transposeSongContent('D  F#m\r\nForever\r\n[Chorus]',1,true),'{Eb}For{Gm}ever\r\n[Chorus]');
+ assert.equal(transposeSongContent(formatted,2),'{E}Forever{E/} Yo{G#m}urs{C#m}{B}');
+ assert.equal(exportsObject.lyricsOnly(raw),'\nForever Yours');
+});
+
+test('keeps slash bass distinct from beat slashes and preserves short lyrics',()=>{
+ assert.equal(transposeSongContent('{D/F#}here [D/]now',2),'{E/G#}here [E/]now');
+ assert.equal(exportsObject.formatStoredChordRows('A\nI will be there\n[Verse]'),'A\nI will be there\n[Verse]');
+ assert.equal(exportsObject.formatStoredChordRows('D/ F#m\n[Chorus]'),'{D/} {F#m}\n[Chorus]');
+});

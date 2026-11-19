@@ -4,7 +4,7 @@ const roots:Record<string,number>={C:0,'C#':1,Db:1,D:2,'D#':3,Eb:3,E:4,F:5,'F#':
 export function suggestKeys(content:string):string[] {
  const explicit=content.match(/(?:^|\n)\s*(?:original\s+)?key\s*:\s*([A-G](?:#|b)?(?:m|maj|min)?)\b/i)
  if(explicit)return [explicit[1][0].toUpperCase()+explicit[1].slice(1).replace(/min$/,'m').replace(/maj$/,'')]
- const chords=[...content.matchAll(/\{([A-G](?:#|b)?)([^}\s/]*)?(?:\/[A-G](?:#|b)?)?\}|\[([A-G](?:#|b)?)([^\]\s/]*)?(?:\/[A-G](?:#|b)?)?\]/g)].flatMap(match=>{
+ const chords=[...content.matchAll(/\{([A-G](?:#|b)?)([^}\s/]*)?(?:\/[A-G](?:#|b)?)?\/*\}|\[([A-G](?:#|b)?)([^\]\s/]*)?(?:\/[A-G](?:#|b)?)?\/*\]/g)].flatMap(match=>{
   const root=match[1]??match[3],quality=match[2]??match[4]??''
   if(!/^(?:(?:maj|min|dim|aug|sus|add|omit|no|m|M)|\d|[#b()+-])*$/.test(quality))return []
   return [{root:roots[root],minor:/^(?:m(?!aj)|min)/.test(quality),dim:quality.includes('dim')}]
