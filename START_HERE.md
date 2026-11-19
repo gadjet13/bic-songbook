@@ -70,13 +70,13 @@ You can also open a personal song → **Add to setlist**, then choose an existin
 
 Unsaved setlist names and song order are saved in this browser. After returning, open **My Setlists → Recover setlist draft**, review and save. If the original changed or was deleted, recovery offers a new independent list. This also covers new names entered from **Add to setlist** on a song. Save, confirmed Cancel/Discard and sign-out clear drafts. Keep Remember me checked for recovery after closing the browser; drafts never sync between devices.
 
-## 6. Add friends and share
+## 6. Share a setlist
 
-1. Open **Menu → My friend ID**. Choose a unique ID using 3–24 letters, numbers or underscores; for example `@your_name`. You can change it later without losing friends or shares.
-1. From the front page, open **Friends**. Enter an approved friend’s ID or email, choose **Find person**, check the displayed person, then **Confirm add friend**. Private nicknames help you recognize people.
-1. Open a saved setlist, select a friend or enter their email, then **Share setlist**. They open it under **Shared with me**.
+1. Choose **Copy setlist link** after saving, or use the chain icon on its card.
+1. Send the link to your team. Each person opens it with an approved songbook account and can find it later under **Shared with me**.
+1. To close the link, open **Manage share link → Turn off link** in the setlist details.
 
-Sharing gives read-only access to that setlist and its songs, not your whole songbook. Your saved changes update the received list automatically; an open list checks periodically. Adding a friend alone does not share anything or grant church access. No email notification is sent.
+Recipients can read the live set and keep their own notes and capo settings. Your saved changes update what they see.
 
 **Want your own arrangement?** On a received list, choose **Save to my setlists** and keep or change its name. This makes an independent copy. Your edits will not change the sender’s list, and their later changes will not update your personal copy. The original received list stays live separately.
 
@@ -98,7 +98,7 @@ Offline mode supports reading, transposing and page turning. Editing, sharing an
 
 **Copy → Copy lyrics** copies words without chords; **Copy with chords** includes the displayed chords. **Copy entire setlist** copies songs in saved order.
 
-Use **Complete backup / restore → Download complete backup** to keep a separate backup. It includes songs, folders, personal setlists, favorites and private friend nicknames. It excludes received setlists, history and access permissions. Restore adds copies rather than replacing your current work.
+Use **Complete backup / restore → Download complete backup** to keep a separate backup. It includes songs, folders, personal setlists and favorites. It excludes received setlists, history and access permissions. Restore adds copies rather than replacing your current work.
 
 For an accidental edit, at the bottom of a song page, open **Song history** and preview an earlier saved version before restoring. Use **Recover deleted songs** on the song list for available deleted-song history. Unsaved song fields and unconverted pasted chord sheets are saved as local drafts while you edit. After returning to the same songbook, choose **Recover draft**, review it and save. If the original changed or was deleted, recovery offers a new song instead. **Cancel** or **Discard draft** removes it. Drafts do not sync across devices and are cleared on sign-out. Keep **Remember me** checked for recovery across browser sessions; unchecked sessions keep drafts only in that tab. If browser storage is blocked or full, the editor warns that the draft is only in memory. Save regularly and keep backups.
 
@@ -111,7 +111,7 @@ Ask a manager to approve your account email or ID, then Refresh library.
 That is expected for personal accounts. Choose Copy to My songbook and edit your copy.
 
 **A friend cannot see my shared setlist.**
-Check their approved account email and use Share setlist. Adding a friend alone is not sharing.
+Check that the link is active and that they signed in with an approved account.
 
 **I cannot edit while offline.**
 Reconnect first. Offline mode is for reading saved copies.
@@ -133,7 +133,7 @@ Older songs without a recorded added date appear last in both date-added directi
 
 ## Joining with an @ID and pending access requests (October 28)
 
-After first sign-in, personal accounts without a friend ID see **Choose your @ID**. Choose a unique 3–24-character ID using letters, numbers or underscores, then **Save ID and continue**. Existing personal accounts without IDs are prompted too; IDs remain changeable from Menu → My friend ID. The church owner is exempt. An existing saved offline session remains readable without an online onboarding check.
+After first sign-in, personal accounts without a account ID see **Choose your @ID**. Choose a unique 3–24-character ID using letters, numbers or underscores, then **Save ID and continue**. Existing personal accounts without IDs are prompted too; IDs remain changeable from Menu → My account ID. The church owner is exempt. An existing saved offline session remains readable without an online onboarding check.
 
 For an unapproved account, saving the ID also submits an access request. The waiting screen shows **Awaiting approval** and **Check approval**. Users who already have an ID but have not submitted can choose **Request access**. A declined user can explicitly **Request access again**; simply refreshing does not resubmit a declined request.
 
@@ -150,7 +150,7 @@ The database change has already been applied. `database/registration-requests.sq
 
 **Sort setlists and folders:** open My Setlists or My folders, expand its Sort control, and choose Name A–Z / Z–A, Date added newest / oldest, or Last edited newest / oldest. This rearranges cards only, never the songs within a setlist. Missing dates sort last. Folder timestamps begin with this update; existing unknown folder dates remain unknown. Folder last-edited tracks folder renaming, not edits to songs inside it. Older setlist creation dates may be approximate, as previously documented. Refresh online to update device-local copies with dates.
 
-**Recover the last offline save:** inside Complete backup / restore, choose Preview last offline save. It reads this account's latest snapshot from this device and shows its saved time, songbook, song/folder/setlist/favorite counts and a song preview. Review it, then Restore offline save as copies and confirm. Current work is kept. IDs are remapped, setlist order/repeats and folder memberships are preserved, and restored folders/lists get recovery names. Missing setlist-song references are reported and skipped. Received setlists, friend nicknames, access permissions and history are not in this offline recovery copy. Only the current songbook is restored; church restoration remains owner-only. Restore requires internet and respects the 25-personal-setlist limit; an invalid/over-limit import rolls back. Repeated restores create duplicates.
+**Recover the last offline save:** inside Complete backup / restore, choose Preview last offline save. It reads this account's latest snapshot from this device and shows its saved time, songbook, song/folder/setlist/favorite counts and a song preview. Review it, then Restore offline save as copies and confirm. Current work is kept. IDs are remapped, setlist order/repeats and folder memberships are preserved, and restored folders/lists get recovery names. Missing setlist-song references are reported and skipped. Received setlists, access permissions and history are not in this offline recovery copy. Only the current songbook is restored; church restoration remains owner-only. Restore requires internet and respects the 25-personal-setlist limit; an invalid/over-limit import rolls back. Repeated restores create duplicates.
 
 This is the latest snapshot still stored, not an archive: online refreshes can replace it, and signing out or clearing site data can remove it. A preview captures a fixed copy so later background refreshes do not alter what you confirm. Keep downloaded complete backups and use Song history for earlier versions. The existing file-based complete restore still adds copies too.
 
