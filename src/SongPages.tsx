@@ -1,12 +1,14 @@
-import {fitReaderFont} from './lib/reader-lines'
+import type { ReaderColumns } from './lib/reader-lines'
+import {fitReaderFont,readerColumnCount} from './lib/reader-lines'
 import { Children, cloneElement, isValidElement, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 
 type Block = { children?: ReactNode }
-export default function SongPages({ children, fontSize, onFitFontSize, onNextSong, onPreviousSong, startOnLastPage=false }: { children: ReactNode; fontSize: number; onFitFontSize?:(size:number)=>void; onNextSong?: () => void; onPreviousSong?: () => void; startOnLastPage?: boolean }) {
+export default function SongPages({ children, fontSize, onFitFontSize, onNextSong, onPreviousSong, startOnLastPage=false, columnPreference }: { children: ReactNode; fontSize: number; onFitFontSize?:(size:number)=>void; onNextSong?: () => void; onPreviousSong?: () => void; startOnLastPage?: boolean; columnPreference:ReaderColumns }) {
   const viewport = useRef<HTMLDivElement>(null)
   const measure = useRef<HTMLDivElement>(null)
   const navigation = useRef<HTMLElement>(null)
   const start = useRef<{x: number; y: number} | null>(null)
+  const measuredColumns=useRef(1)
   const fittedWidth=useRef<number|null>(null)
   const [page, setPage] = useState(0)
   const [layout, setLayout] = useState<{height:number; count:number; size:number; columns:ReactNode[][]}>({height:300,count:1,size:fontSize,columns:[[]]})
@@ -20,7 +22,7 @@ export default function SongPages({ children, fontSize, onFitFontSize, onNextSon
     let active = true
     const rebuild = () => {
       if (!active) return
-      const count = window.innerWidth >= 700 ? 2 : 1
+      const count = readerColumnCount(columnPreference,window.innerWidth)
       const height = Math.max(80, window.innerHeight - element.getBoundingClientRect().top - (navigation.current?.offsetHeight || 44) - 24)
       const measuring = measure.current!
       const width=Math.max(1,(element.clientWidth-2-(count-1)*24)/count)
@@ -71,8 +73,11 @@ export default function SongPages({ children, fontSize, onFitFontSize, onNextSon
           for(const piece of pieces){if(used&&used+piece.height>height)advance();columns[columns.length-1].push(piece.node);used+=piece.height}
         })
       })
+      const oldCount=measuredColumns.current
+      measuredColumns.current=count
+      const lastPage=Math.ceil(columns.length/count)-1
       setLayout({height,count,size,columns})
-      setPage(current => startOnLastPage ? Math.ceil(columns.length/count)-1 : Math.min(current,Math.ceil(columns.length/count)-1))
+      setPage(current => startOnLastPage ? lastPage : Math.min(Math.floor(current*oldCount/count),lastPage))
     }
     rebuild()
     const observer = new ResizeObserver(rebuild)
@@ -81,7 +86,7 @@ export default function SongPages({ children, fontSize, onFitFontSize, onNextSon
     document.fonts.ready.then(rebuild)
     return () => { active = false; observer.disconnect(); window.removeEventListener('resize',rebuild) }
   // The signature tracks actual song content without depending on fresh React element objects.
-  }, [signature, fontSize, startOnLastPage])
+  }, [signature, fontSize, startOnLastPage, columnPreference])
   const pages = Math.max(1,Math.ceil(layout.columns.length/layout.count))
   const turn = (direction:number) => {
     if(direction<0 && page===0 && onPreviousSong) return onPreviousSong()

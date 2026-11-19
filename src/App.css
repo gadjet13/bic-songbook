@@ -455,3 +455,17 @@ button.worship-primary:disabled { opacity: .55; }
 .full-set-chart .song-word { display: inline-block; vertical-align: top; }
 .full-set-chart .lyrics-only-block .song-segment { padding-top: 0; }
 .full-set-chart .lyrics-only-block .chord { display: none; }
+
+.reading-columns { display: flex; flex-direction: row; align-items: center; gap: 6px; margin: 0; }
+.reading-columns select { min-height: 44px; }
+.full-set-toolbar .reading-columns { flex: 0 1 auto; }
+.full-set-toolbar .reading-columns select { width: auto; }
+.full-set-chart { column-count: 1; column-gap: 24px; }
+.full-set-chart[data-columns="two"] { column-count: 2; }
+@media (min-width: 700px) {
+  .full-set-chart[data-columns="auto"] { column-count: 2; }
+}
+.full-set-chart .song-line { break-inside: avoid; }
+.full-set-chart .song-section { break-after: avoid; }
+.reading-layout-options { display: flex; flex-wrap: wrap; align-items: end; gap: 8px 16px; margin-block: 6px; }
+.reading-layout-options .reader-content-choice { margin: 0; }

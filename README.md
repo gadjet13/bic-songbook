@@ -106,7 +106,7 @@ From a personal song, open **Add to setlist** and choose an existing setlist, or
 
 - Choose light, dark, or device theme from the Menu.
 - Adjust song text from **6px to 32px**.
-- Reading mode fits lyrics into pages, with two columns on screens at least 700px wide and one on narrower screens.
+- Reading mode fits lyrics into pages. Use **Columns** in either the song reader or **Read full set** to choose Auto, One, or Two. Auto uses two columns on screens at least 700px wide and one on narrower screens. Your choice is saved on this browser.
 - Use page buttons, left/right arrow keys, or horizontal swipes to turn pages.
 - In a setlist, Next after the final page opens the next song. Previous from the first page opens the previous song's last page when available.
 - Sections stay in one column when they fit. Larger sections use both columns on one page when possible; sections exceeding the available space need multiple pages.

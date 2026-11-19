@@ -14,3 +14,11 @@ export function readingWords(segments:ChordSegment[]):ReadingWord[]{
 export function fitReaderFont(requested:number,width:number,measure:(size:number)=>number){
  for(let size=Math.max(12,Math.floor(requested));;size--){if(measure(size)<=width||size===12)return size}
 }
+
+export type ReaderColumns = 'auto' | 'one' | 'two'
+
+export function readerColumnCount(columns: ReaderColumns, viewportWidth: number) {
+  if (columns === 'one') return 1
+  if (columns === 'two') return 2
+  return viewportWidth >= 700 ? 2 : 1
+}
