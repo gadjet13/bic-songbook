@@ -1,4 +1,5 @@
 import ReadingColumns from './ReadingColumns'
+import ReadingTextSize from './ReadingTextSize'
 import type { ReaderColumns } from './lib/reader-lines'
 import { useEffect, useRef } from 'react'
 import type { Song } from './App'
@@ -19,6 +20,7 @@ export type FullReaderControls = {
   wakeStatus:string
   preferenceError:string
   fontSize:number
+  changeFontSize:(size:number)=>void
   readerColumns:ReaderColumns
   changeColumns:(columns:ReaderColumns)=>void
 }
@@ -28,7 +30,7 @@ export default function FullSetlistReader({title,songs,controls}:{
   songs:(Song|undefined)[]
   controls:FullReaderControls
 }){
-  const {userId,preferenceId,legacyId,offline,content,changeContent,changeCapo,exit,wakeStatus,preferenceError,fontSize,readerColumns,changeColumns}=controls
+  const {userId,preferenceId,legacyId,offline,content,changeContent,changeCapo,exit,wakeStatus,preferenceError,fontSize,changeFontSize,readerColumns,changeColumns}=controls
   const heading=useRef<HTMLHeadingElement>(null)
   const sections=useRef(new Map<string,HTMLHeadingElement>())
   const counts=new Map<number,number>()
@@ -80,6 +82,7 @@ export default function FullSetlistReader({title,songs,controls}:{
         <button aria-pressed={content==='chords'} onClick={()=>changeContent('chords')}>Chords</button>
       </div>
       <ReadingColumns value={readerColumns} onChange={changeColumns}/>
+      <ReadingTextSize value={fontSize} onChange={changeFontSize}/>
       <button onClick={exit}>Exit reader</button>
     </nav>
     {offline&&<p>Offline · Reading a saved copy</p>}
