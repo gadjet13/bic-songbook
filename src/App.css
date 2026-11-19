@@ -377,7 +377,8 @@ select:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
 .setlist-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: .8rem; }
 .library-setlist-card { display: grid; gap: .45rem; align-content: start; padding: .9rem; border: 1px solid #8b63c366; border-radius: .75rem; }
 .library-setlist-card p { margin: 0; }
-.library-setlist-card .setlist-card-title { border: 0; padding: 0; text-align: left; background: transparent; color: inherit; font-weight: 700; overflow-wrap: anywhere; }
+.library-setlist-card .setlist-card-summary { display: grid; gap: .45rem; border: 0; padding: 0; margin: 0; text-align: left; background: transparent; color: inherit; overflow-wrap: anywhere; }
+.setlist-card-summary:hover:enabled strong { text-decoration: underline; }
 .setlist-card-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
 .setlist-card-actions button { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; margin: 0; background: var(--surface); color: var(--text); }
 .setlist-card-actions button:hover:enabled { background: var(--hover); }

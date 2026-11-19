@@ -33,7 +33,7 @@ export function useFavorites(userId: string, offlineFavorites?:number[]) {
  async function toggle(id:number){if(busy)return;setBusy(true);setError('');try{const exists=favorites.includes(id);const result=exists?await cloud!.from('songbook_favorites').delete().eq('user_id',userId).eq('song_id',id):await cloud!.from('songbook_favorites').insert({user_id:userId,song_id:id});if(result.error)throw result.error;setFavorites(current=>exists?current.filter(value=>value!==id):[...current,id])}catch(error){setError(message(error))}finally{setBusy(false)}}
  return {favorites,toggle,error,busy}
 }
-export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLists,churchSongs,onSongsChanged,personalName,activeId,onNavigate,onBack,offlineSnapshot,refreshing,onSongEditor,fullReader,onReadFull}: {offlineSnapshot?:OfflineSnapshot;refreshing?:boolean;activeId:string|null;onNavigate:(id:string,saved?:boolean)=>void;onBack:()=>void;personalName:string;churchSongs:Song[];onSongsChanged:()=>Promise<void>;offlineLists?:OfflineList[];songs:Song[];canEdit:boolean;ownerId:string|null;onOpen:(songs:Song[],listId?:string,index?:number,missing?:number)=>void;onSongEditor:(song:Song|null,onSaved:(song:Song)=>void,returnFocus:HTMLElement)=>void;fullReader:FullReaderControls|null;onReadFull:()=>void}) {
+export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLists,churchSongs,onSongsChanged,personalName,activeId,onNavigate,onBack,offlineSnapshot,refreshing,onSongEditor,fullReader,onReadFull}: {offlineSnapshot?:OfflineSnapshot;refreshing?:boolean;activeId:string|null;onNavigate:(id:string,saved?:boolean)=>void;onBack:()=>void;personalName:string;churchSongs:Song[];onSongsChanged:()=>Promise<void>;offlineLists?:OfflineList[];songs:Song[];canEdit:boolean;ownerId:string|null;onOpen:(songs:Song[],listId?:string,index?:number,missing?:number)=>void;onSongEditor:(song:Song|null,onSaved:(song:Song)=>void,returnFocus:HTMLElement)=>void;fullReader:FullReaderControls|null;onReadFull:(id?:string)=>void}) {
  const [listSort,setListSort]=useState<LibrarySort>('added-newest')
  const [church,setChurch]=useState(churchSongs),[churchError,setChurchError]=useState('')
  useEffect(()=>{let active=true;if(offlineLists){setChurch(churchSongs);return}setChurch(churchSongs);void loadSongs(null).then(rows=>{if(active){setChurch(rows);setChurchError('')}}).catch(error=>{if(active)setChurchError(message(error))});return()=>{active=false}},[ownerId,churchSongs,offlineLists])
@@ -71,7 +71,15 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLi
  async function refresh(){if(offlineLists){setLists(offlineLists);setLoaded(true);return offlineLists}const {data,error}=await query();if(error)throw error;setLists(data??[]);setLoaded(true);return (data??[]) as Setlist[]}
  useEffect(()=>{let active=true;if(offlineLists){setLists(offlineLists);setLoaded(true);return}void query().then(({data,error})=>{if(active){if(error)setNotice(error.message);else setLists(data??[]);setLoaded(true)}});return()=>{active=false}},[ownerId,offlineLists])
  useEffect(()=>{const restored=()=>{setSelected(null);void refresh().catch(error=>setNotice(message(error)))};window.addEventListener('songbook-restored',restored);return()=>window.removeEventListener('songbook-restored',restored)},[ownerId])
- function choose(list:Setlist){if(pendingDraft.current?.listId===list.id){applyDraft(pendingDraft.current,list);return}setSelected(list);setTitle(list.title);setEntries(setlistEntries(list));setEditing(false);setSearch('');setNotice('');if(!offlineLists)void cloud!.rpc('recover_setlist_songs',{list_id:list.id}).then(async({data,error})=>{if(error){setNotice(error.message);return}if(data?.length){setPersonal(rows=>[...rows.filter(row=>!data.some((song:Song)=>song.id===row.id)),...data]);await onSongsChanged();setNotice('Missing setlist songs restored to your personal songbook.')}})}
+ function choose(list:Setlist,edit=false){if(pendingDraft.current?.listId===list.id){applyDraft(pendingDraft.current,list);return}setSelected(list);setTitle(list.title);setEntries(setlistEntries(list));setEditing(edit);setSearch('');setNotice('');if(!offlineLists)void cloud!.rpc('recover_setlist_songs',{list_id:list.id}).then(async({data,error})=>{if(error){setNotice(error.message);return}if(data?.length){setPersonal(rows=>[...rows.filter(row=>!data.some((song:Song)=>song.id===row.id)),...data]);await onSongsChanged();setNotice('Missing setlist songs restored to your personal songbook.')}})}
+ function editSetlist(list:Setlist){
+  if(!canEdit||offlineLists){onNavigate(list.id);return}
+  const draft=drafts.find(row=>row.listId===list.id)
+  if(draft){void recoverDraft(draft);return}
+  if(!allowNavigation())return
+  if(!activeId){onNavigate(list.id);choose(list,true)}
+  else{setTitle(list.title);setEntries(setlistEntries(list));setEditing(true)}
+ }
  useEffect(()=>{
   setLimit(false);setPickerOpen(false);setSearch('');setRecipient('');setNotice('');setCardLink(null)
   if(activeId==='new'){
@@ -168,17 +176,21 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLi
  useEffect(()=>{
   if(createdLink&&(createdLink.id!==activeId||editing||offlineLists))setCreatedLink(null)
  },[activeId,createdLink,editing,offlineLists])
- if(fullReader&&selected?.id===activeId&&selected)return <FullSetlistReader title={selected.title} songs={slots(selected)} controls={fullReader}/>
+ const readingSet=fullReader?(selected?.id===activeId?selected:lists.find(list=>list.id===activeId)):null
+ if(fullReader&&readingSet)return <FullSetlistReader title={readingSet.title} songs={slots(readingSet)} controls={fullReader}/>
  if(!activeId)return <section className="setlist-panel setlist-index" aria-label="My setlists">{!!drafts.length&&<section className="draft-recovery" aria-label="Recover unsaved setlists"><h3>Unsaved setlist drafts</h3><p>Stored in this browser only. Recovering does not change a saved setlist.</p>{drafts.map(draft=><div className="draft-row" key={draft.id}><span>{draft.title||'Untitled setlist'} · {draft.songIds.length} songs · {new Date(draft.updatedAt).toLocaleString()}</span><button disabled={busy||!canEdit||!loaded} onClick={()=>void recoverDraft(draft)}>Recover setlist draft</button><button disabled={busy} onClick={()=>{if(window.confirm('Permanently discard this setlist draft?'))clearDraft(draft.id)}}>Discard setlist draft</button></div>)}</section>}<div className="setlist-tools"><button disabled={busy} onClick={()=>void action(async()=>{await refresh()})}>Refresh setlists</button>{canEdit&&<button disabled={busy} onClick={startNew}>New setlist</button>}</div><LibrarySortControl label="Setlists" value={listSort} onChange={setListSort}/><div className="setlist-cards">{sortLibraryItems(lists,listSort).map(list=>{
   const playable=queue(list)
   return <article className="library-setlist-card" key={list.id} aria-label={list.title}>
-   <button className="setlist-card-title" disabled={busy} onClick={()=>onNavigate(list.id)}>{list.title}</button>
-   <p>{list.song_ids.length} {list.song_ids.length===1?'song':'songs'}</p>
-   <OfflineSetlistStatus compact snapshot={offlineSnapshot} userId={ownerId??''} list={list} songs={songs}/>
-   {!playable.length&&<small>{list.song_ids.length?'No available songs':'Add a song to start this setlist'}</small>}
+   <button type="button" className="setlist-card-summary" aria-label={list.title} title={canEdit?'Edit setlist':'Open setlist'}
+    disabled={busy} onClick={()=>editSetlist(list)}>
+    <strong>{list.title}</strong>
+    <span>{list.song_ids.length} {list.song_ids.length===1?'song':'songs'}</span>
+    <OfflineSetlistStatus compact snapshot={offlineSnapshot} userId={ownerId??''} list={list} songs={songs}/>
+    {!playable.length&&<small>{list.song_ids.length?'No available songs':'Add a song to start this setlist'}</small>}
+   </button>
    <div className="setlist-card-actions">
-    <button type="button" className="setlist-card-start" aria-label="Start setlist" title="Start setlist"
-     disabled={busy||!playable.length} onClick={()=>onOpen(playable,list.id,0,list.song_ids.length-playable.length)}>
+    <button type="button" className="setlist-card-start" aria-label="Start setlist" title="Read full set" data-read-full-set={list.id}
+     disabled={busy||!playable.length} onClick={()=>onReadFull(list.id)}>
      <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M8 4.7a.8.8 0 0 0-1.2.7v13.2a.8.8 0 0 0 1.2.7l10.8-6.6a.8.8 0 0 0 0-1.4Z"/></svg>
     </button>
     {canEdit&&!offlineLists&&<>
@@ -247,7 +259,7 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLi
    <button type="button" onClick={()=>{if(!allowNavigation())return;clearDraft(selected?.id??'new');setEditing(false);if(selected)choose(selected);else onBack()}}>Cancel</button>
   </div>
  </fieldset>:selected&&<>
- <div className="setlist-primary-actions"><button data-read-full-set onClick={onReadFull}>Read full set</button><button disabled={!queue(selected).length} onClick={()=>{const playable=queue(selected);onOpen(playable,selected.id,0,selected.song_ids.length-playable.length)}}>Start setlist</button>{canEdit&&<button disabled={busy} onClick={()=>{const draft=drafts.find(row=>row.listId===selected.id);if(draft)void recoverDraft(draft);else{setTitle(selected.title);setEntries(setlistEntries(selected));setEditing(true)}}}>Edit setlist</button>}</div>
+ <div className="setlist-primary-actions"><button data-read-full-set="" onClick={()=>onReadFull()}>Read full set</button><button disabled={!queue(selected).length} onClick={()=>{const playable=queue(selected);onOpen(playable,selected.id,0,selected.song_ids.length-playable.length)}}>Read song by song</button>{canEdit&&<button disabled={busy} onClick={()=>editSetlist(selected)}>Edit setlist</button>}</div>
  {sharingId&&<SetlistLinkSharing link={link}/>}
  <OfflineSetlistStatus snapshot={offlineSnapshot} userId={ownerId??''} list={selected} songs={songs} offline={!!offlineLists} onSave={onSongsChanged} disabled={refreshing||busy}/>
  <SetlistKeyOverview songs={slots(selected)} onOpen={index=>{const playable=queue(selected);onOpen(playable,selected.id,slots(selected).slice(0,index).filter(Boolean).length,selected.song_ids.length-playable.length)}}/>
