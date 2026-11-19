@@ -27,3 +27,15 @@ test('insert and replace chords without changing source around the edited token'
  assert.equal(api.putPositionedChord(chart,0,0,'A'),chart)
  assert.equal(api.putPositionedChord(chart,1,2,'A'),chart)
 });
+
+test('extra chord positions add only the needed spaces and stop ten past the lyrics',()=>{
+ const text='{D}Hi😀'
+ const end='Hi😀'.length
+ assert.equal(api.chordPlacementBoundaries('Hi😀',10).at(-1),end+10)
+ assert.equal(api.putPositionedChord(text,0,end+3,'G',undefined,10),'{D}Hi😀   {G}')
+ assert.equal(api.putPositionedChord(text,0,end+11,'G',undefined,10),text)
+ assert.equal(api.movePositionedChord(text,0,0,0,end+10,10).content,'Hi😀          {D}')
+ assert.equal(api.movePositionedChord('{D}Hi\r\nLast',0,0,1,8,10).content,'Hi\r\nLast    {D}')
+ assert.equal(api.chordPlacementBoundaries('Hi😀   ',10).at(-1),end+10)
+ assert.equal(api.movePositionedChord(text,0,0,0,end+10).content,'Hi😀{D}')
+})

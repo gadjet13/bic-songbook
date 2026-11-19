@@ -503,3 +503,6 @@ button.worship-primary:disabled { opacity: .55; }
 .reader-bar-edit, .reader-legacy-line { white-space: pre; }
 .reader-bar-edit button { min-height: 36px; padding: 2px 6px; font: inherit; }
 .reader-legacy-line { overflow-x: auto; }
+.reader-chart-editor [data-drag-origin] { opacity: .35; }
+.reader-chart-editor [data-drag-target] { background: var(--accent); color: var(--surface); }
+.reader-drag-chord { position: fixed; z-index: 100; transform: translate(-50%, -120%); pointer-events: none; padding: 2px 8px; border-radius: 6px; color: var(--surface); background: var(--accent); font: 700 16px/1.5 ui-monospace, Consolas, monospace; white-space: nowrap; }
