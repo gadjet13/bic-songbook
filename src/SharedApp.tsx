@@ -50,10 +50,11 @@ export default function SharedApp() {
   bookRef.current=book
   const sharedListsRef=useRef(sharedLists)
   sharedListsRef.current=sharedLists
-  function openBook(next:'personal'|'church') {
+  function openBook(next:'personal'|'church', planSet = false) {
     if(!allowNavigation())return
     setPendingSong(undefined)
-    history.pushState({bicBook:next},'',location.href)
+    history.pushState({bicBook:next,bicSetlistIndex:planSet},'',location.href)
+    if(planSet)history.pushState({bicBook:next,bicSetlistIndex:true,bicSetlist:'new'},'',location.href)
     generation.current++;setSongs([]);setBook(next)
   }
   function openShared(list:SharedSetlist) {
@@ -199,7 +200,8 @@ export default function SharedApp() {
     <RegistrationGate key={session.user.id} userId={session.user.id} offline={offline} onRefresh={refresh}>
 
 
-    {role && role!=='owner' && book==='home' && !sharedList && <main className="songbook-home"><h1 className="brand"><img src="/bic-logo.png" alt="BIC" />BIC Worship DB</h1><p><a href="/guide.html" target="_blank" rel="noopener">ⓘ User guide</a></p><nav aria-label="Home tabs"><button aria-pressed={homeTab==='songbooks'} onClick={()=>setHomeTab('songbooks')}>Songbooks</button><button aria-pressed={homeTab==='friends'} onClick={()=>setHomeTab('friends')}>Friends</button></nav>{homeTab==='friends'?offline?<p>Friend management needs an internet connection.</p>:<FriendPicker ownerId={session.user.id}/>:<><h2>Your songbooks</h2><p>Choose a songbook to visit.</p><div className="songbook-cards">
+    {role && role!=='owner' && book==='home' && !sharedList && <main className="songbook-home"><h1 className="brand"><img src="/bic-logo.png" alt="BIC" />BIC Worship DB</h1><p><a href="/guide.html" target="_blank" rel="noopener">ⓘ User guide</a></p><nav aria-label="Home tabs"><button aria-pressed={homeTab==='songbooks'} onClick={()=>setHomeTab('songbooks')}>Songbooks</button><button aria-pressed={homeTab==='friends'} onClick={()=>setHomeTab('friends')}>Friends</button></nav>{homeTab==='friends'?offline?<p>Friend management needs an internet connection.</p>:<FriendPicker ownerId={session.user.id}/>:<><div className="worship-planner-entry"><button type="button" className="worship-primary" disabled={offline} onClick={()=>openBook('personal',true)}>Plan a worship set</button>
+      {offline&&<small>Reconnect to plan a worship set.</small>}</div><h2>Your songbooks</h2><p>Choose a songbook to visit.</p><div className="songbook-cards">
       <button onClick={()=>{openBook('personal')}}><strong>My songbook</strong><span>Your versions, folders, and personal setlists.</span></button>
       <button onClick={()=>{openBook('church')}}><strong>Bukchon International Chapel</strong><span>Visit the church songbook · Shared with approved members.</span></button>
     </div><h2>Shared with me</h2><button disabled={loading} onClick={()=>void refresh()}>Refresh shared setlists</button>{!sharedLists.length&&<p>No shared setlists yet.</p>}<div className="songbook-cards">{sharedLists.map(list=><button key={list.id} onClick={()=>openShared(list)}><strong>{list.title}</strong><span>From {list.sender_email} · {list.songs.length} songs</span><OfflineSetlistStatus compact snapshot={offlineReadiness} userId={session.user.id} list={list} songs={list.songs} shared/></button>)}</div></>}</main>}
