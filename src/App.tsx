@@ -1,3 +1,5 @@
+import ReadingColumns from './ReadingColumns'
+import type { ReaderColumns } from './lib/reader-lines'
 import FullSetlistReader from './FullSetlistReader'
 import type { FullReaderControls } from './FullSetlistReader'
 import SetlistSongNote from './SetlistSongNote'
@@ -162,6 +164,17 @@ function App({library}: {library: SharedLibrary}) {
   const stageView=readingMode&&setlistQueue.length>0
   const [readingChoice,setReadingChoice]=useState(false)
   const [readingContent,setReadingContent]=useState<'lyrics'|'chords'>('chords')
+  const [readerColumns,setReaderColumns]=useState<ReaderColumns>(()=>{
+    try {
+      const saved=localStorage.getItem('bic-reading-columns')
+      if(saved==='one'||saved==='two')return saved
+    } catch { /* Storage can be disabled. */ }
+    return 'auto'
+  })
+  useEffect(()=>{
+    try { localStorage.setItem('bic-reading-columns',readerColumns) }
+    catch { /* Keep the choice until the page closes. */ }
+  },[readerColumns])
   const wakeStatus=useReadingWakeLock(readingMode||fullSetReading)
   const [fontSize, setFontSize] = useState(() => {
     try { const saved = Number(localStorage.getItem('bic-songbook-font-size')); return saved >= 12 && saved <= 32 ? saved : 16 } catch { return 16 }
@@ -677,7 +690,7 @@ function App({library}: {library: SharedLibrary}) {
   const fullReader:FullReaderControls|null=fullSetReading?{
     userId:library.userId,preferenceId,legacyId:oldPreferenceId,offline:!!library.offline,
     content:readingContent,changeContent:setReadingContent,changeCapo,exit:exitFullSet,
-    wakeStatus,preferenceError,fontSize
+    wakeStatus,preferenceError,fontSize,readerColumns,changeColumns:setReaderColumns
   }:null
   if(fullReader&&library.sharedSetlist)return <div className="app"><main>
     <FullSetlistReader title={library.bookName} songs={songList} controls={fullReader}/>
@@ -1045,9 +1058,12 @@ function App({library}: {library: SharedLibrary}) {
             </div>
             {!isEditing&&readingChoice&&!readingMode&&<fieldset className="reading-choice"><legend>Reading mode content</legend><p>Choose what to show. Your saved song stays unchanged.</p><button onClick={()=>{setReadingContent('lyrics');setReadingChoice(false);setReadingMode(true)}}>Lyrics only</button><button onClick={()=>{setReadingContent('chords');setReadingChoice(false);setReadingMode(true)}}>Lyrics + chords</button><button onClick={()=>setReadingChoice(false)}>Cancel reading mode</button></fieldset>}
             {!isEditing && (<>
-              {readingMode&&!stageView&&<label className="reader-content-choice">Reading content<select aria-label="Reading content" value={readingContent} onChange={event=>setReadingContent(event.target.value as 'lyrics'|'chords')}><option value="lyrics">Lyrics only</option><option value="chords">Lyrics + chords</option></select></label>}
+              {readingMode&&<div className="reading-layout-options">
+                {!stageView&&<label className="reader-content-choice">Reading content<select aria-label="Reading content" value={readingContent} onChange={event=>setReadingContent(event.target.value as 'lyrics'|'chords')}><option value="lyrics">Lyrics only</option><option value="chords">Lyrics + chords</option></select></label>}
+                <ReadingColumns value={readerColumns} onChange={setReaderColumns}/>
+              </div>}
               {readingMode&&<small role="status">{wakeStatus}</small>}
-              {readingMode ? <SongPages key={selectedSong.id+'-'+queueIndex+'-'+readingContent} fontSize={fontSize} onFitFontSize={setFontSize} startOnLastPage={startOnLastPage} onPreviousSong={queueIndex>0&&setlistQueue.length?()=>goToSetlistSong(queueIndex-1,true):undefined} onNextSong={queueIndex<setlistQueue.length-1?()=>goToSetlistSong(queueIndex+1):undefined}>{displaySong(stageSong?.content??selectedSong.content, stageSong?0:transpose, stageSong?.key??getCurrentKey(selectedSong.key,transpose),true,readingContent==='chords')}</SongPages> : <div className="song-display" style={{fontSize: `${fontSize}px`}} tabIndex={0} aria-label="Song lyrics and chords">
+              {readingMode ? <SongPages key={selectedSong.id+'-'+queueIndex+'-'+readingContent} columnPreference={readerColumns} fontSize={fontSize} onFitFontSize={setFontSize} startOnLastPage={startOnLastPage} onPreviousSong={queueIndex>0&&setlistQueue.length?()=>goToSetlistSong(queueIndex-1,true):undefined} onNextSong={queueIndex<setlistQueue.length-1?()=>goToSetlistSong(queueIndex+1):undefined}>{displaySong(stageSong?.content??selectedSong.content, stageSong?0:transpose, stageSong?.key??getCurrentKey(selectedSong.key,transpose),true,readingContent==='chords')}</SongPages> : <div className="song-display" style={{fontSize: `${fontSize}px`}} tabIndex={0} aria-label="Song lyrics and chords">
                 {displaySong(
                   selectedSong.content,
                   transpose,

@@ -1,3 +1,5 @@
+import ReadingColumns from './ReadingColumns'
+import type { ReaderColumns } from './lib/reader-lines'
 import { useEffect, useRef } from 'react'
 import type { Song } from './App'
 import SetlistSongNote from './SetlistSongNote'
@@ -17,6 +19,8 @@ export type FullReaderControls = {
   wakeStatus:string
   preferenceError:string
   fontSize:number
+  readerColumns:ReaderColumns
+  changeColumns:(columns:ReaderColumns)=>void
 }
 
 export default function FullSetlistReader({title,songs,controls}:{
@@ -24,7 +28,7 @@ export default function FullSetlistReader({title,songs,controls}:{
   songs:(Song|undefined)[]
   controls:FullReaderControls
 }){
-  const {userId,preferenceId,legacyId,offline,content,changeContent,changeCapo,exit,wakeStatus,preferenceError,fontSize}=controls
+  const {userId,preferenceId,legacyId,offline,content,changeContent,changeCapo,exit,wakeStatus,preferenceError,fontSize,readerColumns,changeColumns}=controls
   const heading=useRef<HTMLHeadingElement>(null)
   const sections=useRef(new Map<string,HTMLHeadingElement>())
   const counts=new Map<number,number>()
@@ -75,6 +79,7 @@ export default function FullSetlistReader({title,songs,controls}:{
         <button aria-pressed={content==='lyrics'} onClick={()=>changeContent('lyrics')}>Lyrics</button>
         <button aria-pressed={content==='chords'} onClick={()=>changeContent('chords')}>Chords</button>
       </div>
+      <ReadingColumns value={readerColumns} onChange={changeColumns}/>
       <button onClick={exit}>Exit reader</button>
     </nav>
     {offline&&<p>Offline · Reading a saved copy</p>}
@@ -104,7 +109,7 @@ export default function FullSetlistReader({title,songs,controls}:{
         {preference?.note&&<p className="full-set-note"><strong>My notes</strong> {preference.note}</p>}
         {localId&&<SetlistSongNote userId={userId} listId={localId} songId={song.id}
           note={preference?.note??''} offline={offline||!preferenceId} label={preference?.note?'Edit my notes':'My notes'}/>}
-        <div className="full-set-chart" style={{fontSize}}>
+        <div className="full-set-chart" data-columns={readerColumns} style={{fontSize}}>
           {displaySong(chart.content,0,chart.key,true,content==='chords')}
         </div>
       </article>
