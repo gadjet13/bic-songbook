@@ -2,6 +2,7 @@ import ReadingColumns from './ReadingColumns'
 import ReadingTextSize from './ReadingTextSize'
 import type { ReaderColumns } from './lib/reader-lines'
 import { useEffect, useRef } from 'react'
+import type { ReactNode } from 'react'
 import type { Song } from './App'
 import SetlistSongNote from './SetlistSongNote'
 import { displaySong } from './SongChart'
@@ -23,6 +24,10 @@ export type FullReaderControls = {
   changeFontSize:(size:number)=>void
   readerColumns:ReaderColumns
   changeColumns:(columns:ReaderColumns)=>void
+  onEditRaw?:(song:Song,occurrence:string,trigger:HTMLElement)=>void
+  editingOccurrence?:string
+  editor?:ReactNode
+  cancelEditing:()=>void
 }
 
 export default function FullSetlistReader({title,songs,controls}:{
@@ -31,6 +36,8 @@ export default function FullSetlistReader({title,songs,controls}:{
   controls:FullReaderControls
 }){
   const {userId,preferenceId,legacyId,offline,content,changeContent,changeCapo,exit,wakeStatus,preferenceError,fontSize,changeFontSize,readerColumns,changeColumns}=controls
+  const latestControls=useRef(controls)
+  latestControls.current=controls
   const heading=useRef<HTMLHeadingElement>(null)
   const sections=useRef(new Map<string,HTMLHeadingElement>())
   const counts=new Map<number,number>()
@@ -46,9 +53,11 @@ export default function FullSetlistReader({title,songs,controls}:{
     heading.current?.focus({preventScroll:true})
     const close=(event:KeyboardEvent)=>{
       if(event.key==='Escape'&&!event.defaultPrevented&&!event.repeat&&
-        !(event.target instanceof HTMLElement&&event.target.matches('textarea, select'))){
+        !(event.target instanceof HTMLElement&&event.target.matches('input, textarea, select'))){
         event.preventDefault()
-        exit()
+        const current=latestControls.current
+        if(current.editingOccurrence)current.cancelEditing()
+        else current.exit()
       }
     }
     window.addEventListener('keydown',close)
@@ -94,6 +103,7 @@ export default function FullSetlistReader({title,songs,controls}:{
       const preference=localId?cachedPreference(userId,localId,song.id,legacyId??localId):null
       const capo=preference?.capo??0
       const chart=arrangedSong(song,capo)
+      const editing=controls.editingOccurrence===id
       const titleId='full-set-song-'+id
       return <article key={id} className="full-set-song" aria-labelledby={titleId}>
         <h2 id={titleId} tabIndex={-1} ref={element=>{
@@ -102,7 +112,7 @@ export default function FullSetlistReader({title,songs,controls}:{
         }}>{index+1}. {song.title}</h2>
         <div className="full-set-song-settings">
           <span>Sounding key: {setlistSoundingKey(song.key,song.setlist_key)||'Not set'}</span>
-          {localId&&songKey(song.key)&&<label>My capo<select value={capo}
+          {localId&&songKey(song.key)&&<label>My capo<select disabled={editing} value={capo}
             onChange={event=>changeCapo(song.id,Number(event.target.value))}>
             {Array.from({length:12},(_,fret)=><option key={fret} value={fret}>{fret===0?'No capo':fret}</option>)}
           </select></label>}
@@ -112,7 +122,10 @@ export default function FullSetlistReader({title,songs,controls}:{
         {preference?.note&&<p className="full-set-note"><strong>My notes</strong> {preference.note}</p>}
         {localId&&<SetlistSongNote userId={userId} listId={localId} songId={song.id}
           note={preference?.note??''} offline={offline||!preferenceId} label={preference?.note?'Edit my notes':'My notes'}/>}
-        <div className="full-set-chart reader-chart" data-columns={readerColumns} style={{fontSize}}>
+        {controls.onEditRaw&&<button type="button" hidden={editing}
+          onClick={event=>controls.onEditRaw?.(song,id,event.currentTarget)}>Edit raw content</button>}
+        {editing&&controls.editor}
+        <div hidden={editing} className="full-set-chart reader-chart" data-columns={readerColumns} style={{fontSize}}>
           {displaySong(chart.content,0,chart.key,true,content==='chords')}
         </div>
       </article>

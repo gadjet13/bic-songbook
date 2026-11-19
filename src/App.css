@@ -482,3 +482,8 @@ button.worship-primary:disabled { opacity: .55; }
 .reader-chart .song-line[data-reader-spacer] { min-height: .75em; }
 .reading-layout-options { display: flex; flex-wrap: wrap; align-items: end; gap: 8px 16px; margin-block: 6px; }
 .reading-layout-options .reader-content-choice { margin: 0; }
+
+.reader-chart-editor { min-width: 0; margin: 12px 0; padding: 12px; border: 1px solid var(--border); border-radius: 8px; }
+.reader-edit-actions { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
+.reader-edit-actions button { min-height: 44px; }
+.reader-raw-chart { box-sizing: border-box; width: 100%; min-height: 16rem; font: 16px/1.5 ui-monospace, Consolas, monospace; }
