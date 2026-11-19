@@ -1,5 +1,4 @@
 import ReaderChartEditor from './ReaderChartEditor'
-import type { ChartPitch } from './lib/reader-chart-edit'
 import ReadingColumns from './ReadingColumns'
 import ReadingTextSize, { maxReadingTextSize, minReadingTextSize } from './ReadingTextSize'
 import type { ReaderColumns } from './lib/reader-lines'
@@ -7,7 +6,7 @@ import FullSetlistReader from './FullSetlistReader'
 import type { FullReaderControls } from './FullSetlistReader'
 import SetlistSongNote from './SetlistSongNote'
 import { cachedPreference, flushSetlistCapos, initializeSetlistCapo, legacyCapo, loadSetlistPreferences, preferencesChanged, queueSetlistCapo } from './lib/setlist-preferences'
-import { arrangedSong, arrangementPitch, setlistSoundingKey, songKey } from './lib/setlist-arrangement'
+import { arrangedSong, setlistSoundingKey, songKey } from './lib/setlist-arrangement'
 import SongFlowEditor from './SongFlowEditor'
 import {hasFlowConflicts,mapFlowCursor,syncLinkedSections} from './lib/song-flow'
 import {songSortLabels,sortSongsByDate} from './lib/song-dates'
@@ -139,7 +138,7 @@ export type SharedLibrary = {
   update: (song: Song) => Promise<Song>
   remove: (song: Song) => Promise<void>
 }
-type ReaderEdit = {song:Song; occurrence:string; pitch:ChartPitch; content:string; scroll:number; trigger:HTMLElement}
+type ReaderEdit = {song:Song; occurrence:string; content:string; scroll:number; trigger:HTMLElement}
 
 function App({library}: {library: SharedLibrary}) {
   const {favorites,toggle:toggleFavorite,error:favoriteError,busy:favoriteBusy}=useFavorites(library.userId,library.offline?library.offlineData?.favorites:undefined)
@@ -394,7 +393,7 @@ function App({library}: {library: SharedLibrary}) {
       title:song.title,artist:song.artist,key:song.key,content,raw:'',folderId:song.folder_id??null,updatedAt:new Date().toISOString()}))
   },[readerEdit,readerDirty,recoveryKey])
 
-  function unlockReader(song:Song,pitch:ChartPitch,occurrence:string,trigger:HTMLElement){
+  function openRawEditor(song:Song,occurrence:string,trigger:HTMLElement){
     if(!canEditInReader||readerSavePending.current||!allowNavigation())return
     const draft=readSongDrafts(recoveryKey).find(row=>row.songId===song.id)
     if(draft&&(!canResumeSongDraft(draft,song)||draft.raw||draft.title!==song.title||draft.artist!==song.artist||draft.key!==song.key||
@@ -403,7 +402,7 @@ function App({library}: {library: SharedLibrary}) {
       return
     }
     setNotice('');setReaderError('')
-    setReaderEdit({song,pitch,occurrence,content:draft?.content??song.content,scroll:window.scrollY,trigger})
+    setReaderEdit({song,occurrence,content:draft?.content??song.content,scroll:window.scrollY,trigger})
     requestAnimationFrame(()=>document.querySelector<HTMLElement>('[data-reader-edit-heading]')?.focus())
   }
   function lockReader(){
@@ -771,14 +770,14 @@ function App({library}: {library: SharedLibrary}) {
   const canEditInReader=!!library.ownerId&&library.canEdit&&!library.offline&&!library.sharedSetlist
   const readerEditor=readerEdit?<ReaderChartEditor key={readerEdit.occurrence} content={readerEdit.content}
     onChange={content=>setReaderEdit({...readerEdit,content})}
-    pitch={readerEdit.pitch} baseKey={readerEdit.song.key} busy={readerSaving} canSave={!readerDirty||canEditInReader}
+    baseKey={readerEdit.song.key} busy={readerSaving} canSave={!readerDirty||canEditInReader}
     error={readerError||(!canEditInReader?'Reconnect to save your chart.':'')} dirty={readerDirty}
     onSave={()=>void saveReaderEdit()} onCancel={cancelReaderEdit}/>:null
   const fullReader:FullReaderControls|null=fullSetReading?{
     userId:library.userId,preferenceId,legacyId:oldPreferenceId,offline:!!library.offline,
     content:readingContent,changeContent:setReadingContent,changeCapo,exit:exitFullSet,
     wakeStatus,preferenceError,fontSize,changeFontSize:setFontSize,readerColumns,changeColumns:setReaderColumns,
-    onUnlock:canEditInReader?unlockReader:undefined,editingOccurrence:readerEdit?.occurrence,editor:readerEditor,
+    onEditRaw:canEditInReader?openRawEditor:undefined,editingOccurrence:readerEdit?.occurrence,editor:readerEditor,
     cancelEditing:cancelReaderEdit
   }:null
   if(fullReader&&library.sharedSetlist)return <div className="app"><main>
@@ -1136,7 +1135,7 @@ function App({library}: {library: SharedLibrary}) {
                 +
               </button>
               {!isEditing && library.ownerId && library.canEdit && <button className="save-key-button" disabled={savingKey||!!readerEdit||transpose===0||!/^([A-G](?:#|b)?)(m|maj|min)?$/.test(selectedSong.key)} onClick={()=>void saveInCurrentKey()}>{savingKey?'Saving…':`Save in ${getCurrentKey(selectedSong.key,transpose)} as base key`}</button>}
-              {!isEditing && !stageView && <button className="reading-toggle" aria-pressed={readingMode} onClick={() => {if(readerEdit)cancelReaderEdit();else if(readingMode)setReadingMode(false);else setReadingChoice(value=>!value)}}>{readerEdit?'Cancel chart editing':readingMode?'Exit reading mode':'Reading mode'}</button>}
+              {!isEditing && !stageView && !readerEdit && <button className="reading-toggle" aria-pressed={readingMode} onClick={() => {if(readingMode)setReadingMode(false);else setReadingChoice(value=>!value)}}>{readingMode?'Exit reading mode':'Reading mode'}</button>}
             </div>}
             {!isEditing&&!readingMode&&<ReadingTextSize value={fontSize} onChange={setFontSize}/>}
             </div>
@@ -1148,12 +1147,8 @@ function App({library}: {library: SharedLibrary}) {
                 <ReadingTextSize value={fontSize} onChange={setFontSize}/>
               </div>}
               {readingMode&&<small role="status">{wakeStatus}</small>}
-              {readingMode&&canEditInReader&&<button type="button" hidden={!!readerEdit} onClick={event=>{
-                const key=getCurrentKey(selectedSong.key,transpose)
-                const pitch=plannedSong?arrangementPitch(plannedSong,capo)??{semitones:0,key:selectedSong.key,flats:selectedSong.key.includes('b')}
-                  :{semitones:transpose,key,flats:key.includes('b')}
-                unlockReader(selectedSong,pitch,'single-'+selectedSong.id,event.currentTarget)
-              }}>Unlock editing</button>}
+              {readingMode&&canEditInReader&&<button type="button" hidden={!!readerEdit}
+                onClick={event=>openRawEditor(selectedSong,'single-'+selectedSong.id,event.currentTarget)}>Edit raw content</button>}
               {readingMode&&readerEditor}
               {readingMode ? <div hidden={!!readerEdit}><SongPages key={selectedSong.id+'-'+queueIndex+'-'+readingContent} columnPreference={readerColumns} fontSize={fontSize} onFitFontSize={setFontSize} startOnLastPage={startOnLastPage} onPreviousSong={queueIndex>0&&setlistQueue.length?()=>goToSetlistSong(queueIndex-1,true):undefined} onNextSong={queueIndex<setlistQueue.length-1?()=>goToSetlistSong(queueIndex+1):undefined}>{displaySong(stageSong?.content??selectedSong.content, stageSong?0:transpose, stageSong?.key??getCurrentKey(selectedSong.key,transpose),true,readingContent==='chords')}</SongPages></div> : <div className="song-display" style={{fontSize: `${fontSize}px`}} tabIndex={0} aria-label="Song lyrics and chords">
                 {displaySong(

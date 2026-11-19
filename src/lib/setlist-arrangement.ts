@@ -1,5 +1,4 @@
 import type { Song } from '../App'
-import type { ChartPitch } from './reader-chart-edit'
 import { transposeChord, transposeSongContent } from './chord/transpose'
 
 export const soundingTonics = ['C','C#','Db','D','D#','Eb','E','F','F#','Gb','G','G#','Ab','A','A#','Bb','B'] as const
@@ -21,20 +20,16 @@ export function setlistSoundingKey(key:string,tonic?:string|null) {
   return base&&tonic ? tonic+(base[2]??'') : key
 }
 
-export function arrangementPitch(song:Song,capo=0):ChartPitch|null {
+export function arrangedSong(song:Song,capo=0): Song {
   const sounding=setlistSoundingKey(song.key,song.setlist_key)
   const base=songKey(song.key),target=songKey(sounding)
-  if(!base||!target||(!song.setlist_key&&!capo))return null
+  if(!base||!target||(!song.setlist_key&&!capo))return song
   const pitch=(note:string)=>chromatic.indexOf(transposeChord(note,0))
   const from=pitch(base[1]),to=pitch(target[1])
-  if(from<0||to<0)return null
+  if(from<0||to<0)return song
   const flats=target[1].includes('b')
-  return {key:capo?transposeChord(sounding,-capo,flats):sounding,semitones:to-from-capo,flats}
-}
-
-export function arrangedSong(song:Song,capo=0): Song {
-  const pitch=arrangementPitch(song,capo)
-  return pitch ? {...song,key:pitch.key,content:transposeSongContent(song.content,pitch.semitones,pitch.flats)} : song
+  return {...song,key:capo?transposeChord(sounding,-capo,flats):sounding,
+    content:transposeSongContent(song.content,to-from-capo,flats)}
 }
 
 export function capoStorageKey(userId:string,listId:string,songId:number) {

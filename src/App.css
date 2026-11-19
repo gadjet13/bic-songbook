@@ -486,23 +486,4 @@ button.worship-primary:disabled { opacity: .55; }
 .reader-chart-editor { min-width: 0; margin: 12px 0; padding: 12px; border: 1px solid var(--border); border-radius: 8px; }
 .reader-edit-actions { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
 .reader-edit-actions button { min-height: 44px; }
-.reader-chord-picker { padding: 8px; margin-block: 12px; background: var(--soft); border-radius: 8px; }
-.reader-chord-picker label { margin: 0; min-width: 0; }
-.reader-lyric-edit, .reader-bar-edit { overflow-x: auto; margin-block: 12px; }
-.reader-lyric-track, .reader-bar-edit, .reader-raw-chart { font: 16px/1.5 ui-monospace, Consolas, monospace; }
-.reader-edit-chord-row { position: relative; min-height: 30px; }
-.reader-edit-slots { display: flex; height: 30px; }
-.reader-lyric-slot { position: relative; white-space: pre; }
-.reader-lyric-slot > span { visibility: hidden; }
-.reader-lyric-slot > button[data-reader-slot] { position: absolute; inset: 0; width: 100%; min-height: 0; padding: 0; border: 0; border-radius: 0; background: var(--soft); color: var(--accent); font: inherit; }
-.reader-edit-slots button:hover, .reader-edit-slots button:focus-visible { background: var(--accent); color: var(--surface); }
-.reader-edit-chord { color: var(--accent); touch-action: none; cursor: grab; }
-.reader-edit-chord-row .reader-edit-chord { position: absolute; height: 34px; padding: 2px 6px; font: inherit; font-weight: 700; white-space: nowrap; }
-.reader-lyric-track textarea { display: block; box-sizing: border-box; width: 100%; padding: 0; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; resize: none; font: inherit; white-space: pre; }
-.reader-raw-chart { box-sizing: border-box; width: 100%; min-height: 15rem; }
-.reader-bar-edit, .reader-legacy-line { white-space: pre; }
-.reader-bar-edit button { min-height: 36px; padding: 2px 6px; font: inherit; }
-.reader-legacy-line { overflow-x: auto; }
-.reader-chart-editor [data-drag-origin] { opacity: .35; }
-.reader-chart-editor [data-drag-target] { background: var(--accent); color: var(--surface); }
-.reader-drag-chord { position: fixed; z-index: 100; transform: translate(-50%, -120%); pointer-events: none; padding: 2px 8px; border-radius: 6px; color: var(--surface); background: var(--accent); font: 700 16px/1.5 ui-monospace, Consolas, monospace; white-space: nowrap; }
+.reader-raw-chart { box-sizing: border-box; width: 100%; min-height: 16rem; font: 16px/1.5 ui-monospace, Consolas, monospace; }

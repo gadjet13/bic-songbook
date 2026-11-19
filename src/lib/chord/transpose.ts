@@ -54,7 +54,7 @@ export function barChordParts(line: string) {
 
   const tokens = row[2].match(/\s+|\|+|[^\s|]+/g) ?? []
   const parts = tokens.map(text => ({ text, chord: chordPattern.test(text) }))
-  if ((!parts.some(part => part.chord) && !parts.some(part=>part.text==='/')) ||
+  if (!parts.some(part => part.chord) ||
       parts.some(part => !part.chord && !/^(?:\s+|\|+|\/+)$/.test(part.text))) return null
 
   return [{ text: row[1], chord: false }, ...parts, { text: row[3], chord: false }]

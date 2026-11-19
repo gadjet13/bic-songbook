@@ -3,11 +3,10 @@ import ReadingTextSize from './ReadingTextSize'
 import type { ReaderColumns } from './lib/reader-lines'
 import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
-import type { ChartPitch } from './lib/reader-chart-edit'
 import type { Song } from './App'
 import SetlistSongNote from './SetlistSongNote'
 import { displaySong } from './SongChart'
-import { arrangedSong, arrangementPitch, setlistSoundingKey, songKey } from './lib/setlist-arrangement'
+import { arrangedSong, setlistSoundingKey, songKey } from './lib/setlist-arrangement'
 import { cachedPreference, initializeSetlistCapo, legacyCapo } from './lib/setlist-preferences'
 
 export type FullReaderControls = {
@@ -25,7 +24,7 @@ export type FullReaderControls = {
   changeFontSize:(size:number)=>void
   readerColumns:ReaderColumns
   changeColumns:(columns:ReaderColumns)=>void
-  onUnlock?:(song:Song,pitch:ChartPitch,occurrence:string,trigger:HTMLElement)=>void
+  onEditRaw?:(song:Song,occurrence:string,trigger:HTMLElement)=>void
   editingOccurrence?:string
   editor?:ReactNode
   cancelEditing:()=>void
@@ -123,10 +122,8 @@ export default function FullSetlistReader({title,songs,controls}:{
         {preference?.note&&<p className="full-set-note"><strong>My notes</strong> {preference.note}</p>}
         {localId&&<SetlistSongNote userId={userId} listId={localId} songId={song.id}
           note={preference?.note??''} offline={offline||!preferenceId} label={preference?.note?'Edit my notes':'My notes'}/>}
-        {controls.onUnlock&&<button type="button" hidden={editing} onClick={event=>{
-          const pitch=arrangementPitch(song,capo)??{semitones:0,key:song.key,flats:song.key.includes('b')}
-          controls.onUnlock?.(song,pitch,id,event.currentTarget)
-        }}>Unlock editing</button>}
+        {controls.onEditRaw&&<button type="button" hidden={editing}
+          onClick={event=>controls.onEditRaw?.(song,id,event.currentTarget)}>Edit raw content</button>}
         {editing&&controls.editor}
         <div hidden={editing} className="full-set-chart reader-chart" data-columns={readerColumns} style={{fontSize}}>
           {displaySong(chart.content,0,chart.key,true,content==='chords')}
