@@ -1,4 +1,4 @@
-import SetlistLinkSharing, { createSetlistLink, useSetlistLink } from './SetlistLinkSharing'
+import SetlistLinkSharing, { copySetlistLink, createSetlistLink, useSetlistLink } from './SetlistLinkSharing'
 import FullSetlistReader from './FullSetlistReader'
 import type { FullReaderControls } from './FullSetlistReader'
 import { setlistEntries, setlistSoundingKey, songKey, soundingTonics } from './lib/setlist-arrangement'
@@ -44,6 +44,7 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLi
  const [shares,setShares]=useState<{id:string;recipient_email:string}[]>([]),[friends,setFriends]=useState<{email:string;nickname:string}[]>([])
  const [editing,setEditing]=useState(false),[limit,setLimit]=useState(false),[busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[loaded,setLoaded]=useState(false)
  const [createdLink,setCreatedLink]=useState<{id:string;request:Promise<string|null>}|null>(null)
+ const [cardLink,setCardLink]=useState<{id:string;fallback:string|null}|null>(null)
  const [pickerOpen,setPickerOpen]=useState(false)
  const searchInput=useRef<HTMLInputElement>(null)
  const actionPending=useRef(false)
@@ -72,7 +73,7 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLi
  useEffect(()=>{const restored=()=>{setSelected(null);void refresh().catch(error=>setNotice(message(error)))};window.addEventListener('songbook-restored',restored);return()=>window.removeEventListener('songbook-restored',restored)},[ownerId])
  function choose(list:Setlist){if(pendingDraft.current?.listId===list.id){applyDraft(pendingDraft.current,list);return}setSelected(list);setTitle(list.title);setEntries(setlistEntries(list));setEditing(false);setSearch('');setNotice('');if(!offlineLists)void cloud!.rpc('recover_setlist_songs',{list_id:list.id}).then(async({data,error})=>{if(error){setNotice(error.message);return}if(data?.length){setPersonal(rows=>[...rows.filter(row=>!data.some((song:Song)=>song.id===row.id)),...data]);await onSongsChanged();setNotice('Missing setlist songs restored to your personal songbook.')}})}
  useEffect(()=>{
-  setLimit(false);setPickerOpen(false);setSearch('');setRecipient('');setNotice('')
+  setLimit(false);setPickerOpen(false);setSearch('');setRecipient('');setNotice('');setCardLink(null)
   if(activeId==='new'){
    const draft=pendingDraft.current??(ownerId?readSetlistDrafts(ownerId).find(row=>row.id==='new'):undefined)
    if(draft)applyDraft(draft,null)
@@ -96,6 +97,27 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLi
   if(actionPending.current)return
   actionPending.current=true;setBusy(true);setNotice('')
   try{await fn()}catch(error){setNotice(message(error))}finally{actionPending.current=false;setBusy(false)}
+ }
+ function copyLinkFromCard(list:Setlist){
+  void action(async()=>{
+   setCardLink(null)
+   const fallback=await copySetlistLink(await createSetlistLink(list.id))
+   setCardLink({id:list.id,fallback})
+  })
+ }
+ function deleteSetlist(list:Setlist){
+  if(actionPending.current||!window.confirm(`Delete “${list.title}”? Its share link will stop working. Songs will stay in the library.`))return
+  void action(async()=>{
+   const {data,error}=await cloud!.from('songbook_setlists').delete()
+    .eq('id',list.id).eq('owner_id',ownerId).eq('revision',list.revision).select('id')
+   if(error)throw error
+   if(!data?.length)throw new Error('Setlist changed. Refresh before deleting.')
+   setLists(rows=>rows.filter(row=>row.id!==list.id))
+   setCardLink(current=>current?.id===list.id?null:current)
+   if(activeId===list.id)onBack()
+   else setNotice(`Deleted “${list.title}”.`)
+   void onSongsChanged().catch(error=>setNotice('Setlist deleted, but refreshing failed: '+message(error)))
+  })
  }
  function rememberSong(song:Song){
   setPersonal(rows=>[...rows.filter(row=>row.id!==song.id),song])
@@ -149,12 +171,34 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLi
  if(fullReader&&selected?.id===activeId&&selected)return <FullSetlistReader title={selected.title} songs={slots(selected)} controls={fullReader}/>
  if(!activeId)return <section className="setlist-panel setlist-index" aria-label="My setlists">{!!drafts.length&&<section className="draft-recovery" aria-label="Recover unsaved setlists"><h3>Unsaved setlist drafts</h3><p>Stored in this browser only. Recovering does not change a saved setlist.</p>{drafts.map(draft=><div className="draft-row" key={draft.id}><span>{draft.title||'Untitled setlist'} · {draft.songIds.length} songs · {new Date(draft.updatedAt).toLocaleString()}</span><button disabled={busy||!canEdit||!loaded} onClick={()=>void recoverDraft(draft)}>Recover setlist draft</button><button disabled={busy} onClick={()=>{if(window.confirm('Permanently discard this setlist draft?'))clearDraft(draft.id)}}>Discard setlist draft</button></div>)}</section>}<div className="setlist-tools"><button disabled={busy} onClick={()=>void action(async()=>{await refresh()})}>Refresh setlists</button>{canEdit&&<button disabled={busy} onClick={startNew}>New setlist</button>}</div><LibrarySortControl label="Setlists" value={listSort} onChange={setListSort}/><div className="setlist-cards">{sortLibraryItems(lists,listSort).map(list=>{
   const playable=queue(list)
-  return <article className="library-setlist-card" key={list.id}>
+  return <article className="library-setlist-card" key={list.id} aria-label={list.title}>
    <button className="setlist-card-title" disabled={busy} onClick={()=>onNavigate(list.id)}>{list.title}</button>
    <p>{list.song_ids.length} {list.song_ids.length===1?'song':'songs'}</p>
    <OfflineSetlistStatus compact snapshot={offlineSnapshot} userId={ownerId??''} list={list} songs={songs}/>
    {!playable.length&&<small>{list.song_ids.length?'No available songs':'Add a song to start this setlist'}</small>}
-   <button className="primary-action" disabled={busy||!playable.length} onClick={()=>onOpen(playable,list.id,0,list.song_ids.length-playable.length)}>Start setlist</button>
+   <div className="setlist-card-actions">
+    <button type="button" className="setlist-card-start" aria-label="Start setlist" title="Start setlist"
+     disabled={busy||!playable.length} onClick={()=>onOpen(playable,list.id,0,list.song_ids.length-playable.length)}>
+     <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M8 4.7a.8.8 0 0 0-1.2.7v13.2a.8.8 0 0 0 1.2.7l10.8-6.6a.8.8 0 0 0 0-1.4Z"/></svg>
+    </button>
+    {canEdit&&!offlineLists&&<>
+     <button type="button" aria-label="Copy setlist link" title="Copy setlist link" disabled={busy} onClick={()=>copyLinkFromCard(list)}>
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+       <path d="M10 13a4 4 0 0 0 6 .4l4-4a4 4 0 0 0-5.7-5.7l-2.3 2.3m2 5a4 4 0 0 0-6-.4l-4 4a4 4 0 0 0 5.7 5.7l2.3-2.3"/>
+      </svg>
+     </button>
+     <button type="button" className="setlist-card-delete" aria-label="Delete setlist" title="Delete setlist" disabled={busy} onClick={()=>deleteSetlist(list)}>
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+       <path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5"/>
+      </svg>
+     </button>
+    </>}
+   </div>
+   {canEdit&&!offlineLists&&cardLink?.id===list.id&&<>
+    <p role="status">{cardLink.fallback?'Select and copy the setlist link.':'Setlist link copied.'}</p>
+    {cardLink.fallback&&<input className="setlist-card-link" type="text" aria-label="Setlist link" readOnly
+     value={cardLink.fallback} autoFocus onFocus={event=>event.currentTarget.select()}/>}
+   </>}
   </article>
  })}</div>{loaded&&!lists.length&&<p>No setlists yet.</p>}<p role="status">{notice}</p></section>
  return <section className="setlist-page" aria-label="Setlist page"><button className="back-button" onClick={onBack}>← Back to setlists</button><h2>{activeId==='new'?'Plan a worship set':selected?.title??'Setlist'}</h2>
@@ -210,6 +254,6 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLi
  <div className="setlist-copy-row"><SetlistCopy songs={queue(selected)}/></div>
  {ownerId&&<SetlistPrint title={selected.title} songs={slots(selected)} userId={ownerId} listId={selected.id}/>}
  {!offlineLists&&<details className="setlist-sharing" onToggle={event=>{if(event.currentTarget.open)void loadFriends().catch(error=>setNotice(message(error)))}}><summary>Sharing</summary><p>Anyone with the link and an approved songbook account can open this live set.</p>{link.token&&<button type="button" disabled={link.busy} onClick={()=>void link.disableLink()}>Turn off link</button>}<h3>Invite by email</h3>{!!friends.length&&<label>Choose recipient<select value={recipient} onChange={event=>setRecipient(event.target.value)}><option value="">Choose a friend or enter an email below</option>{friends.map(friend=><option key={friend.email} value={friend.email}>{friend.nickname||friend.email}</option>)}</select></label>}<form onSubmit={event=>{event.preventDefault();void action(async()=>{const {error}=await cloud!.rpc('share_setlist',{list_id:selected.id,recipient_email_address:recipient});if(error)throw error;await loadShares(selected.id);setRecipient('');setNotice('Shared. Your friend can find it under Shared with me. Saved changes update automatically.')})}}><label>Share with account email<input type="email" required value={recipient} onChange={event=>setRecipient(event.target.value)}/></label><button disabled={busy}>Share setlist</button></form>{shares.map(share=><p key={share.id}>{share.recipient_email} <button disabled={busy} onClick={()=>void action(async()=>{const {error}=await cloud!.from('songbook_setlist_shares').delete().eq('id',share.id);if(error)throw error;await loadShares(selected.id)})}>Revoke sharing</button></p>)}</details>}
- {canEdit&&<details className="setlist-delete"><summary>Delete setlist</summary><button disabled={busy} onClick={()=>{if(window.confirm('Delete setlist '+selected.title+'? Songs will stay in the library.'))void action(async()=>{const {data,error}=await cloud!.from('songbook_setlists').delete().eq('id',selected.id).eq('revision',selected.revision).select('id');if(error)throw error;if(!data?.length)throw new Error('Setlist changed. Refresh before deleting.');await refresh();onBack()})}}>Delete this setlist</button></details>}
+ {canEdit&&<details className="setlist-delete"><summary>Delete setlist</summary><button disabled={busy} onClick={()=>deleteSetlist(selected)}>Delete this setlist</button></details>}
  </>}<p role="status">{notice}</p></section>
 }
