@@ -17,3 +17,16 @@ test('copy lyrics removes modern and legacy chords without removing sections or 
  const text='[Verse 1]\r\n{C}Amazing {G/B}grace\r\n[Chorus]\r\n[Am7]How [F]sweet\r\n[Bridge]\r\n# Ending\r\nre{C}ward [Repeat]';
  assert.equal(exportsObject.lyricsOnly(text),'[Verse 1]\r\nAmazing grace\r\n[Chorus]\r\nHow sweet\r\n[Bridge]\r\n# Ending\r\nreward [Repeat]');
 });
+
+test('transposes the instrumental intro without changing bar lines, beat slashes or parentheses',()=>{
+ const intro='(|D / G / | D / / / | D / G / | D / / / |)';
+ assert.equal(transposeSongContent(intro,2),'(|E / A / | E / / / | E / A / | E / / / |)');
+ assert.equal(transposeSongContent('  |Bb/F / | F7 / |\r\n[Chorus]',-2,true),'  |Ab/Eb / | Eb7 / |\r\n[Chorus]');
+ assert.equal(exportsObject.lyricsOnly(intro+'\r\n[Verse]\r\n{D}Words'),'\r\n[Verse]\r\nWords');
+});
+
+test('leaves lyric lines with bar marks unchanged',()=>{
+ const words='| I will sing / Hallelujah |\nA / D| tonight\n(|D / grace / |)';
+ assert.equal(transposeSongContent(words,2),words);
+ assert.equal(exportsObject.lyricsOnly(words),words);
+});
