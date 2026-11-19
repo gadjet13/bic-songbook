@@ -104,7 +104,8 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .theme-toolbar select { min-height: 44px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font: inherit; }
 select:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
 .reading-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 14px; color: var(--muted); }
-.reading-tools button { min-width: 44px; border: 1px solid var(--border); border-radius: 8px; padding: 8px; cursor: pointer; }
+.reading-tools button { min-width: 44px; min-height: 44px; border: 1px solid var(--border); border-radius: 8px; padding: 8px; cursor: pointer; }
+.reading-tools output { min-width: 4ch; text-align: center; font-variant-numeric: tabular-nums; }
 .reading-tools button:disabled { cursor: default; }
 .transpose { flex-wrap: wrap; }
 .transpose .reading-toggle { width: auto; font-size: 14px; padding: 8px 12px; margin-left: auto; }
@@ -195,7 +196,7 @@ select:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
 .song-reading-mode .transpose span { min-width: 0; white-space: nowrap; font-size: 13px; }
 .song-reading-mode .transpose .reading-toggle { flex-basis: auto; margin: 0; white-space: nowrap; }
 .song-reading-mode .reading-tools { font-size: 13px; }
-.song-reading-mode .reading-tools > span { display: none; }
+.song-reading-mode .reading-tools > span, .full-set-toolbar .reading-tools > span { display: none; }
 .book-navigation { justify-content: flex-start; flex-wrap: wrap; padding-right: 12px; }
 .book-navigation span { margin-left: 8px; }
 .book-measure { position: fixed; left: -100000px; top: 0; visibility: hidden; pointer-events: none; }
@@ -211,7 +212,7 @@ select:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
   .song-reading-mode .song-heading h2 { font-size: 16px; }
   .song-reading-mode .setlist-navigation button { padding: 6px; font-size: 11px; margin: 0; }
   .song-reading-mode .reader-controls { gap: 6px; }
-  .song-reading-mode .transpose button, .song-reading-mode .reading-tools button { min-width: 32px; width: 32px; padding: 4px; }
+  .song-reading-mode .transpose button { min-width: 32px; width: 32px; padding: 4px; }
   .song-reading-mode .transpose .reading-toggle { width: auto; font-size: 11px; padding: 4px; }
 }
 @media print { .book-measure { display: none; } }
@@ -464,6 +465,7 @@ button.worship-primary:disabled { opacity: .55; }
 .reading-columns select { min-height: 44px; }
 .full-set-toolbar .reading-columns { flex: 0 1 auto; }
 .full-set-toolbar .reading-columns select { width: auto; }
+.full-set-toolbar .reading-tools { flex-wrap: nowrap; margin: 0; gap: 6px; font-size: 13px; }
 .reader-chart { --reader-columns: 1; }
 .reader-chart[data-columns="two"] { --reader-columns: 2; }
 @media (min-width: 700px) {

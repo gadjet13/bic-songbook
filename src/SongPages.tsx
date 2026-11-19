@@ -55,9 +55,11 @@ export default function SongPages({ children, fontSize, onFitFontSize, onNextSon
       let size=Math.min(fontSize,Math.max(12,Math.floor(height/3)))
       // Auto-fit once on opening and after a width change. Manual A+ may wrap at spaces.
       if(fittedWidth.current!==width){
-        measuring.dataset.nowrap='true'
-        size=fitReaderFont(size,width+1,value=>{measuring.style.fontSize=`${value}px`;return Math.max(0,...Array.from(measuring.querySelectorAll<HTMLElement>('.song-line:not([data-reader-spacer])')).map(line=>line.scrollWidth))})
         fittedWidth.current=width
+        if(size>12){
+          measuring.dataset.nowrap='true'
+          size=fitReaderFont(size,width+1,value=>{measuring.style.fontSize=`${value}px`;return Math.max(0,...Array.from(measuring.querySelectorAll<HTMLElement>('.song-line:not([data-reader-spacer])')).map(line=>line.scrollWidth))})
+        }
       }
       delete measuring.dataset.nowrap
       measuring.style.fontSize=`${size}px`
