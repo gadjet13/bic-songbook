@@ -579,7 +579,7 @@ function App({library}: {library: SharedLibrary}) {
         {!selectedSong&&(setlistId||setlistIndex) ? null : !selectedSong ? (
           isAddingSong ? (
             <div className="add-song-form">
-              <h2>Add New Song</h2><ChordSheetPaste raw={newRaw} onRawChange={setNewRaw} onApply={(content,title,key)=>{setNewSongContent(content);if(title)setNewSongTitle(title);if(key)setNewSongKey(key)}}/>{library.ownerId && <p className="storage-note">The first saved version also goes to the church songbook. Later edits stay in your personal songbook.</p>}
+              <h2>Add New Song</h2><ChordSheetPaste title={newSongTitle} songKey={newSongKey} raw={newRaw} onRawChange={setNewRaw} onApply={(content,title,key)=>{setNewSongContent(content);if(title)setNewSongTitle(title);if(key)setNewSongKey(key)}}/>{library.ownerId && <p className="storage-note">The first saved version also goes to the church songbook. Later edits stay in your personal songbook.</p>}
 
               <SongFlowEditor content={newSongContent} onChange={setNewSongContent} disabled={savingSong||library.offline}/>
               <label>
@@ -797,9 +797,9 @@ function App({library}: {library: SharedLibrary}) {
                   />
                 </label>
 
+                <ChordSheetPaste title={editedTitle} songKey={editedKey} raw={editedRaw} onRawChange={setEditedRaw} key={selectedSong.id} onApply={(content,title,key)=>{setEditedContent(content);if(title)setEditedTitle(title);if(key)setEditedKey(key)}}/>
                 <label>
                   Song Content
-                  <ChordSheetPaste raw={editedRaw} onRawChange={setEditedRaw} key={selectedSong.id} onApply={(content,title,key)=>{setEditedContent(content);if(title)setEditedTitle(title);if(key)setEditedKey(key)}}/>
                   <textarea
                     className="song-editor"
                     value={editedContent}

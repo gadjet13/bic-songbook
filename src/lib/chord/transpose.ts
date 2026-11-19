@@ -7,9 +7,11 @@ const chordPattern = /^[A-G](?:#|b)?(?:(?:maj|min|dim|aug|sus|add|omit|no|m|M)|\
 
 export function chordRowPositions(line: string) {
   const tokens = Array.from(line.matchAll(/\S+/g))
-  if (!tokens.length || tokens.some(token => !chordPattern.test(token[0]))) return null
+  if (!tokens.length || tokens.some(token => !isChordToken(token[0]))) return null
   return tokens.map(token => ({ chord: token[0], column: token.index! }))
 }
+
+export function isChordToken(token: string) { return chordPattern.test(token) }
 
 function storedChordRow(line: string) {
   const row = chordRowPositions(line)
