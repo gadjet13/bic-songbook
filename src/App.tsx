@@ -1,3 +1,5 @@
+import FullSetlistReader from './FullSetlistReader'
+import type { FullReaderControls } from './FullSetlistReader'
 import SetlistSongNote from './SetlistSongNote'
 import { cachedPreference, flushSetlistCapos, initializeSetlistCapo, legacyCapo, loadSetlistPreferences, preferencesChanged, queueSetlistCapo } from './lib/setlist-preferences'
 import { arrangedSong, setlistSoundingKey, songKey } from './lib/setlist-arrangement'
@@ -155,10 +157,12 @@ function App({library}: {library: SharedLibrary}) {
   const [skippedSetlistSongs,setSkippedSetlistSongs]=useState(0)
   const [startOnLastPage,setStartOnLastPage]=useState(false)
   const [readingMode, setReadingMode] = useState(false)
+  const [fullSetReading,setFullSetReading]=useState(false)
+  const returnToFullSetButton=useRef(false)
   const stageView=readingMode&&setlistQueue.length>0
   const [readingChoice,setReadingChoice]=useState(false)
   const [readingContent,setReadingContent]=useState<'lyrics'|'chords'>('chords')
-  const wakeStatus=useReadingWakeLock(readingMode)
+  const wakeStatus=useReadingWakeLock(readingMode||fullSetReading)
   const [fontSize, setFontSize] = useState(() => {
     try { const saved = Number(localStorage.getItem('bic-songbook-font-size')); return saved >= 12 && saved <= 32 ? saved : 16 } catch { return 16 }
   })
@@ -172,6 +176,14 @@ function App({library}: {library: SharedLibrary}) {
     window.addEventListener('keydown', escape)
     return () => { document.body.classList.remove('song-reading-mode'); window.removeEventListener('keydown', escape) }
   }, [readingMode])
+  useEffect(()=>{
+    document.body.classList.toggle('full-set-reading',fullSetReading)
+    if(!fullSetReading&&returnToFullSetButton.current){
+      returnToFullSetButton.current=false
+      requestAnimationFrame(()=>document.querySelector<HTMLElement>('[data-read-full-set]')?.focus())
+    }
+    return ()=>document.body.classList.remove('full-set-reading')
+  },[fullSetReading])
   const [notice, setNotice] = useState('')
   const [incoming, setIncoming] = useState<Song | null>(() => readSongLink())
   const songList = library.songs
@@ -233,15 +245,17 @@ function App({library}: {library: SharedLibrary}) {
       setPreferenceError(String(error.message))
     })
   },[preferenceId,oldPreferenceId,library.userId,library.offline,songId,stageView,preference?.savedCapo,preference?.pending])
-  function changeCapo(fret:number){
-    if(!localPreferenceId||!songId)return
-    queueSetlistCapo(library.userId,localPreferenceId,songId,fret,!preferenceId&&!!library.sharedSetlistId)
+  function changeCapo(targetSong:number,fret:number){
+    if(!localPreferenceId)return
+    queueSetlistCapo(library.userId,localPreferenceId,targetSong,fret,!preferenceId&&!!library.sharedSetlistId)
     if(preferenceId&&!library.offline){
       setPreferenceError('')
       void flushSetlistCapos(library.userId).catch(error=>setPreferenceError(String(error.message)))
     }
   }
 
+  const historyFullSetRef=useRef(fullSetReading)
+  historyFullSetRef.current=fullSetReading
   const historySongRef=useRef<Song|null>(null)
   historySongRef.current=selectedSong
   useEffect(()=>{
@@ -258,6 +272,8 @@ function App({library}: {library: SharedLibrary}) {
       setlistReturnFocus.current=null
       activeSetlistSongEditor.current=null
       setSetlistSongEditor(null)
+      if(historyFullSetRef.current&&!event.state?.bicFullSet)returnToFullSetButton.current=true
+      setFullSetReading(!!event.state?.bicFullSet)
       setSetlistId(event.state?.bicSetlist??null)
       if(typeof event.state?.bicSetlistIndex==='boolean')setLibraryView(event.state.bicSetlistIndex?'setlists':'songs')
       setFolder(event.state?.bicFolder??'all')
@@ -459,6 +475,15 @@ function App({library}: {library: SharedLibrary}) {
   )
   const filteredSongs = library.sharedSetlist?matchingSongs:sortSongsByDate(matchingSongs,dateSort)
 
+  function readFullSet(){
+    if(!allowNavigation())return
+    history.pushState({...history.state,bicFullSet:true},'',location.href)
+    setFullSetReading(true)
+  }
+  function exitFullSet(){
+    if(history.state?.bicFullSet)history.back()
+    else {returnToFullSetButton.current=true;setFullSetReading(false)}
+  }
   function openSetlist(id:string,saved=false){
     if(!saved&&!allowNavigation())return
     const next={...history.state,bicSetlist:id};delete next.bicSong;delete next.bicMode
@@ -649,6 +674,15 @@ function App({library}: {library: SharedLibrary}) {
     }
   }
 
+  const fullReader:FullReaderControls|null=fullSetReading?{
+    userId:library.userId,preferenceId,legacyId:oldPreferenceId,offline:!!library.offline,
+    content:readingContent,changeContent:setReadingContent,changeCapo,exit:exitFullSet,
+    wakeStatus,preferenceError,fontSize
+  }:null
+  if(fullReader&&library.sharedSetlist)return <div className="app"><main>
+    <FullSetlistReader title={library.bookName} songs={songList} controls={fullReader}/>
+  </main></div>
+
   return (
     <div className="app">
       <header>
@@ -656,6 +690,10 @@ function App({library}: {library: SharedLibrary}) {
       </header>
 
       <main>
+        {!selectedSong&&library.sharedSetlist&&<div className="setlist-primary-actions">
+          <button className="worship-primary" data-read-full-set onClick={readFullSet}>Read full set</button>
+          <button disabled={!songList.length} onClick={()=>startSetlist(songList)}>Start shared setlist</button>
+        </div>}
         <MenuSection><div className="library-tools">
           <button onClick={() => downloadSongs(songList)}>Export songs only</button>
 
@@ -667,7 +705,6 @@ function App({library}: {library: SharedLibrary}) {
         {!selectedSong&&library.sharedSetlist&&library.sharedSetlistId&&<OfflineSetlistStatus snapshot={library.offlineReadiness} userId={library.userId} list={{id:library.sharedSetlistId,title:library.bookName}} songs={songList} shared offline={library.offline} onSave={library.refresh} disabled={library.loading}/>}
         {!selectedSong && library.sharedSetlist && <SetlistKeyOverview songs={songList}/>}
 
-        {!selectedSong && library.sharedSetlist && <button disabled={!songList.length} onClick={()=>startSetlist(songList)}>Start shared setlist</button>}
         {!selectedSong&&library.sharedSetlist&&<div className="setlist-copy-row"><SetlistCopy songs={songList}/></div>}
         {!selectedSong&&library.sharedSetlist&&library.sharedSetlistId&&<SetlistPrint
           title={library.bookName} songs={songList} userId={library.userId} listId={library.sourceSetlistId??library.sharedSetlistId} legacyListId={library.sharedSetlistId}/>}
@@ -675,7 +712,7 @@ function App({library}: {library: SharedLibrary}) {
         {libraryPage&&!setlistIndex&&!library.sharedSetlist&&<SongDraftRecovery drafts={songDrafts} canRestore={library.canEdit&&!library.loading} onRestore={recoverDraft} onDiscard={draft=>{if(window.confirm('Permanently discard this unsaved draft?'))clearDraft(draft.id)}}/>}
         {(isAddingSong||isEditing)&&draftStatus&&<p className="storage-note" role="status">{draftStatus}</p>}
 
-        {(setlistSongEditor||(!selectedSong&&!isAddingSong)) && library.ownerId && (setlistId||setlistIndex) && <div hidden={!!setlistSongEditor}><SongOrganization offlineSnapshot={library.offlineReadiness} refreshing={library.loading} activeId={setlistId} onNavigate={openSetlist} onBack={backToSetlists} personalName={library.personalName??'My songbook'} churchSongs={library.offlineData?.church??[]} onSongsChanged={library.refresh} offlineLists={library.offline?library.offlineData?.setlists:undefined} ownerId={library.ownerId} songs={songList} canEdit={library.canEdit} onOpen={startSetlist} onSongEditor={openSetlistSongEditor}/></div>}
+        {(setlistSongEditor||(!selectedSong&&!isAddingSong)) && library.ownerId && (setlistId||setlistIndex) && <div hidden={!!setlistSongEditor}><SongOrganization offlineSnapshot={library.offlineReadiness} refreshing={library.loading} activeId={setlistId} onNavigate={openSetlist} onBack={backToSetlists} personalName={library.personalName??'My songbook'} churchSongs={library.offlineData?.church??[]} onSongsChanged={library.refresh} offlineLists={library.offline?library.offlineData?.setlists:undefined} ownerId={library.ownerId} songs={songList} canEdit={library.canEdit} onOpen={startSetlist} onSongEditor={openSetlistSongEditor} fullReader={fullReader} onReadFull={readFullSet}/></div>}
         {favoriteError && <p role="status" className="notice">{favoriteError}</p>}
         {notice && <p role="status" className="notice">{notice}<button aria-label="Dismiss notification" onClick={() => setNotice('')}>×</button></p>}
         {!setlistId && incoming && <section className="incoming"><h2>A friend shared “{incoming.title}”</h2><p>{incoming.artist} · Key: {incoming.key}</p><button disabled={!library.canEdit} onClick={async () => { try { const [song] = await library.add([incoming]); selectSong(song); setIncoming(null); history.replaceState(history.state, '', location.pathname + location.search) } catch (error) { setNotice(String(error instanceof Error ? error.message : error)) } }}>Add to this songbook</button><button onClick={() => {setIncoming(null); history.replaceState(history.state, '', location.pathname + location.search)}}>Dismiss</button></section>}
@@ -827,7 +864,7 @@ function App({library}: {library: SharedLibrary}) {
               {selectedSong&&<div className="stage-actions">
                 <span>Sounding key: {setlistSoundingKey(selectedSong.key,plannedSong?.setlist_key)||'Not set'}</span>
                 {songKey(selectedSong.key)&&<label>My capo<select
-                  value={capo} onChange={event=>changeCapo(Number(event.target.value))}>
+                  value={capo} onChange={event=>changeCapo(selectedSong.id,Number(event.target.value))}>
                   {Array.from({length:12},(_,fret)=><option key={fret} value={fret}>{fret===0?'No capo':fret}</option>)}
                 </select></label>}
                 {!!capo&&stageSong&&<span>Chord shapes: {stageSong.key}</span>}

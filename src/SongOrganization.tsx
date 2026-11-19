@@ -1,4 +1,6 @@
-import SetlistLinkSharing from './SetlistLinkSharing'
+import SetlistLinkSharing, { createSetlistLink, useSetlistLink } from './SetlistLinkSharing'
+import FullSetlistReader from './FullSetlistReader'
+import type { FullReaderControls } from './FullSetlistReader'
 import { setlistEntries, setlistSoundingKey, songKey, soundingTonics } from './lib/setlist-arrangement'
 import type { SetlistEntry, SetlistOrder } from './lib/setlist-arrangement'
 import LibrarySortControl from './LibrarySortControl'
@@ -31,7 +33,7 @@ export function useFavorites(userId: string, offlineFavorites?:number[]) {
  async function toggle(id:number){if(busy)return;setBusy(true);setError('');try{const exists=favorites.includes(id);const result=exists?await cloud!.from('songbook_favorites').delete().eq('user_id',userId).eq('song_id',id):await cloud!.from('songbook_favorites').insert({user_id:userId,song_id:id});if(result.error)throw result.error;setFavorites(current=>exists?current.filter(value=>value!==id):[...current,id])}catch(error){setError(message(error))}finally{setBusy(false)}}
  return {favorites,toggle,error,busy}
 }
-export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLists,churchSongs,onSongsChanged,personalName,activeId,onNavigate,onBack,offlineSnapshot,refreshing,onSongEditor}: {offlineSnapshot?:OfflineSnapshot;refreshing?:boolean;activeId:string|null;onNavigate:(id:string,saved?:boolean)=>void;onBack:()=>void;personalName:string;churchSongs:Song[];onSongsChanged:()=>Promise<void>;offlineLists?:OfflineList[];songs:Song[];canEdit:boolean;ownerId:string|null;onOpen:(songs:Song[],listId?:string,index?:number,missing?:number)=>void;onSongEditor:(song:Song|null,onSaved:(song:Song)=>void,returnFocus:HTMLElement)=>void}) {
+export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLists,churchSongs,onSongsChanged,personalName,activeId,onNavigate,onBack,offlineSnapshot,refreshing,onSongEditor,fullReader,onReadFull}: {offlineSnapshot?:OfflineSnapshot;refreshing?:boolean;activeId:string|null;onNavigate:(id:string,saved?:boolean)=>void;onBack:()=>void;personalName:string;churchSongs:Song[];onSongsChanged:()=>Promise<void>;offlineLists?:OfflineList[];songs:Song[];canEdit:boolean;ownerId:string|null;onOpen:(songs:Song[],listId?:string,index?:number,missing?:number)=>void;onSongEditor:(song:Song|null,onSaved:(song:Song)=>void,returnFocus:HTMLElement)=>void;fullReader:FullReaderControls|null;onReadFull:()=>void}) {
  const [listSort,setListSort]=useState<LibrarySort>('added-newest')
  const [church,setChurch]=useState(churchSongs),[churchError,setChurchError]=useState('')
  useEffect(()=>{let active=true;if(offlineLists){setChurch(churchSongs);return}setChurch(churchSongs);void loadSongs(null).then(rows=>{if(active){setChurch(rows);setChurchError('')}}).catch(error=>{if(active)setChurchError(message(error))});return()=>{active=false}},[ownerId,churchSongs,offlineLists])
@@ -41,6 +43,7 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLi
  const [title,setTitle]=useState(''),[entries,setEntries]=useState<SetlistEntry[]>([]),[search,setSearch]=useState(''),[recipient,setRecipient]=useState('')
  const [shares,setShares]=useState<{id:string;recipient_email:string}[]>([]),[friends,setFriends]=useState<{email:string;nickname:string}[]>([])
  const [editing,setEditing]=useState(false),[limit,setLimit]=useState(false),[busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[loaded,setLoaded]=useState(false)
+ const [createdLink,setCreatedLink]=useState<{id:string;request:Promise<string|null>}|null>(null)
  const [pickerOpen,setPickerOpen]=useState(false)
  const searchInput=useRef<HTMLInputElement>(null)
  const actionPending=useRef(false)
@@ -112,13 +115,38 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLi
    void onSongsChanged().catch(error=>setNotice('Song added, but refreshing failed: '+message(error)))
   })
  }
- async function save(){if(offlineLists)throw new Error('Reconnect before saving setlists.');if(!title.trim())throw new Error('Enter a setlist name.');if(!selected&&lists.length>=25){setLimit(true);return}const fields={title:title.trim(),song_entries:entries};const result=selected?await cloud!.from('songbook_setlists').update(fields).eq('id',selected.id).eq('revision',selected.revision).select().maybeSingle():await cloud!.from('songbook_setlists').insert({...fields,owner_id:ownerId}).select().single();if(result.error)throw result.error;if(!result.data)throw new Error('Someone changed this setlist. Copy your changes, then refresh and try again.');clearDraft(selected?.id??'new');setLists(rows=>[...rows.filter(row=>row.id!==result.data.id),result.data]);choose(result.data);onNavigate(result.data.id,true);setNotice('Setlist saved.');void onSongsChanged().catch(error=>setNotice('Setlist saved, but refreshing failed: '+message(error)))}
+ function showSavedSet(list:Setlist,created:boolean){
+  if(created)setCreatedLink({id:list.id,request:createSetlistLink(list.id)})
+  clearDraft(created?'new':list.id)
+  setLists(rows=>[...rows.filter(row=>row.id!==list.id),list])
+  choose(list);onNavigate(list.id,true);setNotice('Setlist saved.')
+  void onSongsChanged().catch(error=>setNotice('Setlist saved, but refreshing failed: '+message(error)))
+ }
+ async function save(){
+  if(offlineLists)throw new Error('Reconnect before saving setlists.')
+  if(!title.trim())throw new Error('Enter a setlist name.')
+  if(!selected&&lists.length>=25){setLimit(true);return}
+  const fields={title:title.trim(),song_entries:entries}
+  const result=selected
+   ? await cloud!.from('songbook_setlists').update(fields).eq('id',selected.id).eq('revision',selected.revision).select().maybeSingle()
+   : await cloud!.from('songbook_setlists').insert({...fields,owner_id:ownerId}).select().single()
+  if(result.error)throw result.error
+  if(!result.data)throw new Error('Someone changed this setlist. Copy your changes, then refresh and try again.')
+  showSavedSet(result.data,!selected)
+ }
  function move(index:number,direction:number){const next=[...entries];[next[index],next[index+direction]]=[next[index+direction],next[index]];setEntries(next)}
  const slots=(list:Setlist)=>setlistEntries(list).map(entry=>{
   const song=personal.find(item=>item.id===entry.song_id)
   return song ? {...song,setlist_key:entry.key_override} : undefined
  })
  const queue=(list:Setlist)=>slots(list).filter(song=>song!==undefined)
+ const sharingId=selected&&!editing&&!offlineLists&&canEdit&&selected.id===activeId?selected.id:null
+ const initialLink=sharingId===createdLink?.id?createdLink.request:null
+ const link=useSetlistLink(sharingId,initialLink)
+ useEffect(()=>{
+  if(createdLink&&(createdLink.id!==activeId||editing||offlineLists))setCreatedLink(null)
+ },[activeId,createdLink,editing,offlineLists])
+ if(fullReader&&selected?.id===activeId&&selected)return <FullSetlistReader title={selected.title} songs={slots(selected)} controls={fullReader}/>
  if(!activeId)return <section className="setlist-panel setlist-index" aria-label="My setlists">{!!drafts.length&&<section className="draft-recovery" aria-label="Recover unsaved setlists"><h3>Unsaved setlist drafts</h3><p>Stored in this browser only. Recovering does not change a saved setlist.</p>{drafts.map(draft=><div className="draft-row" key={draft.id}><span>{draft.title||'Untitled setlist'} · {draft.songIds.length} songs · {new Date(draft.updatedAt).toLocaleString()}</span><button disabled={busy||!canEdit||!loaded} onClick={()=>void recoverDraft(draft)}>Recover setlist draft</button><button disabled={busy} onClick={()=>{if(window.confirm('Permanently discard this setlist draft?'))clearDraft(draft.id)}}>Discard setlist draft</button></div>)}</section>}<div className="setlist-tools"><button disabled={busy} onClick={()=>void action(async()=>{await refresh()})}>Refresh setlists</button>{canEdit&&<button disabled={busy} onClick={startNew}>New setlist</button>}</div><LibrarySortControl label="Setlists" value={listSort} onChange={setListSort}/><div className="setlist-cards">{sortLibraryItems(lists,listSort).map(list=>{
   const playable=queue(list)
   return <article className="library-setlist-card" key={list.id}>
@@ -132,7 +160,7 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLi
  return <section className="setlist-page" aria-label="Setlist page"><button className="back-button" onClick={onBack}>← Back to setlists</button><h2>{activeId==='new'?'Plan a worship set':selected?.title??'Setlist'}</h2>
  {!editing&&!selected&&<p>{loaded?'This setlist is no longer available.':'Loading setlist…'}</p>}
  {editing&&draftStatus&&<p className="storage-note" role="status">{draftStatus}</p>}
- {limit&&ownerId&&<SetlistLimitPanel ownerId={ownerId} title={title} songIds={ids} songEntries={entries} onCreated={list=>{clearDraft('new');setLimit(false);choose(list);onNavigate(list.id,true);void refresh()}} onCancel={onBack}/>}
+ {limit&&ownerId&&<SetlistLimitPanel ownerId={ownerId} title={title} songIds={ids} songEntries={entries} onCreated={list=>{setLimit(false);showSavedSet(list,true);void refresh().catch(error=>setNotice(message(error)))}} onCancel={onBack}/>}
  {editing?<fieldset className="worship-set-editor" disabled={!canEdit||busy}>
   <label>Setlist name<input maxLength={200} value={title} placeholder="Sunday worship" onChange={event=>setTitle(event.target.value)}/></label>
   <div className="worship-set-actions">
@@ -175,12 +203,13 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLi
    <button type="button" onClick={()=>{if(!allowNavigation())return;clearDraft(selected?.id??'new');setEditing(false);if(selected)choose(selected);else onBack()}}>Cancel</button>
   </div>
  </fieldset>:selected&&<>
+ <div className="setlist-primary-actions"><button data-read-full-set onClick={onReadFull}>Read full set</button><button disabled={!queue(selected).length} onClick={()=>{const playable=queue(selected);onOpen(playable,selected.id,0,selected.song_ids.length-playable.length)}}>Start setlist</button>{canEdit&&<button disabled={busy} onClick={()=>{const draft=drafts.find(row=>row.listId===selected.id);if(draft)void recoverDraft(draft);else{setTitle(selected.title);setEntries(setlistEntries(selected));setEditing(true)}}}>Edit setlist</button>}</div>
+ {sharingId&&<SetlistLinkSharing link={link}/>}
  <OfflineSetlistStatus snapshot={offlineSnapshot} userId={ownerId??''} list={selected} songs={songs} offline={!!offlineLists} onSave={onSongsChanged} disabled={refreshing||busy}/>
  <SetlistKeyOverview songs={slots(selected)} onOpen={index=>{const playable=queue(selected);onOpen(playable,selected.id,slots(selected).slice(0,index).filter(Boolean).length,selected.song_ids.length-playable.length)}}/>
- <div className="setlist-primary-actions"><button disabled={!queue(selected).length} onClick={()=>{const playable=queue(selected);onOpen(playable,selected.id,0,selected.song_ids.length-playable.length)}}>Start setlist</button>{canEdit&&<button disabled={busy} onClick={()=>{const draft=drafts.find(row=>row.listId===selected.id);if(draft)void recoverDraft(draft);else{setTitle(selected.title);setEntries(setlistEntries(selected));setEditing(true)}}}>Edit setlist</button>}</div>
  <div className="setlist-copy-row"><SetlistCopy songs={queue(selected)}/></div>
  {ownerId&&<SetlistPrint title={selected.title} songs={slots(selected)} userId={ownerId} listId={selected.id}/>}
- {!offlineLists&&<details className="setlist-sharing" onToggle={event=>{if(event.currentTarget.open)void loadFriends().catch(error=>setNotice(message(error)))}}><summary>Sharing</summary><SetlistLinkSharing key={selected.id} listId={selected.id}/><h3>Invite by email</h3>{!!friends.length&&<label>Choose recipient<select value={recipient} onChange={event=>setRecipient(event.target.value)}><option value="">Choose a friend or enter an email below</option>{friends.map(friend=><option key={friend.email} value={friend.email}>{friend.nickname||friend.email}</option>)}</select></label>}<form onSubmit={event=>{event.preventDefault();void action(async()=>{const {error}=await cloud!.rpc('share_setlist',{list_id:selected.id,recipient_email_address:recipient});if(error)throw error;await loadShares(selected.id);setRecipient('');setNotice('Shared. Your friend can find it under Shared with me. Saved changes update automatically.')})}}><label>Share with account email<input type="email" required value={recipient} onChange={event=>setRecipient(event.target.value)}/></label><button disabled={busy}>Share setlist</button></form>{shares.map(share=><p key={share.id}>{share.recipient_email} <button disabled={busy} onClick={()=>void action(async()=>{const {error}=await cloud!.from('songbook_setlist_shares').delete().eq('id',share.id);if(error)throw error;await loadShares(selected.id)})}>Revoke sharing</button></p>)}</details>}
+ {!offlineLists&&<details className="setlist-sharing" onToggle={event=>{if(event.currentTarget.open)void loadFriends().catch(error=>setNotice(message(error)))}}><summary>Sharing</summary><p>Anyone with the link and an approved songbook account can open this live set.</p>{link.token&&<button type="button" disabled={link.busy} onClick={()=>void link.disableLink()}>Turn off link</button>}<h3>Invite by email</h3>{!!friends.length&&<label>Choose recipient<select value={recipient} onChange={event=>setRecipient(event.target.value)}><option value="">Choose a friend or enter an email below</option>{friends.map(friend=><option key={friend.email} value={friend.email}>{friend.nickname||friend.email}</option>)}</select></label>}<form onSubmit={event=>{event.preventDefault();void action(async()=>{const {error}=await cloud!.rpc('share_setlist',{list_id:selected.id,recipient_email_address:recipient});if(error)throw error;await loadShares(selected.id);setRecipient('');setNotice('Shared. Your friend can find it under Shared with me. Saved changes update automatically.')})}}><label>Share with account email<input type="email" required value={recipient} onChange={event=>setRecipient(event.target.value)}/></label><button disabled={busy}>Share setlist</button></form>{shares.map(share=><p key={share.id}>{share.recipient_email} <button disabled={busy} onClick={()=>void action(async()=>{const {error}=await cloud!.from('songbook_setlist_shares').delete().eq('id',share.id);if(error)throw error;await loadShares(selected.id)})}>Revoke sharing</button></p>)}</details>}
  {canEdit&&<details className="setlist-delete"><summary>Delete setlist</summary><button disabled={busy} onClick={()=>{if(window.confirm('Delete setlist '+selected.title+'? Songs will stay in the library.'))void action(async()=>{const {data,error}=await cloud!.from('songbook_setlists').delete().eq('id',selected.id).eq('revision',selected.revision).select('id');if(error)throw error;if(!data?.length)throw new Error('Setlist changed. Refresh before deleting.');await refresh();onBack()})}}>Delete this setlist</button></details>}
  </>}<p role="status">{notice}</p></section>
 }
