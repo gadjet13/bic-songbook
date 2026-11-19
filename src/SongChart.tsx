@@ -33,7 +33,7 @@ export function displaySong(
           ? <span className="chord" key={index}>{transposeChord(text, transpose, useFlats)}</span>
           : text)}
       </div>
-      return <div className="song-line" key={lineIndex}>
+      return <div className="song-line" data-reader-spacer={wrapWords && !line.trim() || undefined} key={lineIndex}>
       {wrapWords?readingWords(parseLine(line,transpose,useFlats)).map((word,wordIndex)=>word.kind==='space'?word.text:<span className="song-word" key={wordIndex}>{word.parts.map((segment,segmentIndex)=><span key={segmentIndex} style={segment.chord?{minWidth:`${(segment.chord.length+.7)*.65}em`}:undefined} className={segment.chord&&!segment.lyrics.trim()?'song-segment chord-only':'song-segment'}><span className="chord">{segment.chord}</span><span className="lyrics">{segment.lyrics}</span></span>)}</span>):parseLine(line, transpose, useFlats).map((segment, segmentIndex) => <span style={segment.chord ? {minWidth: `${(segment.chord.length + 0.7) * 0.65}em`} : undefined} className={segment.chord && !segment.lyrics.trim() ? "song-segment chord-only" : "song-segment"} key={segmentIndex}>
         <span className="chord">{segment.chord}</span><span className="lyrics">{segment.lyrics}</span>
       </span>)}

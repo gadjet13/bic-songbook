@@ -109,7 +109,7 @@ export default function FullSetlistReader({title,songs,controls}:{
         {preference?.note&&<p className="full-set-note"><strong>My notes</strong> {preference.note}</p>}
         {localId&&<SetlistSongNote userId={userId} listId={localId} songId={song.id}
           note={preference?.note??''} offline={offline||!preferenceId} label={preference?.note?'Edit my notes':'My notes'}/>}
-        <div className="full-set-chart" data-columns={readerColumns} style={{fontSize}}>
+        <div className="full-set-chart reader-chart" data-columns={readerColumns} style={{fontSize}}>
           {displaySong(chart.content,0,chart.key,true,content==='chords')}
         </div>
       </article>
