@@ -31,3 +31,14 @@ export function arrangedSong(song:Song,capo=0): Song {
   return {...song,key:capo?transposeChord(sounding,-capo,flats):sounding,
     content:transposeSongContent(song.content,to-from-capo,flats)}
 }
+
+export function capoStorageKey(userId:string,listId:string,songId:number) {
+  return ['bic-setlist-capo',userId,listId,songId].join(':')
+}
+
+export function readCapo(key:string) {
+  try {
+    const value=Number(localStorage.getItem(key))
+    return Number.isInteger(value)&&value>=0&&value<=11 ? value : 0
+  } catch { return 0 }
+}

@@ -394,3 +394,18 @@ select:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
 .stage-actions button { min-height: 44px; }
 .stage-actions button[aria-pressed="true"] { color: white; background: #634691; }
 .book-navigation button { min-height: 48px; }
+
+.setlist-print .print-capo { flex-direction: row; align-items: center; }
+.setlist-print .print-capo input { width: auto; }
+.setlist-print-output { display: none; }
+@media print {
+  body:has(> .setlist-print-output) > :not(.setlist-print-output) { display: none !important; }
+  .setlist-print-output { display: block; color: #000; background: #fff; font: 11pt/1.35 system-ui, sans-serif; }
+  .setlist-print-song { break-before: page; }
+  .setlist-print-song h2, .setlist-print-song .song-section { break-after: avoid; }
+  .setlist-print-song .song-line { break-inside: avoid; min-height: 0; white-space: normal; }
+  .setlist-print-song .song-word { display: inline-block; max-width: 100%; }
+  .setlist-print-song .lyrics { white-space: pre-wrap; overflow-wrap: anywhere; color: #000; }
+  .setlist-print-song .chord { color: #000; }
+  .setlist-print-song .lyrics-only-block .chord { display: none; }
+}

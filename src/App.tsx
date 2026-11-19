@@ -1,4 +1,4 @@
-import { arrangedSong, setlistSoundingKey, songKey } from './lib/setlist-arrangement'
+import { arrangedSong, capoStorageKey, readCapo, setlistSoundingKey, songKey } from './lib/setlist-arrangement'
 import SongFlowEditor from './SongFlowEditor'
 import {hasFlowConflicts,mapFlowCursor,syncLinkedSections} from './lib/song-flow'
 import {songSortLabels,sortSongsByDate} from './lib/song-dates'
@@ -6,7 +6,7 @@ import type {SongDateSort} from './lib/song-dates'
 import OfflineSetlistStatus from './OfflineSetlistStatus'
 import type {OfflineSnapshot} from './lib/offline-readiness'
 import ChordPositionEditor from './ChordPositionEditor'
-import {readingWords} from './lib/reader-lines'
+import { displaySong } from './SongChart'
 import AddToFolder from './AddToFolder'
 import SongDraftRecovery from './SongDraftRecovery'
 import SetlistKeyOverview from './SetlistKeyOverview'
@@ -14,7 +14,7 @@ import { draftKey,readSongDrafts,writeSongDraft,removeSongDraft,canResumeSongDra
 import type { SongDraft } from './lib/song-drafts'
 import { loginPersistence } from './lib/login-storage'
 import { useEffect, useRef, useState } from 'react'
-import { transposeChord, transposeSongContent, lyricsOnly } from './lib/chord/transpose'
+import { transposeSongContent, lyricsOnly } from './lib/chord/transpose'
 import './App.css'
 import { parseSongFile, downloadSongs, makeSongLink, readSongLink } from './lib/sharing'
 import { MenuSection } from './ThemePreference'
@@ -22,6 +22,7 @@ import SongPages from './SongPages'
 import SongFolders from './SongFolders'
 import AddToSetlist from './AddToSetlist'
 import SetlistCopy from './SetlistCopy'
+import SetlistPrint from './SetlistPrint'
 import CompleteBackup from './CompleteBackup'
 import type { OfflineBundle } from './lib/offline'
 import SongHistory from './SongHistory'
@@ -186,7 +187,7 @@ function App({library}: {library: SharedLibrary}) {
     setSelectedSong(songList[nextIndex]);setSetlistQueue(songList);setQueueIndex(nextIndex)
   },[library.songs,library.sharedSetlist])
   const capoScope=selectedSong&&(setlistId??library.sharedSetlistId)
-    ? ['bic-setlist-capo',library.userId,setlistId??library.sharedSetlistId,selectedSong.id].join(':') : null
+    ? capoStorageKey(library.userId,(setlistId??library.sharedSetlistId)!,selectedSong.id) : null
   const capo=stageView&&capoScope ? (capoPreferences[capoScope]??readCapo(capoScope)) : 0
   const plannedSong=stageView&&selectedSong?{...selectedSong,setlist_key:setlistQueue[queueIndex]?.setlist_key}:null
   const stageSong=plannedSong?arrangedSong(plannedSong,capo):null
@@ -564,6 +565,8 @@ function App({library}: {library: SharedLibrary}) {
 
         {!selectedSong && library.sharedSetlist && <button disabled={!songList.length} onClick={()=>startSetlist(songList)}>Start shared setlist</button>}
         {!selectedSong&&library.sharedSetlist&&<div className="setlist-copy-row"><SetlistCopy songs={songList}/></div>}
+        {!selectedSong&&library.sharedSetlist&&library.sharedSetlistId&&<SetlistPrint
+          title={library.bookName} songs={songList} userId={library.userId} listId={library.sharedSetlistId}/>}
         {libraryPage&&library.ownerId&&<nav className="library-tabs" aria-label="My songbook views"><button aria-pressed={!setlistIndex} onClick={()=>setLibraryView('songs')}>Songs</button><button aria-pressed={setlistIndex} onClick={()=>setLibraryView('setlists')}>Setlists</button></nav>}
         {libraryPage&&!setlistIndex&&!library.sharedSetlist&&<SongDraftRecovery drafts={songDrafts} canRestore={library.canEdit&&!library.loading} onRestore={recoverDraft} onDiscard={draft=>{if(window.confirm('Permanently discard this unsaved draft?'))clearDraft(draft.id)}}/>}
         {(isAddingSong||isEditing)&&draftStatus&&<p className="storage-note" role="status">{draftStatus}</p>}
@@ -911,112 +914,6 @@ function App({library}: {library: SharedLibrary}) {
       </main>
     </div>
   )
-}
-
-function readCapo(key:string){
-  try{
-    const value=Number(localStorage.getItem(key))
-    return Number.isInteger(value)&&value>=0&&value<=11?value:0
-  }catch{return 0}
-}
-
-function displaySong(
-  content: string,
-  transpose: number,
-  currentKey: string,
-  wrapWords=false,
-  showChords=true,
-) {
-  if(!showChords)content=lyricsOnly(content)
-  const useFlats = currentKey.includes('b')
-
-  const groups: { heading?: string; lines: string[] }[] = []
-  for (const line of content.split('\n')) {
-    const trimmed = line.trim()
-    // A chord-only line such as [C] must remain a legacy chord, not a section.
-    const bracket = trimmed.match(/^\[([^\]]+)\]$/)
-    const legacyChord = bracket && /^[A-G](?:#|b)?(?:m|maj|min|dim|aug|sus|add|\d|#|b|[-+()])*(?:\/[A-G](?:#|b)?)?$/.test(bracket[1])
-    const heading = trimmed.startsWith('# ') ? trimmed.slice(2) : bracket && !legacyChord ? bracket[1] : undefined
-    if (heading !== undefined) groups.push({ heading, lines: [] })
-    else {
-      if (!groups.length) groups.push({ lines: [] })
-      groups[groups.length - 1].lines.push(line)
-    }
-  }
-  return groups.map((group, index) => <div className={showChords?'song-block':'song-block lyrics-only-block'} key={index}>
-    {group.heading && <div className="song-section">{group.heading}</div>}
-    {group.lines.map((line, lineIndex) => <div className="song-line" key={lineIndex}>
-      {wrapWords?readingWords(parseLine(line,transpose,useFlats)).map((word,wordIndex)=>word.kind==='space'?word.text:<span className="song-word" key={wordIndex}>{word.parts.map((segment,segmentIndex)=><span key={segmentIndex} style={segment.chord?{minWidth:`${(segment.chord.length+.7)*.65}em`}:undefined} className={segment.chord&&!segment.lyrics.trim()?'song-segment chord-only':'song-segment'}><span className="chord">{segment.chord}</span><span className="lyrics">{segment.lyrics}</span></span>)}</span>):parseLine(line, transpose, useFlats).map((segment, segmentIndex) => <span style={segment.chord ? {minWidth: `${(segment.chord.length + 0.7) * 0.65}em`} : undefined} className={segment.chord && !segment.lyrics.trim() ? "song-segment chord-only" : "song-segment"} key={segmentIndex}>
-        <span className="chord">{segment.chord}</span><span className="lyrics">{segment.lyrics}</span>
-      </span>)}
-    </div>)}
-  </div>)
-}
-
-function parseLine(
-  line: string,
-  transpose: number,
-  useFlats: boolean,
-) {
-  const chordRegex =
-    /\[([A-G](?:#|b)?[^/\]\s]*(?:\/[A-G](?:#|b)?)?)\]|\{([A-G](?:#|b)?[^/}\s]*(?:\/[A-G](?:#|b)?)?)\}/g
-
-  const matches = [
-    ...line.matchAll(chordRegex),
-  ]
-
-  if (!matches.length) {
-    return [
-      {
-        chord: '',
-        lyrics: line,
-      },
-    ]
-  }
-
-  const segments: {
-    chord: string
-    lyrics: string
-  }[] = []
-
-  if (matches[0].index! > 0) {
-    segments.push({
-      chord: '',
-      lyrics: line.slice(
-        0,
-        matches[0].index,
-      ),
-    })
-  }
-
-  matches.forEach((match, index) => {
-    const chord = match[1] || match[2]
-
-    const start =
-      match.index! + match[0].length
-
-    const end =
-      index + 1 < matches.length
-        ? matches[index + 1].index!
-        : line.length
-
-    let lyrics = line.slice(
-      start,
-      end,
-    )
-
-
-    segments.push({
-      chord: transposeChord(
-        chord,
-        transpose,
-        useFlats,
-      ),
-      lyrics,
-    })
-  })
-
-  return segments
 }
 
 export default App

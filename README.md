@@ -163,6 +163,12 @@ Netlify uses `npm run build` and publishes `dist`, as configured in `netlify.tom
 
 See the [Codex connector staging guide](CONNECTOR_SETUP.md) for setup and testing.
 
+### Setlist sounding keys and printing
+
+Use the **Setlists** tab in **My songbook**. Start from a setlist card or open its details to edit keys and print. Sounding key overrides follow the shared setlist. Each musician can choose their own capo in the reader, and the print dialog offers a separate option to include those chord shapes.
+
+Apply the additive `database/setlist-arrangements.sql` migration before publishing the frontend with sounding-key editing. Verify the migration with `tests/setlist-arrangements.sql` in a local or staging database. Older lists without entries use each song’s saved key.
+
 ### Database and login maintenance
 
 The live database is already configured. **Do not rerun the database SQL files on the existing project.** Some files are reference snapshots of changes already applied. The early `SETUP.md` describes the original launch and contains historical status and permissions; use this README for current behavior. A fresh installation needs a reviewed, ordered database setup, not a blind replay of every file.
