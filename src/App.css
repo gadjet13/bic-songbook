@@ -394,3 +394,5 @@ select:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
 .stage-actions button { min-height: 44px; }
 .stage-actions button[aria-pressed="true"] { color: white; background: #634691; }
 .book-navigation button { min-height: 48px; }
+
+.song-line.song-bar-row { white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
