@@ -81,3 +81,12 @@ test('ordinary preambles and formatted variants keep their text',()=>{
  assert.equal(result.sectionsRenamed,false)
  assert.equal(result.content,formatted)
 })
+
+test('removes blank lines around pasted headings and keeps stanza breaks and formatted spacing',()=>{
+ const raw='[Verse]\n \n\n{D}One line\n\n{G}Second stanza\n\n \n\n[Chorus]\n\n{A}Chorus line'
+ const result=prepareNewSong({...emptyNewSong,text:raw})
+ assert.equal(result.content,'# Verse\n{D}One line\n\n{G}Second stanza\n# Chorus\n{A}Chorus line')
+ assert.equal(result.sectionsRenamed,false)
+ const formatted=prepareNewSong({...emptyNewSong,mode:'formatted',text:raw})
+ assert.equal(formatted.content,raw.replace('[Verse]','# Verse').replace('[Chorus]','# Chorus'))
+})
