@@ -58,8 +58,8 @@ export default function useChartScrollSync(chart: string, enabled: boolean) {
 
   function showSectionInPreview(line: number, pane: HTMLDivElement) {
     const { sourceLines, rendered } = positions.current
-    const index = rowAtOrBefore(sourceLines, line)
-    if (sourceLines[index] === line) setScroll(pane, rendered[index])
+    const index = sourceLines.indexOf(line)
+    if (index >= 0) setScroll(pane, rendered[index])
   }
 
   function jumpToLine(line: number) {
@@ -91,7 +91,8 @@ export default function useChartScrollSync(chart: string, enabled: boolean) {
       const sourceLine = rowAtOrBefore(raw, from.scrollTop + 0.75)
       const index = rowAtOrBefore(sourceLines, sourceLine)
       const following = sourceLines[index + 1] ?? Infinity
-      const nearest = following - sourceLine < sourceLine - sourceLines[index] ? index + 1 : index
+      let nearest = following - sourceLine < sourceLine - sourceLines[index] ? index + 1 : index
+      while (nearest > 0 && sourceLines[nearest - 1] === sourceLines[nearest]) nearest--
       next = rendered[nearest]
     } else {
       const index = rowAtOrBefore(rendered, from.scrollTop + 0.75)

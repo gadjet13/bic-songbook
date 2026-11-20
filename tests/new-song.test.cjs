@@ -74,13 +74,17 @@ test('copied webpage charts keep their title, key, and distinct section performa
  assert.equal(modules['./song-flow'].hasFlowConflicts(result.content),false)
 })
 
-test('ordinary preambles and formatted variants keep their text',()=>{
+test('keeps ordinary preambles when importing a chart',()=>{
  const raw='Fixture Song Chords by Fixture Artist\nThese words must stay\n[Verse]\nD\nOther words'
  assert.match(prepareNewSong({...emptyNewSong,text:raw}).content,/These words must stay/)
- const formatted='# Chorus\n{D}First\n# Chorus\n{G}Second'
+})
+
+test('numbers distinct sections in formatted source and keeps heading-only repeats',()=>{
+ const formatted='# Chorus\r\n{D}Same words  \r\n# Chorus\r\n\r\n# Chorus\r\n{G}Same words  \r\n# Chorus'
  const result=prepareNewSong({...emptyNewSong,mode:'formatted',text:formatted})
- assert.equal(result.sectionsRenamed,false)
- assert.equal(result.content,formatted)
+ assert.equal(result.sectionsRenamed,true)
+ assert.equal(result.content,'# Chorus 1\r\n{D}Same words  \r\n# Chorus 1\r\n\r\n# Chorus 2\r\n{G}Same words  \r\n# Chorus 2')
+ assert.equal(prepareNewSong({...emptyNewSong,mode:'formatted',text:result.content}).sectionsRenamed,false)
 })
 
 test('removes blank lines around pasted headings and keeps stanza breaks and formatted spacing',()=>{
