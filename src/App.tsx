@@ -759,7 +759,7 @@ function App({library}: {library: SharedLibrary}) {
     error={readerError||(!canEditInReader?'Reconnect to save your chart.':'')} dirty={readerDirty}
     onSave={()=>void saveReaderEdit()} onCancel={cancelReaderEdit}/>:null
   const fullReader:FullReaderControls|null=fullSetReading?{
-    userId:library.userId,preferenceId,legacyId:oldPreferenceId,offline:!!library.offline,
+    userId:library.userId,preferenceId,canEditTeamCues:!!library.ownerId&&!library.sharedSetlist,legacyId:oldPreferenceId,offline:!!library.offline,
     content:readingContent,changeContent:setReadingContent,changeCapo,exit:exitFullSet,
     wakeStatus,preferenceError,fontSize,changeFontSize:setFontSize,readerColumns,changeColumns:setReaderColumns,
     onEditRaw:canEditInReader?openRawEditor:undefined,editingOccurrence:readerEdit?.occurrence,editor:readerEditor,

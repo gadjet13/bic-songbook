@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react'
+import { chartCueLocations } from './lib/cue-locations'
 import { readingWords } from './lib/reader-lines'
 import { barChordParts, formatStoredChordRows, lyricsOnly, sectionHeading, transposeChord } from './lib/chord/transpose'
 
@@ -7,21 +9,25 @@ export function displaySong(
   currentKey: string,
   wrapWords=false,
   showChords=true,
+  renderSection?: (location: string, heading: string) => ReactNode,
 ) {
   content = showChords ? formatStoredChordRows(content) : lyricsOnly(content)
   const useFlats = currentKey.includes('b')
 
-  const groups: { heading?: string; lines: string[] }[] = []
-  for (const line of content.split('\n')) {
+  const cueIds = renderSection ? new Map(chartCueLocations(content).map(section => [section.lineIndex, section.id])) : null
+  const groups: { heading?: string; cueId?: string; lines: string[] }[] = []
+  for (const [lineIndex, line] of content.split('\n').entries()) {
     const heading = sectionHeading(line)
-    if (heading !== undefined) groups.push({ heading, lines: [] })
+    if (heading !== undefined) groups.push({ heading, cueId: cueIds?.get(lineIndex), lines: [] })
     else {
       if (!groups.length) groups.push({ lines: [] })
       groups[groups.length - 1].lines.push(line)
     }
   }
   return groups.map((group, index) => <div className={showChords?'song-block':'song-block lyrics-only-block'} key={index}>
-    {group.heading && <div className="song-section">{group.heading}</div>}
+    {group.heading && (group.cueId && renderSection
+      ? renderSection(group.cueId, group.heading)
+      : <div className="song-section">{group.heading}</div>)}
     {group.lines.map((line, lineIndex) => {
       const barParts = showChords ? barChordParts(line) : null
       if (barParts) return <div className="song-line song-bar-row" key={lineIndex}>

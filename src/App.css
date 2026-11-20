@@ -510,3 +510,30 @@ body:not(.song-reading-mode) .song-view .transpose {
 .new-song-preview summary { cursor: pointer; }
 .new-song-preview .chord-paste-chart { margin-top: 8px; }
 .new-song-preview .song-block:first-child > .song-section:first-child { margin-top: 0; }
+
+.full-set-navigation { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.full-set-navigation span { font-variant-numeric: tabular-nums; }
+.setlist-cue { margin: .35em 0; padding-inline-start: .6em; border-inline-start: 2px solid currentColor;
+  white-space: pre-wrap; overflow-wrap: anywhere; }
+.reader-chart .setlist-cue { grid-column: 1 / -1; }
+.setlist-cue-editor { margin-block: .5rem; max-width: 32rem; }
+.setlist-cue-editor textarea { resize: vertical; }
+@media print {
+  .setlist-cue[data-visibility="private"], .setlist-cue-editor { display: none !important; }
+  .setlist-print-output .setlist-cue { break-inside: avoid; }
+}
+
+.cue-heading-button { display: inline-flex; align-items: baseline; gap: .35em; padding: 0;
+  min-height: 32px; max-width: 100%; border: 0; background: transparent; color: inherit;
+  font: inherit; text-align: start; cursor: pointer; overflow-wrap: anywhere; }
+.cue-heading-button:hover { text-decoration: underline; }
+.cue-heading-button:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.cue-heading-icon { flex-shrink: 0; font-size: .85em; }
+.reader-chart .setlist-cue-panel { grid-column: 1 / -1; min-width: 0; }
+.setlist-cue-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (pointer: coarse) {
+  .cue-heading-button { min-height: 44px; }
+}
+@media print {
+  .setlist-cue-panel, .cue-heading-icon { display: none !important; }
+}
