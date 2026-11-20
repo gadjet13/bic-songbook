@@ -90,11 +90,11 @@ Create or edit a setlist, search by song title, or artist, and select a result t
 
 Setlists use songs from the same songbook. Choosing a church-only result automatically copies it to My songbook before adding that version to a personal setlist. Deleting a setlist does not delete its songs. Deleted songs appear as missing entries and are skipped when reading.
 
-Saving a new set in the planner prepares a share link and shows it with **Copy setlist link** on the saved set. Approved members who open it land on the overview and can choose **Read full set** for every chart on one scrolling page, or **Start shared setlist** for the existing stage view. **Jump to song** takes you to a numbered occurrence. **Manage share link → Turn off link** removes access for members who joined only by link. People granted access before link sharing can still open their received sets.
+Saving a new set returns to its card and shows the share link. Select the green play button to open the reader, or select the title to edit. The reader includes **Print setlist** and **Jump to song**. Open **Share options → Turn off link** in your reader to remove link access. Previous direct grants continue to work.
 
 For deployments upgrading from email sharing, apply `database/link-only-setlist-sharing.sql` after `database/setlist-links-and-preferences.sql` to retire the old API endpoints. Existing share records and legacy version 2 backups are supported.
 
-In stage view, **My notes** and **My capo** are private account preferences for that song in this set. Repeated songs use the same personal preferences and can have different sounding keys. Notes are omitted from printouts. Saved notes can be read offline, and capo changes made offline sync when you reconnect.
+In the setlist reader, **My notes** and **My capo** are private account preferences for that song in this set. Repeated songs use the same personal preferences and can have different sounding keys. Notes are omitted from printouts. Saved notes can be read offline, and capo changes made offline sync when you reconnect.
 
 Choose **Copy entire setlist → Copy with chords / Copy lyrics** to copy all included songs in setlist order, with song titles. Chord copying uses each song’s saved base key. Missing/deleted songs are skipped.
 
@@ -106,7 +106,7 @@ From a personal song, open **Add to setlist** and choose an existing setlist, or
 - Adjust song text from **6px to 32px**.
 - Reading mode fits lyrics into pages. Use **Columns** in either the song reader or **Read full set** to choose Auto, One, or Two. Auto uses two columns on screens at least 700px wide and one on narrower screens. Your choice is saved on this browser.
 - Use page buttons, left/right arrow keys, or horizontal swipes to turn pages.
-- In a setlist, Next after the final page opens the next song. Previous from the first page opens the previous song's last page when available.
+- In a setlist, scroll through the charts or use **Jump to song**.
 - In two-column mode, read each section left to right across each row, then down. Section headings span both columns.
 - Exit reading mode with its button or Escape.
 
@@ -228,7 +228,7 @@ Category has been removed from forms, displays and search. Existing category val
 
 Open the app online on each device and sign in. **Menu → Offline use → Save latest for offline** saves personal and church songs, folders, favorites, personal setlists and received setlists. Refresh also saves these automatically. Wait for the saved timestamp, and open/install the app online once so its application files are cached.
 
-In airplane mode you can reopen the app, browse both songbooks, filter folders/favorites, start setlists, transpose, copy and use reading mode. All account approval, editing, saving, sharing, history, full backup and friend-management operations need internet. Shared setlists use their last saved contents and update after reconnecting. Stay signed in before going offline; first-time sign-in cannot be done offline.
+In airplane mode you can reopen the app, browse both songbooks, filter folders/favorites, start setlists, transpose, copy and use reading mode. All account approval, editing, saving, sharing, history, full backup operations need internet. Shared setlists use their last saved contents and update after reconnecting. Stay signed in before going offline; first-time sign-in cannot be done offline.
 
 Offline copies are stored in this browser/device, separately by account. Signing out or switching accounts clears the previous account’s saved copy. Menu has a Clear saved offline data button; an online refresh saves the data again. Other devices need their own save. Storage failures are reported. Browser storage can be removed by the browser/device, so this is not a replacement for downloaded backups. Revoked sharing/access cannot be checked without a connection; reconnecting checks approval and refreshes/removes saved data.
 
@@ -305,7 +305,7 @@ The default text size is 16px. Previously saved sizes below 12px reset to 16px o
 
 **Visual chord positions:** in Add/Edit Song, open **Adjust chord positions visually**. Drag a chord to a lyric character, or select it and tap its destination. Arrows move one character; keyboard left/right works on a focused chord. Chords can move between lyric lines, with close chords separated into lanes. Lyrics, sections and chord spelling stay unchanged. **Undo last move** reverses the most recent movement while its result is still in the editor. Save the song afterward. The original text editor remains available.
 
-**Per-setlist offline checks:** personal and received setlist cards show a status; open a setlist for details and **Save latest for offline**. **Ready offline** requires the stored setlist order and song versions, saved sign-in identity, and the current app worker’s cached application files to be verified on this device. Missing/outdated data requests a save; unverified app files never show Ready. A received list checks its own shared versions. Refresh while online, stay signed in, then test airplane mode before worship. A green status verifies the current saved copy, not future remote changes, device storage retention or continued access approval. Offline editing and syncing remain deferred. No SQL migration is required for this update.
+Opening a setlist online refreshes the saved copy on this device. Stay signed in with Remember me enabled and open the setlist before going offline. Test airplane mode on the device you’ll use.
 
 
 ## Song sorting (October 22)
@@ -345,7 +345,7 @@ Database changes for folder dates and the manager-only account-ID listing are al
 
 Personal setlist cards now default to **Date added — newest first**. You can still choose any other sort. Folder cards keep their existing **Name A–Z** default. Neither setting changes the order of songs inside a setlist.
 
-When opening **Reading mode**, choose **Lyrics only** or **Lyrics + chords**, or cancel. Lyrics only keeps the lyrics and section labels and removes chord spacing from the page layout. **Reading content** also lets you switch while reading; pages are recalculated for the chosen layout. The choice stays active across next/previous songs in a setlist. It affects display only, including saved offline reading, and never edits stored arrangements or transpositions. No database change is needed.
+When opening **Reading mode**, choose **Lyrics only** or **Lyrics + chords**, or cancel. Lyrics only keeps the lyrics and section labels and removes chord spacing from the page layout. **Reading content** also lets you switch while reading; pages are recalculated for the chosen layout. The choice applies to the whole setlist. It affects display only, including saved offline reading, and never edits stored arrangements or transpositions. No database change is needed.
 
 
 ## Horizontal song flow and linked sections (November 3)

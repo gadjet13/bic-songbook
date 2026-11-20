@@ -5,7 +5,7 @@ import type { Song } from './App'
 import { displaySong } from './SongChart'
 import { arrangedSong, setlistSoundingKey, songKey } from './lib/setlist-arrangement'
 
-type PrintMode = 'order' | 'lyrics' | 'chords'
+type PrintMode = 'lyrics' | 'chords'
 
 export default function SetlistPrint({title,songs,userId,listId,legacyListId=listId}:{
   title:string
@@ -14,7 +14,7 @@ export default function SetlistPrint({title,songs,userId,listId,legacyListId=lis
   listId:string
   legacyListId?:string
 }) {
-  const [mode,setMode]=useState<PrintMode>('order')
+  const [mode,setMode]=useState<PrintMode>('chords')
   const [useCapo,setUseCapo]=useState(false)
   const [printing,setPrinting]=useState(false)
 
@@ -35,7 +35,6 @@ export default function SetlistPrint({title,songs,userId,listId,legacyListId=lis
     <summary>Print setlist</summary>
     <label>Print format
       <select value={mode} onChange={event=>setMode(event.target.value as PrintMode)}>
-        <option value="order">Order and keys</option>
         <option value="lyrics">Lyrics</option>
         <option value="chords">Lyrics + chords</option>
       </select>
@@ -52,7 +51,7 @@ export default function SetlistPrint({title,songs,userId,listId,legacyListId=lis
           {song.title} · {setlistSoundingKey(song.key,song.setlist_key)||'Key not set'}
         </>:'Song unavailable'}</li>)}
       </ol>
-      {mode!=='order'&&songs.map((song,index)=>{
+      {songs.map((song,index)=>{
         if(!song)return null
         const fret=mode==='chords'&&useCapo&&songKey(song.key)?cachedPreference(userId,listId,song.id,legacyListId).capo:0
         const chart=arrangedSong(song,fret)

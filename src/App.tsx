@@ -4,15 +4,11 @@ import ReadingTextSize, { maxReadingTextSize, minReadingTextSize } from './Readi
 import type { ReaderColumns } from './lib/reader-lines'
 import FullSetlistReader from './FullSetlistReader'
 import type { FullReaderControls } from './FullSetlistReader'
-import SetlistSongNote from './SetlistSongNote'
-import { cachedPreference, flushSetlistCapos, initializeSetlistCapo, legacyCapo, loadSetlistPreferences, preferencesChanged, queueSetlistCapo } from './lib/setlist-preferences'
-import { arrangedSong, setlistSoundingKey, songKey } from './lib/setlist-arrangement'
+import { flushSetlistCapos, loadSetlistPreferences, preferencesChanged, queueSetlistCapo } from './lib/setlist-preferences'
 import SongFlowEditor from './SongFlowEditor'
 import {hasFlowConflicts,mapFlowCursor,syncLinkedSections} from './lib/song-flow'
 import {songSortLabels,sortSongsByDate} from './lib/song-dates'
 import type {SongDateSort} from './lib/song-dates'
-import OfflineSetlistStatus from './OfflineSetlistStatus'
-import type {OfflineSnapshot} from './lib/offline-readiness'
 import ChordPositionEditor from './ChordPositionEditor'
 import { displaySong } from './SongChart'
 import AddToFolder from './AddToFolder'
@@ -29,8 +25,6 @@ import { MenuSection } from './ThemePreference'
 import SongPages from './SongPages'
 import SongFolders from './SongFolders'
 import AddToSetlist from './AddToSetlist'
-import SetlistCopy from './SetlistCopy'
-import SetlistPrint from './SetlistPrint'
 import CompleteBackup from './CompleteBackup'
 import type { OfflineBundle } from './lib/offline'
 import SongHistory from './SongHistory'
@@ -117,12 +111,10 @@ function getCurrentKey(
 }
 
 export type SharedLibrary = {
-  offlineReadiness?:OfflineSnapshot
   sharedSetlistId?:string
   sourceSetlistId?:string
   loading?: boolean
   offline?: boolean
-  personalName?: string
   offlineData?: OfflineBundle
   initialSongId?: number
   openChurchSong?: (song:Song)=>void
@@ -158,19 +150,14 @@ function App({library}: {library: SharedLibrary}) {
   activeSetlistSongEditor.current=setlistSongEditor
   const [folderNames,setFolderNames]=useState<{id:string;name:string}[]>([])
   const [favoritesOnly,setFavoritesOnly]=useState(false)
-  const [setlistQueue,setSetlistQueue]=useState<Song[]>([])
-  const [queueIndex,setQueueIndex]=useState(0)
-  const [skippedSetlistSongs,setSkippedSetlistSongs]=useState(0)
-  const [startOnLastPage,setStartOnLastPage]=useState(false)
   const [readingMode, setReadingMode] = useState(false)
-  const [fullSetReading,setFullSetReading]=useState(false)
+  const [fullSetReading,setFullSetReading]=useState(()=>!!history.state?.bicFullSet)
   const [readerEdit,setReaderEdit]=useState<ReaderEdit|null>(null)
   const [readerSaving,setReaderSaving]=useState(false)
   const [readerError,setReaderError]=useState('')
   const readerSavePending=useRef(false)
   const returnToFullSetButton=useRef(false)
-  const fullSetCard=useRef<string|null>(null)
-  const stageView=readingMode&&setlistQueue.length>0
+  const fullSetCard=useRef<string|null>(typeof history.state?.bicFullSet==='string'?history.state.bicFullSet:null)
   const [readingChoice,setReadingChoice]=useState(false)
   const [readingContent,setReadingContent]=useState<'lyrics'|'chords'>('chords')
   const [readerColumns,setReaderColumns]=useState<ReaderColumns>(()=>{
@@ -226,19 +213,7 @@ function App({library}: {library: SharedLibrary}) {
 
   useEffect(()=>{
     if(!library.sharedSetlist||!selectedSong)return
-    if(!setlistQueue.length){
-      setSelectedSong(songList.find(song=>song.id===selectedSong.id)??null)
-      return
-    }
-    const occurrence=setlistQueue.slice(0,queueIndex+1).filter(song=>song.id===selectedSong.id).length
-    const positions=songList.flatMap((song,index)=>song.id===selectedSong.id?[index]:[])
-    const nextIndex=positions[occurrence-1]
-    if(nextIndex===undefined){
-      setSelectedSong(null);setSetlistQueue([]);setReadingMode(false)
-      setNotice('The current song was removed from this shared setlist.')
-      return
-    }
-    setSelectedSong(songList[nextIndex]);setSetlistQueue(songList);setQueueIndex(nextIndex)
+    setSelectedSong(songList.find(song=>song.id===selectedSong.id)??null)
   },[library.songs,library.sharedSetlist])
   const preferenceId=library.sourceSetlistId??(setlistId==='new'?null:setlistId)
   const oldPreferenceId=library.sharedSetlistId??preferenceId
@@ -264,20 +239,6 @@ function App({library}: {library: SharedLibrary}) {
     window.addEventListener('focus',load)
     return ()=>{active=false;window.removeEventListener('focus',load)}
   },[preferenceId,library.userId,library.offline])
-  const songId=selectedSong?.id
-  const preference=localPreferenceId&&songId&&oldPreferenceId
-    ? cachedPreference(library.userId,localPreferenceId,songId,oldPreferenceId) : null
-  const capo=stageView?preference?.capo??0:0
-  const plannedSong=stageView&&selectedSong?{...selectedSong,setlist_key:setlistQueue[queueIndex]?.setlist_key}:null
-  const stageSong=plannedSong?arrangedSong(plannedSong,capo):null
-  useEffect(()=>{
-    if(!songId||!stageView||!preferenceId||!oldPreferenceId||library.offline||
-      !preference||preference.savedCapo!==null||preference.pending)return
-    const legacy=legacyCapo(library.userId,oldPreferenceId,songId)
-    if(legacy!==null)void initializeSetlistCapo(library.userId,preferenceId,songId,legacy).catch(error=>{
-      setPreferenceError(String(error.message))
-    })
-  },[preferenceId,oldPreferenceId,library.userId,library.offline,songId,stageView,preference?.savedCapo,preference?.pending])
   function changeCapo(targetSong:number,fret:number){
     if(!localPreferenceId)return
     queueSetlistCapo(library.userId,localPreferenceId,targetSong,fret,!preferenceId&&!!library.sharedSetlistId)
@@ -317,7 +278,7 @@ function App({library}: {library: SharedLibrary}) {
         if(song){selectSong(song);setReadingMode(event.state.bicMode==='reading');setIsEditing(event.state.bicMode==='editing')}
         setIsAddingSong(false)
       } else if(historySongRef.current){
-        setSelectedSong(null);setIsEditing(false);setReadingMode(false);setSetlistQueue([]);setIsAddingSong(event.state?.bicMode==='adding')
+        setSelectedSong(null);setIsEditing(false);setReadingMode(false);setIsAddingSong(event.state?.bicMode==='adding')
       } else {setIsAddingSong(event.state?.bicMode==='adding')}
     }
     window.addEventListener('popstate',back)
@@ -358,8 +319,7 @@ function App({library}: {library: SharedLibrary}) {
     const mode=isAddingSong?'adding':isEditing?'editing':readingMode?'reading':null
     const state=history.state??{}
     if(mode=== (state.bicMode??null))return
-    if(mode==='reading'&&setlistQueue.length)history.replaceState({...state,bicMode:mode},'',location.href)
-    else if(mode)history.pushState({...state,bicMode:mode},'',location.href)
+    if(mode)history.pushState({...state,bicMode:mode},'',location.href)
     else if(state.bicMode)history.back()
   },[isAddingSong,isEditing,readingMode])
 
@@ -425,7 +385,6 @@ function App({library}: {library: SharedLibrary}) {
     try{
       const saved=await library.update({...readerEdit.song,content:readerEdit.content})
       setSelectedSong(current=>current?.id===saved.id?saved:current)
-      setSetlistQueue(queue=>queue.map(song=>song.id===saved.id?{...saved,setlist_key:song.setlist_key}:song))
       clearDraft('song:'+saved.id)
       lockReader()
       setNotice('Chart saved.')
@@ -512,7 +471,6 @@ function App({library}: {library: SharedLibrary}) {
     setSavingKey(true)
     try {
       const saved = await library.update({...selectedSong,key,content:transposeSongContent(selectedSong.content,transpose,key.includes('b'))})
-      setSetlistQueue(queue=>queue.map(song=>song.id===saved.id?saved:song))
       if (currentSongId.current===saved.id) {
         setSelectedSong(saved)
         setTranspose(0)
@@ -558,6 +516,10 @@ function App({library}: {library: SharedLibrary}) {
   )
   const filteredSongs = library.sharedSetlist?matchingSongs:sortSongsByDate(matchingSongs,dateSort)
 
+  useEffect(()=>{
+    if(!library.offline&&(fullSetReading||(setlistId&&setlistId!=='new')))void library.refresh()
+  },[fullSetReading,setlistId])
+
   function readFullSet(listId?:string){
     if(!allowNavigation())return
     const next={...history.state,bicFullSet:listId??true}
@@ -576,8 +538,8 @@ function App({library}: {library: SharedLibrary}) {
     if(history.state?.bicFullSet)history.back()
     else if(allowNavigation()){setReaderEdit(null);returnToFullSetButton.current=true;setFullSetReading(false)}
   }
-  function openSetlist(id:string,saved=false){
-    if(!saved&&!allowNavigation())return
+  function openSetlist(id:string){
+    if(!allowNavigation())return
     const next={...history.state,bicSetlist:id};delete next.bicSong;delete next.bicMode
     if(setlistId)history.replaceState(next,'',location.href);else history.pushState(next,'',location.href)
     setSetlistId(id);setSelectedSong(null);setIsAddingSong(false)
@@ -586,14 +548,13 @@ function App({library}: {library: SharedLibrary}) {
   function selectFolder(id:string){setFolder(id);history.replaceState({...history.state,bicFolder:id},'',location.href)}
   function openFolder(id:string){
     const next={...history.state,bicFolder:id};delete next.bicSong;delete next.bicMode;delete next.bicSetlist
-    history.pushState(next,'',location.href);setFolder(id);setSelectedSong(null);setIsEditing(false);setReadingMode(false);setSetlistQueue([]);setSetlistId(null);setLetter('All');setArtistFilter('all');setSearch('');setFavoritesOnly(false);resetSongSort()
+    history.pushState(next,'',location.href);setFolder(id);setSelectedSong(null);setIsEditing(false);setReadingMode(false);setSetlistId(null);setLetter('All');setArtistFilter('all');setSearch('');setFavoritesOnly(false);resetSongSort()
   }
   const libraryPage=!selectedSong&&!isAddingSong&&!setlistId
   const setlistIndex=libraryPage&&!!library.ownerId&&libraryView==='setlists'
   const artists=[...new Map(songList.filter(song=>song.artist.trim()).map(song=>[song.artist.trim().toLowerCase(),song.artist.trim()])).entries()].sort((a,b)=>a[1].localeCompare(b[1]))
   const selectSong = (song: Song,force=false) => {
     if(!force&&song.id!==currentSongId.current&&!allowNavigation())return
-    setStartOnLastPage(false)
     setReadingMode(false)
     setSelectedSong(song)
     setTranspose(0)
@@ -605,21 +566,6 @@ function App({library}: {library: SharedLibrary}) {
     setEditedContent(song.content)
 
     setIsEditing(false)
-  }
-
-  function goToSetlistSong(index:number,fromPreviousPage=false){
-    const song=setlistQueue[index]
-    if(!song||readerSavePending.current||!allowNavigation())return
-    setReaderEdit(null)
-    selectSong(song,true)
-    setQueueIndex(index);setStartOnLastPage(fromPreviousPage);setReadingMode(true)
-  }
-
-  function startSetlist(songs:Song[],id?:string,index=0,missing=0){
-    if(!songs[index]||!allowNavigation())return
-    if(id&&id!==setlistId)openSetlist(id)
-    setSetlistQueue(songs);setQueueIndex(index);setSkippedSetlistSongs(missing)
-    selectSong(songs[index],true);setReadingMode(true)
   }
 
   const initialOpened=useRef<number|undefined>(undefined)
@@ -793,7 +739,6 @@ function App({library}: {library: SharedLibrary}) {
       <main>
         {!selectedSong&&library.sharedSetlist&&<div className="setlist-primary-actions">
           <button className="worship-primary" data-read-full-set="" onClick={()=>readFullSet()}>Read full set</button>
-          <button disabled={!songList.length} onClick={()=>startSetlist(songList)}>Start shared setlist</button>
         </div>}
         <MenuSection><div className="library-tools">
           <button onClick={() => downloadSongs(songList)}>Export songs only</button>
@@ -803,17 +748,13 @@ function App({library}: {library: SharedLibrary}) {
         {!library.sharedSetlist&&!library.offline&&<CompleteBackup key={library.userId+'-'+library.ownerId} userId={library.userId} church={!library.ownerId} canEdit={library.canEdit} onChanged={library.refresh}/>}
         {!library.sharedSetlist&&library.canEdit&&<SongHistory ownerId={library.ownerId} currentSongs={songList} onChanged={library.refresh}/>}
         <p className="storage-note">{library.bookName} · {library.offline?'Reading saved copies. Reconnect to edit or share.':'Changes save online. Export a backup whenever you need one.'}</p></MenuSection>
-        {!selectedSong&&library.sharedSetlist&&library.sharedSetlistId&&<OfflineSetlistStatus snapshot={library.offlineReadiness} userId={library.userId} list={{id:library.sharedSetlistId,title:library.bookName}} songs={songList} shared offline={library.offline} onSave={library.refresh} disabled={library.loading}/>}
         {!selectedSong && library.sharedSetlist && <SetlistKeyOverview songs={songList}/>}
 
-        {!selectedSong&&library.sharedSetlist&&<div className="setlist-copy-row"><SetlistCopy songs={songList}/></div>}
-        {!selectedSong&&library.sharedSetlist&&library.sharedSetlistId&&<SetlistPrint
-          title={library.bookName} songs={songList} userId={library.userId} listId={library.sourceSetlistId??library.sharedSetlistId} legacyListId={library.sharedSetlistId}/>}
         {libraryPage&&library.ownerId&&<nav className="library-tabs" aria-label="My songbook views"><button aria-pressed={!setlistIndex} onClick={()=>switchLibraryView('songs')}>Songs</button><button aria-pressed={setlistIndex} onClick={()=>switchLibraryView('setlists')}>Setlists</button></nav>}
         {libraryPage&&!setlistIndex&&!library.sharedSetlist&&<SongDraftRecovery drafts={songDrafts} canRestore={library.canEdit&&!library.loading} onRestore={recoverDraft} onDiscard={draft=>{if(window.confirm('Permanently discard this unsaved draft?'))clearDraft(draft.id)}}/>}
         {(isAddingSong||isEditing)&&draftStatus&&<p className="storage-note" role="status">{draftStatus}</p>}
 
-        {(setlistSongEditor||(!selectedSong&&!isAddingSong)) && library.ownerId && (setlistId||setlistIndex) && <div hidden={!!setlistSongEditor}><SongOrganization offlineSnapshot={library.offlineReadiness} refreshing={library.loading} activeId={setlistId} onNavigate={openSetlist} onBack={backToSetlists} personalName={library.personalName??'My songbook'} churchSongs={library.offlineData?.church??[]} onSongsChanged={library.refresh} offlineLists={library.offline?library.offlineData?.setlists:undefined} ownerId={library.ownerId} songs={songList} canEdit={library.canEdit} onOpen={startSetlist} onSongEditor={openSetlistSongEditor} fullReader={fullReader} onReadFull={readFullSet}/></div>}
+        {(setlistSongEditor||(!selectedSong&&!isAddingSong)) && library.ownerId && (setlistId||setlistIndex) && <div hidden={!!setlistSongEditor}><SongOrganization activeId={setlistId} onNavigate={openSetlist} onBack={backToSetlists} churchSongs={library.offlineData?.church??[]} onSongsChanged={library.refresh} offlineLists={library.offline?library.offlineData?.setlists:undefined} ownerId={library.ownerId} songs={songList} canEdit={library.canEdit} onSongEditor={openSetlistSongEditor} fullReader={fullReader} onReadFull={readFullSet}/></div>}
         {favoriteError && <p role="status" className="notice">{favoriteError}</p>}
         {notice && <p role="status" className="notice">{notice}<button aria-label="Dismiss notification" onClick={() => setNotice('')}>×</button></p>}
         {!setlistId && incoming && <section className="incoming"><h2>A friend shared “{incoming.title}”</h2><p>{incoming.artist} · Key: {incoming.key}</p><button disabled={!library.canEdit} onClick={async () => { try { const [song] = await library.add([incoming]); selectSong(song); setIncoming(null); history.replaceState(history.state, '', location.pathname + location.search) } catch (error) { setNotice(String(error instanceof Error ? error.message : error)) } }}>Add to this songbook</button><button onClick={() => {setIncoming(null); history.replaceState(history.state, '', location.pathname + location.search)}}>Dismiss</button></section>}
@@ -926,7 +867,7 @@ function App({library}: {library: SharedLibrary}) {
                     key={song.id}
                     className="song-item"
                     onClick={() =>
-                      {setSetlistQueue([]);selectSong(song)}
+                      selectSong(song)
                     }
                   >
                     <span className="library-song-name"><strong>{song.title}</strong>
@@ -947,7 +888,7 @@ function App({library}: {library: SharedLibrary}) {
               onClick={() => {
                 if(setlistSongEditor){cancelEditing();return}
                 if(history.state?.bicSong)history.back()
-                else if(allowNavigation()){setReaderEdit(null);setSelectedSong(null);setIsEditing(false);setReadingMode(false);setSetlistQueue([])}
+                else if(allowNavigation()){setReaderEdit(null);setSelectedSong(null);setIsEditing(false);setReadingMode(false)}
               }}
             >
               {setlistId?'← Back to setlist':'← Back to songs'}
@@ -958,35 +899,6 @@ function App({library}: {library: SharedLibrary}) {
 </div>
 
 
-            {stageView&&<section className="stage-controls" aria-label="Setlist reading controls">
-              <div className="stage-progress"><span>Song {queueIndex+1} of {setlistQueue.length}</span>
-                {setlistQueue[queueIndex+1]&&<span>Next: {setlistQueue[queueIndex+1].title}</span>}
-              </div>
-              {selectedSong&&<div className="stage-actions">
-                <span>Sounding key: {setlistSoundingKey(selectedSong.key,plannedSong?.setlist_key)||'Not set'}</span>
-                {songKey(selectedSong.key)&&<label>My capo<select
-                  disabled={!!readerEdit} value={capo} onChange={event=>changeCapo(selectedSong.id,Number(event.target.value))}>
-                  {Array.from({length:12},(_,fret)=><option key={fret} value={fret}>{fret===0?'No capo':fret}</option>)}
-                </select></label>}
-                {!!capo&&stageSong&&<span>Chord shapes: {stageSong.key}</span>}
-                {preference?.pending&&<small role="status">Capo change waiting to sync.</small>}
-              </div>}
-              <div className="stage-actions">
-                <label>Jump to song<select value={queueIndex} onChange={event=>goToSetlistSong(Number(event.target.value))}>
-                  {setlistQueue.map((song,index)=><option key={index} value={index}>{index+1}. {song.title}</option>)}
-                </select></label>
-                <div role="group" aria-label="Reading content">
-                  <button aria-pressed={readingContent==='lyrics'} onClick={()=>setReadingContent('lyrics')}>Lyrics</button>
-                  <button aria-pressed={readingContent==='chords'} onClick={()=>setReadingContent('chords')}>Chords</button>
-                </div>
-                <button disabled={readerSaving} onClick={()=>{if(history.state?.bicSong)history.back();else if(!readerSavePending.current&&allowNavigation()){setReaderEdit(null);setSelectedSong(null);setSetlistQueue([]);setReadingMode(false)}}}>Exit setlist</button>
-              </div>
-              {localPreferenceId&&songId&&<SetlistSongNote key={localPreferenceId+':'+songId}
-                userId={library.userId} listId={localPreferenceId} songId={songId}
-                note={preference?.note??''} offline={!!library.offline||!preferenceId}/>}
-              {preferenceError&&<p role="status">{preferenceError}</p>}
-              {skippedSetlistSongs>0&&<p role="status">{skippedSetlistSongs} unavailable {skippedSetlistSongs===1?'song skipped':'songs skipped'}.</p>}
-            </section>}
             {!isEditing && !readingMode && library.copyToPersonal && <button onClick={async()=>{try{await library.copyToPersonal!(selectedSong);setNotice('Copied to My songbook. You can edit your copy there.')}catch(error){setNotice(String(error instanceof Error?error.message:error))}}}>Copy to My songbook</button>}
             {!isEditing && !readingMode && library.ownerId && library.canEdit && <AddToSetlist key={'setlist-'+selectedSong.id} songId={selectedSong.id} ownerId={library.ownerId}/>}
             {!isEditing&&!readingMode&&library.ownerId&&library.canEdit&&<AddToFolder key={'folder-'+selectedSong.id} song={selectedSong} ownerId={library.ownerId} folders={folderNames} onSave={async folderId=>{const saved=await library.update({...selectedSong,folder_id:folderId});setSelectedSong(saved)}} onFolderCreated={folder=>{setFolderNames(rows=>[...rows,folder]);window.dispatchEvent(new Event('songbook-restored'))}} onOpen={openFolder}/>}
@@ -1108,7 +1020,7 @@ function App({library}: {library: SharedLibrary}) {
               </div>
             )}
 
-            <div className="reader-controls">{!stageView&&<div className="transpose">
+            <div className="reader-controls"><div className="transpose">
               <button
                 disabled={savingKey||!!readerEdit}
                 aria-label="Transpose down one semitone"
@@ -1135,14 +1047,14 @@ function App({library}: {library: SharedLibrary}) {
                 +
               </button>
               {!isEditing && library.ownerId && library.canEdit && <button className="save-key-button" disabled={savingKey||!!readerEdit||transpose===0||!/^([A-G](?:#|b)?)(m|maj|min)?$/.test(selectedSong.key)} onClick={()=>void saveInCurrentKey()}>{savingKey?'Saving…':`Save in ${getCurrentKey(selectedSong.key,transpose)} as base key`}</button>}
-              {!isEditing && !stageView && !readerEdit && <button className="reading-toggle" aria-pressed={readingMode} onClick={() => {if(readingMode)setReadingMode(false);else setReadingChoice(value=>!value)}}>{readingMode?'Exit reading mode':'Reading mode'}</button>}
-            </div>}
+              {!isEditing && !readerEdit && <button className="reading-toggle" aria-pressed={readingMode} onClick={() => {if(readingMode)setReadingMode(false);else setReadingChoice(value=>!value)}}>{readingMode?'Exit reading mode':'Reading mode'}</button>}
+            </div>
             {!isEditing&&!readingMode&&<ReadingTextSize value={fontSize} onChange={setFontSize}/>}
             </div>
             {!isEditing&&readingChoice&&!readingMode&&<fieldset className="reading-choice"><legend>Reading mode content</legend><p>Choose what to show. Your saved song stays unchanged.</p><button onClick={()=>{setReadingContent('lyrics');setReadingChoice(false);setReadingMode(true)}}>Lyrics only</button><button onClick={()=>{setReadingContent('chords');setReadingChoice(false);setReadingMode(true)}}>Lyrics + chords</button><button onClick={()=>setReadingChoice(false)}>Cancel reading mode</button></fieldset>}
             {!isEditing && (<>
               {readingMode&&<div className="reading-layout-options">
-                {!stageView&&<label className="reader-content-choice">Reading content<select aria-label="Reading content" value={readingContent} onChange={event=>setReadingContent(event.target.value as 'lyrics'|'chords')}><option value="lyrics">Lyrics only</option><option value="chords">Lyrics + chords</option></select></label>}
+                <label className="reader-content-choice">Reading content<select aria-label="Reading content" value={readingContent} onChange={event=>setReadingContent(event.target.value as 'lyrics'|'chords')}><option value="lyrics">Lyrics only</option><option value="chords">Lyrics + chords</option></select></label>
                 <ReadingColumns value={readerColumns} onChange={setReaderColumns}/>
                 <ReadingTextSize value={fontSize} onChange={setFontSize}/>
               </div>}
@@ -1150,7 +1062,7 @@ function App({library}: {library: SharedLibrary}) {
               {readingMode&&canEditInReader&&<button type="button" hidden={!!readerEdit}
                 onClick={event=>openRawEditor(selectedSong,'single-'+selectedSong.id,event.currentTarget)}>Edit raw content</button>}
               {readingMode&&readerEditor}
-              {readingMode ? <div hidden={!!readerEdit}><SongPages key={selectedSong.id+'-'+queueIndex+'-'+readingContent} columnPreference={readerColumns} fontSize={fontSize} onFitFontSize={setFontSize} startOnLastPage={startOnLastPage} onPreviousSong={queueIndex>0&&setlistQueue.length?()=>goToSetlistSong(queueIndex-1,true):undefined} onNextSong={queueIndex<setlistQueue.length-1?()=>goToSetlistSong(queueIndex+1):undefined}>{displaySong(stageSong?.content??selectedSong.content, stageSong?0:transpose, stageSong?.key??getCurrentKey(selectedSong.key,transpose),true,readingContent==='chords')}</SongPages></div> : <div className="song-display" style={{fontSize: `${fontSize}px`}} tabIndex={0} aria-label="Song lyrics and chords">
+              {readingMode ? <div hidden={!!readerEdit}><SongPages key={selectedSong.id+'-'+readingContent} columnPreference={readerColumns} fontSize={fontSize} onFitFontSize={setFontSize}>{displaySong(selectedSong.content,transpose,getCurrentKey(selectedSong.key,transpose),true,readingContent==='chords')}</SongPages></div> : <div className="song-display" style={{fontSize: `${fontSize}px`}} tabIndex={0} aria-label="Song lyrics and chords">
                 {displaySong(
                   selectedSong.content,
                   transpose,

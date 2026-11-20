@@ -1,3 +1,5 @@
+import SetlistPrint from './SetlistPrint'
+import SetlistCopy from './SetlistCopy'
 import ReadingColumns from './ReadingColumns'
 import ReadingTextSize from './ReadingTextSize'
 import type { ReaderColumns } from './lib/reader-lines'
@@ -30,10 +32,11 @@ export type FullReaderControls = {
   cancelEditing:()=>void
 }
 
-export default function FullSetlistReader({title,songs,controls}:{
+export default function FullSetlistReader({title,songs,controls,shareOptions}:{
   title:string
   songs:(Song|undefined)[]
   controls:FullReaderControls
+  shareOptions?:ReactNode
 }){
   const {userId,preferenceId,legacyId,offline,content,changeContent,changeCapo,exit,wakeStatus,preferenceError,fontSize,changeFontSize,readerColumns,changeColumns}=controls
   const latestControls=useRef(controls)
@@ -94,6 +97,11 @@ export default function FullSetlistReader({title,songs,controls}:{
       <ReadingTextSize value={fontSize} onChange={changeFontSize}/>
       <button onClick={exit}>Exit reader</button>
     </nav>
+    <div className="full-set-actions">
+      {localId&&<SetlistPrint title={title} songs={songs} userId={userId} listId={localId} legacyListId={legacyId??undefined}/>}
+      <SetlistCopy songs={songs.filter(song=>song!==undefined)}/>
+      {shareOptions}
+    </div>
     {offline&&<p>Offline · Reading a saved copy</p>}
     {wakeStatus&&<small role="status">{wakeStatus}</small>}
     {preferenceError&&<p role="status">{preferenceError}</p>}
