@@ -160,7 +160,7 @@ export default function SharedApp() {
     setOffline(true)
     if(!usableOffline(saved,userId)){setSongs([]);setRole(null);setNotice('No offline songbooks saved on this device. Connect once and save for offline use.');return}
     setOfflineBundle(saved);setRole(saved.role);setOfflineStatus(`Saved ${new Date(saved.savedAt).toLocaleString()}`)
-    if(saved.role==='owner'&&book!=='church'){writeAppRoute({bicBook:'church'},true);setBook('church');return}
+    if(saved.role==='owner'&&book!=='church'&&!history.state?.bicMemberBooks){writeAppRoute({bicBook:'church'},true);setBook('church');return}
     setSongs(book==='personal'?saved.personal:book==='church'?saved.church:[])
     setSharedLists(saved.shared);setSharedList(saved.shared.find(list=>list.id===history.state?.bicShared)??null)
   }
@@ -205,7 +205,7 @@ export default function SharedApp() {
       }
       setOfflineBundle(bundle);setRole(next);setSongs(book==='personal'?personal:book==='church'?church:[]);setSharedLists(bundle.shared);setSharedList(bundle.shared.find(list=>list.id===history.state?.bicShared)??null)
       try{await saveOffline(bundle);if(generation.current===current&&request===refreshSerial.current){rememberIdentity(session.user);setOfflineBundle(bundle);setOfflineStatus(`Saved ${new Date(bundle.savedAt).toLocaleString()}`)}else if(activeUser.current!==bundle.userId){await clearOffline(bundle.userId)}}catch{setOfflineStatus('Could not save offline data. Device storage may be full or blocked.')}
-      if(next==='owner'&&book!=='church'){writeAppRoute({bicBook:'church'},true);setBook('church')}
+      if(next==='owner'&&book!=='church'&&!history.state?.bicMemberBooks){writeAppRoute({bicBook:'church'},true);setBook('church')}
     } catch(error) {
       if(generation.current!==current||request!==refreshSerial.current)return
       if(!navigator.onLine||/failed to fetch|networkerror|network request failed|load failed/i.test(message(error))){try{await useSaved(current,request)}catch{setNotice('Could not load offline data on this device.')}}
