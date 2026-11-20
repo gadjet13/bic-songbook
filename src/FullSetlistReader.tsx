@@ -35,10 +35,11 @@ export type FullReaderControls = {
   editor?:ReactNode
 }
 
-export default function FullSetlistReader({title,songs,controls,shareOptions}:{
+export default function FullSetlistReader({title,songs,controls,shareLink,shareOptions}:{
   title:string
   songs:(Song|undefined)[]
   controls:FullReaderControls
+  shareLink?:ReactNode
   shareOptions?:ReactNode
 }){
   const {userId,preferenceId,legacyId,offline,content,changeContent,changeCapo,exit,wakeStatus,preferenceError,fontSize,changeFontSize,readerColumns,changeColumns}=controls
@@ -191,6 +192,7 @@ export default function FullSetlistReader({title,songs,controls,shareOptions}:{
       <SetlistCopy title={title} songs={songs.filter(song=>song!==undefined)}/>
       {shareOptions}
     </div>
+    {shareLink}
     {offline&&<p>Offline · Reading a saved copy</p>}
     {wakeStatus&&<small role="status">{wakeStatus}</small>}
     {cueError&&<p role="status">{cueError}</p>}

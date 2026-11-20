@@ -1,5 +1,5 @@
 import { setlistLink } from './lib/setlist-links'
-import { copySetlistLink, createSetlistLink, useSetlistLink } from './SetlistLinkSharing'
+import { copySetlistLink, createSetlistLink, ReaderShareLink, useSetlistLink } from './SetlistLinkSharing'
 import FullSetlistReader from './FullSetlistReader'
 import type { FullReaderControls } from './FullSetlistReader'
 import { setlistEntries, setlistSoundingKey, songKey, soundingTonics } from './lib/setlist-arrangement'
@@ -175,6 +175,7 @@ export default function SongOrganization({songs,canEdit,ownerId,offlineLists,chu
  const sharingId=canEdit&&!offlineLists?readingSet?.id??null:null
  const link=useSetlistLink(sharingId)
  if(fullReader&&readingSet)return <FullSetlistReader title={readingSet.title} songs={slots(readingSet)} controls={fullReader}
+  shareLink={sharingId&&link.token&&<ReaderShareLink key={link.token} token={link.token}/>}
   shareOptions={sharingId&&(link.token||link.notice)&&<details className="setlist-sharing"><summary>Share options</summary>
    {link.token&&<button type="button" disabled={link.busy} onClick={()=>void link.disableLink().then(disabled=>{
     if(disabled)setCardLink(current=>current?.id===sharingId?null:current)
