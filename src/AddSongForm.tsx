@@ -1,8 +1,9 @@
-import { useId } from 'react'
+import { useId, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { Song } from './App'
 import type { NewSongInput, prepareNewSong } from './lib/new-song'
 import { songVersionDetails } from './lib/song-dates'
+import { displaySong } from './SongChart'
 
 export default function AddSongForm({input,onChange,chart,matches,personal,inSet,offline,busy,error,onSave,onCancel,onUseExisting,onOpenExisting}:{
   input:NewSongInput
@@ -23,6 +24,7 @@ export default function AddSongForm({input,onChange,chart,matches,personal,inSet
   const duplicate=matches.length>0
   const keyHint=useId()
   const chartId=useId()
+  const [previewOpen,setPreviewOpen]=useState(false)
   const showSuggestedKey=!input.key&&!!chart.suggestedKey
   function submit(event:FormEvent){
     event.preventDefault()
@@ -36,8 +38,8 @@ export default function AddSongForm({input,onChange,chart,matches,personal,inSet
       <label>Key<input required maxLength={20} value={input.key||chart.suggestedKey} placeholder="e.g. D or F#m"
         aria-describedby={showSuggestedKey?keyHint:undefined} onChange={event=>update({key:event.target.value})}/></label>
       {showSuggestedKey&&<small id={keyHint}>Suggested from the chart</small>}
-      <label>Artist (optional)<input maxLength={300} value={input.artist}
-        onChange={event=>update({artist:event.target.value})}/></label>
+      <label>Artist (optional)<input maxLength={300} value={input.artistEntered?input.artist:input.artist||chart.suggestedArtist}
+        onChange={event=>update({artist:event.target.value,artistEntered:true})}/></label>
       <fieldset className="chart-input-formats">
         <legend>Chart format</legend>
         <label><input type="radio" name="chart-format" checked={input.mode==='chord-sheet'}
@@ -53,9 +55,16 @@ export default function AddSongForm({input,onChange,chart,matches,personal,inSet
         const {mode,text}=input.alternate!
         update({mode,text,alternate:{mode:input.mode,text:input.text}})
       }}>Switch to the other recovered chart text</button>}
+      {chart.sectionsRenamed&&<p role="status">Section variations were numbered so each keeps its own lyrics and chords.</p>}
       {!!chart.warnings.length&&<p role="status">
         Check chord placement on {chart.warnings.length===1?'line':'lines'} {chart.warnings.map(warning=>warning.line).join(', ')}.
       </p>}
+      {chart.content.trim()&&<details className="new-song-preview" onToggle={event=>setPreviewOpen(event.currentTarget.open)}>
+        <summary>Preview chart</summary>
+        {previewOpen&&<div className="chord-paste-chart song-display" role="region" aria-label="Chart preview">
+          {displaySong(chart.content,0,chart.key,true)}
+        </div>}
+      </details>}
       {duplicate&&<div className="duplicate-song-notice">
         <p>{personal?'This title already exists. Saving creates a separate personal arrangement.':'This title already exists in the church library. Open the match or use a different title.'}</p>
         {inSet&&matches.map(song=><button type="button" key={song.id} disabled={offline}

@@ -506,3 +506,7 @@ body:not(.song-reading-mode) .song-view .transpose {
 @media print {
   .songbook-location, .songbook-back-bar { display: none; }
 }
+.new-song-preview { margin-block: 12px; }
+.new-song-preview summary { cursor: pointer; }
+.new-song-preview .chord-paste-chart { margin-top: 8px; }
+.new-song-preview .song-block:first-child > .song-section:first-child { margin-top: 0; }
