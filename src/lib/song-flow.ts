@@ -12,20 +12,7 @@ export function parseSongFlow(content:string):FlowDocument{
 export function serializeSongFlow(doc:FlowDocument){let result=doc.preamble;for(const section of doc.sections){if(result&&!result.endsWith('\n'))result+=doc.newline;result+=section.heading;if(section.body&&!result.endsWith('\n'))result+=doc.newline;result+=section.body}return result}
 export function flowConflicts(doc:FlowDocument){const groups=new Map<string,FlowSection[]>();for(const section of doc.sections){const key=sectionKey(section.label);groups.set(key,[...(groups.get(key)??[]),section])}return [...groups.values()].filter(rows=>new Set(rows.map(row=>sectionBodyKey(row.body))).size>1)}
 export const hasFlowConflicts=(content:string)=>flowConflicts(parseSongFlow(content)).length>0
-function name(value:string){const label=value.trim().replace(/[ \t]+/g,' ');if(!label||label.length>80||/[\r\n]/.test(label))throw new Error('Use a section name of 1–80 characters without line breaks.');return label}
 function renamed(section:FlowSection,label:string,newline:string){const prefix=section.heading.match(/^[ \t]*/)?.[0]??'',ending=section.heading.match(/\r?\n$/)?.[0]??'';return {...section,label,heading:prefix+'# '+label+(ending||newline)}}
-function paddedBody(body:string,original:string,newline:string){const tail=original.match(/(?:\r?\n[ \t]*)+$/)?.[0]??'';return sectionBodyKey(body).replace(/\n/g,newline)+tail}
-export function updateFlowSection(content:string,index:number,body:string){const doc=parseSongFlow(content),source=doc.sections[index];if(!source)return content;const key=sectionKey(source.label),conflicted=flowConflicts(doc).some(rows=>sectionKey(rows[0].label)===key);doc.sections=doc.sections.map((section,i)=>i===index?{...section,body}:!conflicted&&sectionKey(section.label)===key?{...section,body:paddedBody(body,section.body,doc.newline)}:section);return serializeSongFlow(doc)}
-/** Only an unambiguous edit to a previously linked group propagates. Imports/conflicts stay intact. */
-export function syncLinkedSections(previous:string,next:string){const before=parseSongFlow(previous),after=parseSongFlow(next);let result=next;const keys=new Set(before.sections.map(row=>sectionKey(row.label)));for(const key of keys){const old=before.sections.filter(row=>sectionKey(row.label)===key),current=after.sections.map((row,index)=>({row,index})).filter(({row})=>sectionKey(row.label)===key);if(old.length<2||old.length!==current.length||new Set(old.map(row=>sectionBodyKey(row.body))).size!==1)continue;const changed=current.filter(({row})=>sectionBodyKey(row.body)!==sectionBodyKey(old[0].body));if(changed.length===1)result=updateFlowGroup(result,changed[0].index,changed[0].row.body)}return result}
-export function updateFlowGroup(content:string,index:number,body:string){const doc=parseSongFlow(content),source=doc.sections[index];if(!source)return content;const key=sectionKey(source.label);doc.sections=doc.sections.map((row,i)=>sectionKey(row.label)!==key?row:{...row,body:i===index?body:paddedBody(body,row.body,doc.newline)});return serializeSongFlow(doc)}
-export function mapFlowCursor(before:string,after:string,offset:number){const old=parseSongFlow(before),next=parseSongFlow(after);let index=-1;old.sections.forEach((row,i)=>{if(row.start<=offset)index=i});if(index<0||!next.sections[index])return Math.min(offset,after.length);const relative=offset-old.sections[index].start;return Math.min(next.sections[index].start+relative,next.sections[index+1]?.start??after.length)}
-export function moveFlowSection(content:string,from:number,insertion:number){const doc=parseSongFlow(content);if(from<0||from>=doc.sections.length)return content;const target=Math.max(0,Math.min(doc.sections.length,insertion)),[section]=doc.sections.splice(from,1);doc.sections.splice(target>from?target-1:target,0,section);return serializeSongFlow(doc)}
-export function repeatFlowSection(content:string,source:number,insertion:number){const doc=parseSongFlow(content);if(!doc.sections[source])return content;doc.sections.splice(Math.max(0,Math.min(doc.sections.length,insertion)),0,{...doc.sections[source]});return serializeSongFlow(doc)}
-export function removeFlowSection(content:string,index:number){const doc=parseSongFlow(content);if(index<0||index>=doc.sections.length)return content;doc.sections.splice(index,1);return serializeSongFlow(doc)}
-export function renameFlowSection(content:string,index:number,value:string){const doc=parseSongFlow(content);if(!doc.sections[index])return content;doc.sections[index]=renamed(doc.sections[index],name(value),doc.newline);return serializeSongFlow(doc)}
-export function addFlowSection(content:string,insertion:number,value:string){const doc=parseSongFlow(content),label=name(value);if(doc.sections.some(row=>sectionKey(row.label)===sectionKey(label)))throw new Error('That section name exists. Repeat it, or use a different name such as Chorus 2.');doc.sections.splice(Math.max(0,Math.min(doc.sections.length,insertion)),0,{label,heading:'# '+label+doc.newline,body:doc.newline,start:0,bodyStart:0});return serializeSongFlow(doc)}
-export function labelFlowPreamble(content:string,value:string){const doc=parseSongFlow(content),label=name(value);if(doc.sections.some(row=>sectionKey(row.label)===sectionKey(label)))throw new Error('Choose a different name for the opening text.');doc.sections.unshift({label,heading:'# '+label+doc.newline,body:doc.preamble,start:0,bodyStart:0});doc.preamble='';return serializeSongFlow(doc)}
 function separateVariants(doc:FlowDocument,groups:FlowSection[][]){
  const used=new Set(doc.sections.map(row=>sectionKey(row.label)))
  const replacements=new Map<FlowSection,string>()
@@ -47,13 +34,6 @@ function separateVariants(doc:FlowDocument,groups:FlowSection[][]){
   return label?renamed(row,label,doc.newline):row
  })
  return serializeSongFlow(doc)
-}
-
-export function separateFlowVariants(content:string,index:number){
- const doc=parseSongFlow(content),source=doc.sections[index]
- if(!source)return content
- const key=sectionKey(source.label)
- return separateVariants(doc,[doc.sections.filter(row=>sectionKey(row.label)===key)])
 }
 
 export function namePastedSectionVariants(content:string){
