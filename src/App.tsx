@@ -284,6 +284,10 @@ function App({library}: {library: SharedLibrary}) {
         setIsAddingSong(false)
       } else if(historySongRef.current){
         setSelectedSong(null);setIsEditing(false);setReadingMode(false);setIsAddingSong(event.state?.bicMode==='adding')
+        const libraryScroll=event.state?.bicLibraryScroll
+        if(!event.state?.bicSetlist&&typeof libraryScroll==='number'){
+          requestAnimationFrame(()=>window.scrollTo(0,libraryScroll))
+        }
       } else {setIsAddingSong(event.state?.bicMode==='adding')}
     }
     window.addEventListener('popstate',back)
@@ -821,9 +825,10 @@ function App({library}: {library: SharedLibrary}) {
                   <button
                     key={song.id}
                     className="song-item"
-                    onClick={() =>
+                    onClick={()=>{
+                      history.replaceState({...history.state,bicLibraryScroll:window.scrollY},'',location.href)
                       selectSong(song)
-                    }
+                    }}
                   >
                     <span className="library-song-name"><strong>{song.title}</strong>
                       {(songsByTitle.get(normalizeTitle(song.title))?.length??0)>1
