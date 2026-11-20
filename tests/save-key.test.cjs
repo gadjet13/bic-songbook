@@ -47,3 +47,11 @@ test('keeps slash bass distinct from beat slashes and preserves short lyrics',()
  assert.equal(exportsObject.formatStoredChordRows('A\nI will be there\n[Verse]'),'A\nI will be there\n[Verse]');
  assert.equal(exportsObject.formatStoredChordRows('D/ F#m\n[Chorus]'),'{D/} {F#m}\n[Chorus]');
 });
+
+test('rendered chart rows retain source locations across merged chord rows',()=>{
+ const chart='# Verse\r\nD   G\r\nWords that follow\r\n\r\n(|D / G / |)\r\n# Chorus\r\n{D}Sing'
+ const rows=exportsObject.storedChartLines(chart)
+ assert.equal(rows.map(row=>row.sourceLine).join(','),'0,1,3,4,5,6')
+ assert.match(rows[1].text,/^\{D\}Word\{G\}/)
+ assert.equal(rows[3].text,'(|D / G / |)\r')
+})
