@@ -11,7 +11,8 @@ function load(name,path){
  })
  return exports
 }
-load('./chord/transpose','chord/transpose')
+modules['./chord/transpose.ts']=load('./chord/transpose','chord/transpose')
+load('./song-flow','song-flow')
 load('./chord-sheet','chord-sheet')
 load('./suggest-key','suggest-key')
 const {emptyNewSong,prepareNewSong,recoverNewSong}=load('./new-song','new-song')
@@ -43,4 +44,40 @@ test('preserves both legacy chart texts and restores the saved mode',()=>{
  const reopened=recoverNewSong({...old,inputMode:'chord-sheet',alternateInput:{mode:'formatted',text:old.content}})
  assert.equal(reopened.text,old.raw)
  assert.equal(reopened.alternate.text,old.content)
+})
+
+test('copied webpage charts keep their title, key, and distinct section performances',()=>{
+ const pasted=[
+  'X','Fixture Song Chords by Fixture Artist','Difficulty: beginner','Tuning: E A D G B E','Key: A',
+  'Chords','D','F#m','E','Strumming pattern','144 bpm','1','&','2','&','',
+  '[Intro]','D F#m E x2','',
+  '[Verse]','D     F#m','First words here','',
+  '[Chorus]','A','Sing along','',
+  'Page 1/3',
+  '[Verse]','D       F#m','Second words here','',
+  '[Chorus]','A','Sing along','','A','Sing along','',
+  '[Chorus]','A','Sing along','','A','Sing along','',
+  '[Ending]','D F#m E x2','Page 3/3'
+ ].join('\n')
+ const result=prepareNewSong({...emptyNewSong,text:pasted})
+ assert.equal(result.title,'Fixture Song')
+ assert.equal(result.artist,'Fixture Artist')
+ assert.equal(prepareNewSong({...emptyNewSong,text:pasted,artistEntered:true}).artist,'')
+ assert.equal(result.key,'A')
+ assert.equal(result.sectionsRenamed,true)
+ assert.deepEqual(result.content.match(/^# .*$/gm),['# Intro','# Verse 1','# Chorus 1','# Verse 2','# Chorus 2','# Chorus 2','# Ending'])
+ assert.match(result.content,/\{D\}First \{F#m\}words here/)
+ assert.match(result.content,/\{D\}Second w\{F#m\}ords here/)
+ assert.match(result.content,/^# Intro\n\{D\} \{F#m\} \{E\}  x2/)
+ assert.doesNotMatch(result.content,/Strumming pattern|1\/3|Difficulty|Tuning|144 bpm/)
+ assert.equal(modules['./song-flow'].hasFlowConflicts(result.content),false)
+})
+
+test('ordinary preambles and formatted variants keep their text',()=>{
+ const raw='Fixture Song Chords by Fixture Artist\nThese words must stay\n[Verse]\nD\nOther words'
+ assert.match(prepareNewSong({...emptyNewSong,text:raw}).content,/These words must stay/)
+ const formatted='# Chorus\n{D}First\n# Chorus\n{G}Second'
+ const result=prepareNewSong({...emptyNewSong,mode:'formatted',text:formatted})
+ assert.equal(result.sectionsRenamed,false)
+ assert.equal(result.content,formatted)
 })

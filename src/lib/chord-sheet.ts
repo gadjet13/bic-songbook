@@ -4,6 +4,24 @@ const repeatPattern = /^x[1-9]\d*$/i
 const pageMarker = /^Page\s+\d+\s*\/\s*\d+$/i
 
 type ChordSheetWarning = { line: number; kind: 'past-lyrics' | 'unrecognized-row' }
+type SourceLine = { text: string; number: number }
+
+function copiedChartHeader(lines: SourceLine[]) {
+  const first = lines.findIndex(({text}) => !!text.trim())
+  const titleIndex = lines[first]?.text.trim() === 'X'
+    ? lines.findIndex(({text}, index) => index > first && !!text.trim())
+    : first
+  const heading = /^(.+?)\s+Chords by\s+(.+)$/i.exec(lines[titleIndex]?.text.trim() ?? '')
+  if (!heading) return null
+  const sectionIndex = lines.findIndex(({text}, index) => index > titleIndex && !!sectionHeading(text))
+  if (sectionIndex < 0) return null
+  const header = lines.slice(titleIndex + 1, sectionIndex).map(({text}) => text.trim())
+  const metadata = /^(?:Difficulty|Tuning|Key|Capo)\s*:/i
+  if (!header.some(line => metadata.test(line) || /^Strumming pattern$/i.test(line))) return null
+  if (!header.every(line => !line || metadata.test(line) || /^(?:Chords|Strumming pattern|\d+\s*bpm|[1-9]\d*|&|\+)$/i.test(line)
+    || !!chordRow(line))) return null
+  return { title: heading[1], artist: heading[2], sectionIndex }
+}
 
 function chordRow(line: string) {
   const repeatMatch = /\s+(x[1-9]\d*)\s*$/i.exec(line)
@@ -18,13 +36,19 @@ function looksLikeChordRow(line: string) {
       /^[A-G][#b]?[^\s]*[\d/?#][^\s]*$/.test(token) || /^\|+$/.test(token))
 }
 
-export function convertChordSheet(raw: string, enteredTitle = ''): { title: string; content: string; warnings: ChordSheetWarning[] } {
+export function convertChordSheet(raw: string, enteredTitle = ''): { title: string; artist?: string; content: string; warnings: ChordSheetWarning[] } {
   const lines = raw.replace(/\r\n?/g, '\n').replace(/\u00a0/g, ' ').replace(/\t/g, '    ')
     .split('\n').map((text, index) => ({ text, number: index + 1 }))
     .filter(({ text }) => !pageMarker.test(text.trim()))
   let title = ''
+  let artist: string | undefined
+  const copied = copiedChartHeader(lines)
   const first = lines.findIndex(({ text }) => !!text.trim())
-  if (first >= 0) {
+  if (copied) {
+    title = copied.title
+    artist = copied.artist
+    lines.splice(0, copied.sectionIndex)
+  } else if (first >= 0) {
     const candidate = lines[first].text.trim()
     const next = lines.slice(first + 1).find(({ text }) => !!text.trim())?.text
     if (/^\*\*.+\*\*$/.test(candidate)) title = candidate.slice(2, -2)
@@ -56,5 +80,5 @@ export function convertChordSheet(raw: string, enteredTitle = ''): { title: stri
     output.push(alignChordRow(row.chords, next))
     index++
   }
-  return { title, content: normalizeSectionHeadings(output.join('\n').trim()), warnings }
+  return { title, ...(artist ? { artist } : {}), content: normalizeSectionHeadings(output.join('\n').trim()), warnings }
 }

@@ -36,8 +36,8 @@ export default function AddSongForm({input,onChange,chart,matches,personal,inSet
       <label>Key<input required maxLength={20} value={input.key||chart.suggestedKey} placeholder="e.g. D or F#m"
         aria-describedby={showSuggestedKey?keyHint:undefined} onChange={event=>update({key:event.target.value})}/></label>
       {showSuggestedKey&&<small id={keyHint}>Suggested from the chart</small>}
-      <label>Artist (optional)<input maxLength={300} value={input.artist}
-        onChange={event=>update({artist:event.target.value})}/></label>
+      <label>Artist (optional)<input maxLength={300} value={input.artistEntered?input.artist:input.artist||chart.suggestedArtist}
+        onChange={event=>update({artist:event.target.value,artistEntered:true})}/></label>
       <fieldset className="chart-input-formats">
         <legend>Chart format</legend>
         <label><input type="radio" name="chart-format" checked={input.mode==='chord-sheet'}
@@ -53,6 +53,7 @@ export default function AddSongForm({input,onChange,chart,matches,personal,inSet
         const {mode,text}=input.alternate!
         update({mode,text,alternate:{mode:input.mode,text:input.text}})
       }}>Switch to the other recovered chart text</button>}
+      {chart.sectionsRenamed&&<p role="status">Section variations were numbered so each keeps its own lyrics and chords.</p>}
       {!!chart.warnings.length&&<p role="status">
         Check chord placement on {chart.warnings.length===1?'line':'lines'} {chart.warnings.map(warning=>warning.line).join(', ')}.
       </p>}

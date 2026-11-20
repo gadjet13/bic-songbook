@@ -26,4 +26,37 @@ export function removeFlowSection(content:string,index:number){const doc=parseSo
 export function renameFlowSection(content:string,index:number,value:string){const doc=parseSongFlow(content);if(!doc.sections[index])return content;doc.sections[index]=renamed(doc.sections[index],name(value),doc.newline);return serializeSongFlow(doc)}
 export function addFlowSection(content:string,insertion:number,value:string){const doc=parseSongFlow(content),label=name(value);if(doc.sections.some(row=>sectionKey(row.label)===sectionKey(label)))throw new Error('That section name exists. Repeat it, or use a different name such as Chorus 2.');doc.sections.splice(Math.max(0,Math.min(doc.sections.length,insertion)),0,{label,heading:'# '+label+doc.newline,body:doc.newline,start:0,bodyStart:0});return serializeSongFlow(doc)}
 export function labelFlowPreamble(content:string,value:string){const doc=parseSongFlow(content),label=name(value);if(doc.sections.some(row=>sectionKey(row.label)===sectionKey(label)))throw new Error('Choose a different name for the opening text.');doc.sections.unshift({label,heading:'# '+label+doc.newline,body:doc.preamble,start:0,bodyStart:0});doc.preamble='';return serializeSongFlow(doc)}
-export function separateFlowVariants(content:string,index:number){const doc=parseSongFlow(content),source=doc.sections[index];if(!source)return content;const key=sectionKey(source.label),names=new Map<string,string>(),used=new Set(doc.sections.map(row=>sectionKey(row.label)));let number=1;doc.sections=doc.sections.map(row=>{if(sectionKey(row.label)!==key)return row;const body=sectionBodyKey(row.body);let label=names.get(body);if(!label){do{label=source.label+' '+number++}while(used.has(sectionKey(label)));used.add(sectionKey(label));names.set(body,label)}return renamed(row,label,doc.newline)});return serializeSongFlow(doc)}
+function separateVariants(doc:FlowDocument,groups:FlowSection[][]){
+ const used=new Set(doc.sections.map(row=>sectionKey(row.label)))
+ const replacements=new Map<FlowSection,string>()
+ for(const group of groups){
+  const names=new Map<string,string>()
+  let number=1
+  for(const section of group){
+   const body=sectionBodyKey(section.body)
+   let label=names.get(body)
+   if(!label){
+    do{label=group[0].label+' '+number++}while(used.has(sectionKey(label)))
+    used.add(sectionKey(label));names.set(body,label)
+   }
+   replacements.set(section,label)
+  }
+ }
+ doc.sections=doc.sections.map(row=>{
+  const label=replacements.get(row)
+  return label?renamed(row,label,doc.newline):row
+ })
+ return serializeSongFlow(doc)
+}
+
+export function separateFlowVariants(content:string,index:number){
+ const doc=parseSongFlow(content),source=doc.sections[index]
+ if(!source)return content
+ const key=sectionKey(source.label)
+ return separateVariants(doc,[doc.sections.filter(row=>sectionKey(row.label)===key)])
+}
+
+export function namePastedSectionVariants(content:string){
+ const doc=parseSongFlow(content),conflicts=flowConflicts(doc)
+ return conflicts.length?separateVariants(doc,conflicts):content
+}
