@@ -1,5 +1,5 @@
 import { setlistLink } from './lib/setlist-links'
-import { copySetlistLink, createSetlistLink, ReaderShareLink, useSetlistLink } from './SetlistLinkSharing'
+import { copySetlistLink, createSetlistLink, loadSetlistLink, ReaderShareLink, useSetlistLink } from './SetlistLinkSharing'
 import FullSetlistReader from './FullSetlistReader'
 import type { FullReaderControls } from './FullSetlistReader'
 import { setlistEntries, setlistSoundingKey, songKey, soundingTonics } from './lib/setlist-arrangement'
@@ -139,10 +139,10 @@ export default function SongOrganization({songs,canEdit,ownerId,offlineLists,chu
   })
  }
  function showSavedSet(list:Setlist,created:boolean){
-  if(created)void createSetlistLink(list.id).then(token=>{
+  if(created)void loadSetlistLink(list.id).then(token=>{
    if(!token)throw new Error('No link returned.')
    setCardLink({id:list.id,fallback:setlistLink(token),created:true})
-  }).catch(()=>setNotice('Setlist saved. Use Copy setlist link to retry creating its link.'))
+  }).catch(()=>setNotice('Setlist saved. Use Copy setlist link to get its share URL.'))
   clearDraft(created?'new':list.id)
   setLists(rows=>[...rows.filter(row=>row.id!==list.id),list])
   setEditing(false);setReturnAfterSave(true)
@@ -175,12 +175,11 @@ export default function SongOrganization({songs,canEdit,ownerId,offlineLists,chu
  const sharingId=canEdit&&!offlineLists?readingSet?.id??null:null
  const link=useSetlistLink(sharingId)
  if(fullReader&&readingSet)return <FullSetlistReader title={readingSet.title} songs={slots(readingSet)} controls={fullReader}
-  shareLink={sharingId&&link.token&&<ReaderShareLink key={link.token} token={link.token}/>}
-  shareOptions={sharingId&&(link.token||link.notice)&&<details className="setlist-sharing"><summary>Share options</summary>
+  shareLink={sharingId&&<ReaderShareLink key={sharingId} token={link.token} busy={link.busy} notice={link.notice} enableLink={link.enableLink}/>}
+  shareOptions={sharingId&&link.token&&<details className="setlist-sharing"><summary>Share options</summary>
    {link.token&&<button type="button" disabled={link.busy} onClick={()=>void link.disableLink().then(disabled=>{
     if(disabled)setCardLink(current=>current?.id===sharingId?null:current)
    })}>Turn off link</button>}
-   {link.notice&&<p role="status">{link.notice}</p>}
   </details>}/>
  if(fullReader)return <section className="setlist-page"><button type="button" onClick={fullReader.exit}>Back to setlists</button>
   <p>{loaded?'This setlist is no longer available.':'Loading setlist…'}</p></section>

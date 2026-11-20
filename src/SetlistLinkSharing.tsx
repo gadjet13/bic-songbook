@@ -28,7 +28,7 @@ export function useSetlistLink(listId:string|null){
   useEffect(()=>{
     if(!listId)return
     let active=true
-    const request=manage(listId,'status')
+    const request=loadSetlistLink(listId)
     setStatus({id:listId,token:null,busy:true,notice:''})
     void request.then(token=>{
       if(active)setStatus({id:listId,token,busy:false,notice:''})
@@ -38,42 +38,66 @@ export function useSetlistLink(listId:string|null){
     return ()=>{active=false}
   },[listId])
 
-  async function disableLink(){
-    if(!listId||!current||current.busy||!window.confirm('Turn off this link and remove access for people who joined through it?'))return
-    setStatus({...current,busy:true,notice:''})
-    try{
-      await manage(listId,'disable')
-      if(activeId.current===listId)setStatus({id:listId,token:null,busy:false,notice:'Setlist link turned off.'})
+  async function changeLink(operation: 'enable' | 'disable') {
+    if (!listId || !current || current.busy) return
+    if (operation === 'disable' &&
+        !window.confirm('Turn off this link and remove access for people who joined through it?')) return
+    setStatus({ ...current, busy: true, notice: '' })
+    try {
+      const token = await manage(listId, operation)
+      if (operation === 'enable' && !token) throw new Error('Could not create the setlist link.')
+      if (activeId.current === listId) {
+        const notice = operation === 'enable' ? 'Share link created.' : 'Setlist link turned off.'
+        setStatus({ id: listId, token, busy: false, notice })
+      }
       return true
-    }catch(error){
-      if(activeId.current===listId)setStatus({...current,busy:false,notice:(error as Error).message})
+    } catch (error) {
+      if (activeId.current === listId) setStatus({ ...current, busy: false, notice: (error as Error).message })
     }
   }
-  return {token:current?.token??null,busy:!current||current.busy,notice:current?.notice??'',disableLink}
+  return {
+    token: current?.token ?? null,
+    busy: !current || current.busy,
+    notice: current?.notice ?? '',
+    enableLink: () => changeLink('enable'),
+    disableLink: () => changeLink('disable'),
+  }
+}
+
+export function loadSetlistLink(listId: string) {
+  return manage(listId, 'status')
 }
 
 export function createSetlistLink(listId:string){
   return manage(listId,'enable')
 }
 
-
-export function ReaderShareLink({ token }: { token: string }) {
+export function ReaderShareLink({ token, busy, notice, enableLink }: {
+  token: string | null
+  busy: boolean
+  notice: string
+  enableLink: () => Promise<unknown>
+}) {
   const field = useRef<HTMLInputElement>(null)
-  const [notice, setNotice] = useState('')
+  const [copied, setCopied] = useState<{ token: string; message: string } | null>(null)
+  const message = token && copied?.token === token ? copied.message : notice
 
   async function copy() {
+    if (!token) return
     if (await copySetlistLink(token)) {
       field.current?.focus()
       field.current?.select()
-      setNotice('Link selected. Copy it to share.')
+      setCopied({ token, message: 'Link selected. Copy it to share.' })
     } else {
-      setNotice('Setlist link copied.')
+      setCopied({ token, message: 'Setlist link copied.' })
     }
   }
 
   return <div className="reader-share-link">
-    <label>Setlist link<input ref={field} readOnly value={setlistLink(token)} /></label>
-    <button type="button" onClick={() => void copy()}>Copy setlist link</button>
-    {notice && <p role="status">{notice}</p>}
+    {token && <label>Setlist link<input ref={field} readOnly value={setlistLink(token)} /></label>}
+    <button type="button" disabled={busy} onClick={() => void (token ? copy() : enableLink())}>
+      {token ? 'Copy setlist link' : 'Create share link'}
+    </button>
+    {message && <p role="status">{message}</p>}
   </div>
 }

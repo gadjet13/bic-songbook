@@ -187,12 +187,12 @@ export default function FullSetlistReader({title,songs,controls,shareLink,shareO
       </details>
       <button className="reader-exit" onClick={exit}>Exit reader</button>
     </nav>
+    {shareLink}
     <div className="full-set-actions">
       {localId&&<SetlistPrint title={title} songs={songs} userId={userId} listId={localId} legacyListId={legacyId??undefined} cues={cues}/>}
       <SetlistCopy title={title} songs={songs.filter(song=>song!==undefined)}/>
       {shareOptions}
     </div>
-    {shareLink}
     {offline&&<p>Offline · Reading a saved copy</p>}
     {wakeStatus&&<small role="status">{wakeStatus}</small>}
     {cueError&&<p role="status">{cueError}</p>}
