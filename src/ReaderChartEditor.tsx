@@ -1,4 +1,5 @@
 import { useDeferredValue, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import type { RefObject } from 'react'
 import { displaySong } from './SongChart'
 
 type Props = {
@@ -15,13 +16,19 @@ type Props = {
   fullWindow?: 'setlist' | 'song'
 }
 
-function LiveChartPreview({ content, baseKey }: { content: string; baseKey: string }) {
+function LiveChartPreview({ content, baseKey, scrollRef, onScroll }: {
+  content: string
+  baseKey: string
+  scrollRef: RefObject<HTMLDivElement | null>
+  onScroll: (element: HTMLDivElement) => void
+}) {
   const deferredContent = useDeferredValue(content)
   const chart = useMemo(() => displaySong(deferredContent, 0, baseKey, true), [deferredContent, baseKey])
 
   return <section className="chart-editor-preview" aria-label="Live chart preview">
     <h2>Preview</h2>
-    <div className="chord-paste-chart song-display" tabIndex={0} aria-label="Rendered chart">
+    <div ref={scrollRef} className="chord-paste-chart song-display" tabIndex={0} aria-label="Rendered chart"
+      onScroll={event => onScroll(event.currentTarget)}>
       {deferredContent.trim() ? chart : <p>Type or paste a chart to preview it.</p>}
     </div>
   </section>
@@ -32,6 +39,9 @@ export default function ReaderChartEditor({
 }: Props) {
   const dialog = useRef<HTMLDialogElement>(null)
   const heading = useRef<HTMLLegendElement>(null)
+  const editorScroll = useRef<HTMLTextAreaElement>(null)
+  const previewScroll = useRef<HTMLDivElement>(null)
+  const syncedPositions = useRef(new WeakMap<HTMLElement, number>())
   const headingId = useId()
   const [wide, setWide] = useState(false)
 
@@ -52,6 +62,26 @@ export default function ReaderChartEditor({
     return () => viewport.removeEventListener('change', update)
   }, [fullWindow])
 
+  function syncScroll(source: HTMLElement, target: HTMLElement | null) {
+    const previous = syncedPositions.current.get(source)
+    syncedPositions.current.delete(source)
+    if (previous !== undefined && Math.abs(previous - source.scrollTop) < 1) return
+
+    const sourceRange = source.scrollHeight - source.clientHeight
+    if (!target || sourceRange <= 0) return
+    const progress = Math.max(0, Math.min(1, source.scrollTop / sourceRange))
+    const next = progress * (target.scrollHeight - target.clientHeight)
+    if (Math.abs(next - target.scrollTop) < 1) return
+
+    target.scrollTop = next
+    // The resulting scroll event belongs to this update. Don't send it back.
+    syncedPositions.current.set(target, target.scrollTop)
+  }
+
+  useLayoutEffect(() => {
+    if (wide && editorScroll.current) syncScroll(editorScroll.current, previewScroll.current)
+  }, [wide])
+
   const editor = <fieldset className="reader-chart-editor" disabled={busy}>
     <legend id={headingId} ref={heading} tabIndex={-1} data-reader-edit-heading>
       {songTitle ? `Edit raw chart · ${songTitle}` : 'Edit raw chart'}
@@ -61,12 +91,14 @@ export default function ReaderChartEditor({
       : <p>Chords are in the saved key {baseKey || '(unspecified)'}. Saving updates your personal chart wherever it’s used.</p>}
     <p>Start section headings with <code># </code>, for example <code># Verse 1 [slight soft]</code>.</p>
     <div className="chart-editor-workspace" data-preview={wide ? 'visible' : undefined}>
-      <label>Raw chart content<textarea className="reader-raw-chart" spellCheck={false} value={content.replace(/\r\n/g,'\n')}
+      <label>Raw chart content<textarea ref={editorScroll} className="reader-raw-chart" spellCheck={false} value={content.replace(/\r\n/g,'\n')}
+        onScroll={event => syncScroll(event.currentTarget, previewScroll.current)}
         onChange={event => {
           const text = event.currentTarget.value
           onChange(content.includes('\r\n') ? text.replace(/\n/g,'\r\n') : text)
         }}/></label>
-      {wide && <LiveChartPreview content={content} baseKey={baseKey}/>}
+      {wide && <LiveChartPreview content={content} baseKey={baseKey} scrollRef={previewScroll}
+        onScroll={element => syncScroll(element, editorScroll.current)}/>}
     </div>
     {error && <p role="alert">{error}</p>}
     <div className="reader-edit-actions">
