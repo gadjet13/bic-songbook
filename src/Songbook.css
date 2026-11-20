@@ -274,6 +274,30 @@
     min-height: var(--chart-editor-pane-height);
     resize: vertical;
   }
+  .chart-editor-dialog:has(.chart-editor-sections) {
+    --chart-editor-pane-height: max(12rem, calc(100dvh - 19rem));
+  }
+  .chart-editor-sections {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-block: 10px;
+  }
+  .chart-editor-sections > span {
+    flex: none;
+    color: var(--muted);
+    font-size: .9rem;
+    font-weight: 600;
+  }
+  .chart-editor-section-buttons {
+    display: flex;
+    gap: 6px;
+    min-width: 0;
+    overflow-x: auto;
+    padding: 4px;
+    scrollbar-width: thin;
+  }
+  .chart-editor-section-buttons button { flex: none; white-space: nowrap; }
   .chart-editor-line-mirror {
     position: fixed;
     top: 0;

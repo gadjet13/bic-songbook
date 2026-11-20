@@ -1,6 +1,7 @@
 import { useDeferredValue, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import { displaySong } from './SongChart'
+import { chartCueLocations } from './lib/cue-locations'
 import useChartScrollSync from './useChartScrollSync'
 
 type Props = {
@@ -43,6 +44,7 @@ export default function ReaderChartEditor({
   const [wide, setWide] = useState(false)
   const previewContent = useDeferredValue(content)
   const sync = useChartScrollSync(previewContent, wide)
+  const sections = useMemo(() => fullWindow ? chartCueLocations(content) : [], [content, fullWindow])
 
   useLayoutEffect(() => {
     const modal = dialog.current
@@ -69,6 +71,13 @@ export default function ReaderChartEditor({
       ? <p>Chords are in the chart key {baseKey || '(unspecified)'}. Going back keeps your draft in the song editor.</p>
       : <p>Chords are in the saved key {baseKey || '(unspecified)'}. Saving updates your personal chart wherever it’s used.</p>}
     <p>Start section headings with <code># </code>, for example <code># Verse 1 [slight soft]</code>.</p>
+    {sections.length > 0 && <nav className="chart-editor-sections" aria-label="Jump to section">
+      <span>Jump to</span>
+      <div className="chart-editor-section-buttons">
+        {sections.map(section => <button type="button" key={section.id}
+          onClick={() => sync.jumpToLine(section.lineIndex)}>{section.label}</button>)}
+      </div>
+    </nav>}
     <div className="chart-editor-workspace" data-preview={wide ? 'visible' : undefined}>
       <label>Raw chart content<textarea ref={sync.editor} className="reader-raw-chart" spellCheck={false} value={content.replace(/\r\n/g,'\n')}
         onScroll={event => sync.scrollEditor(event.currentTarget)}
@@ -76,10 +85,8 @@ export default function ReaderChartEditor({
           const text = event.currentTarget.value
           onChange(content.includes('\r\n') ? text.replace(/\n/g,'\r\n') : text)
         }}/></label>
-      {wide && <>
-        <LiveChartPreview content={previewContent} baseKey={baseKey} scrollRef={sync.preview} onScroll={sync.scrollPreview}/>
-        <div className="chart-editor-line-mirror" ref={sync.mirror} aria-hidden="true"/>
-      </>}
+      {wide && <LiveChartPreview content={previewContent} baseKey={baseKey} scrollRef={sync.preview} onScroll={sync.scrollPreview}/>}
+      {fullWindow && <div className="chart-editor-line-mirror" ref={sync.mirror} aria-hidden="true"/>}
     </div>
     {error && <p role="alert">{error}</p>}
     <div className="reader-edit-actions">
