@@ -475,3 +475,7 @@ button.worship-primary:disabled { opacity: .55; }
 .reader-edit-actions { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
 .reader-edit-actions button { min-height: 44px; }
 .reader-raw-chart { box-sizing: border-box; width: 100%; min-height: 16rem; font: 16px/1.5 ui-monospace, Consolas, monospace; }
+
+.new-song-fields, .chart-input-formats { border: 0; padding: 0; margin: 0; min-inline-size: 0; }
+.chart-input-formats label { display: inline-flex; flex-direction: row; align-items: center; gap: .4rem; margin: .25rem .9rem .25rem 0; }
+.chart-input-formats input { width: auto; }

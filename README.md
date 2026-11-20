@@ -216,11 +216,13 @@ You can also open a personal song and choose **Add to setlist**, select an exist
 
 **Song history** on an editable song shows recent saved versions. Preview one and restore it; the replaced version remains in history. **Recover deleted songs** on the song list restores a deleted song with its original ID so setlists can find it again. Songs whose folders were deleted remain in All songs. Church history is available only to the church owner; managers cannot read or restore other users’ histories. History begins with this update and cannot recover versions or deletions from before it. The UI lists up to 100 recent entries at a time.
 
-**Paste chord sheet** in the new-song/editor screen converts chord lines above lyrics into inline braces, keeps section labels and chord-only instrumental lines, and recognizes a title above the opening chords. Nonbreaking spaces and tabs are normalized. Choose **Preview chord sheet**, check the chart and any flagged lines, then choose **Apply to editor**. Save after reviewing the editing fields. Position estimates depend on the copied spacing; move `{chord}` markers afterward to correct them.
+**Paste chord sheet** in the saved-song editor converts chord lines above lyrics into inline braces, keeps section labels and chord-only instrumental lines, and recognizes a title above the opening chords. Nonbreaking spaces and tabs are normalized. Choose **Preview chord sheet**, check the chart and any flagged lines, then choose **Apply to editor**. Save after reviewing the editing fields. Position estimates depend on the copied spacing; move `{chord}` markers afterward to correct them.
 
 `database/history-backups.sql` has already been applied to the database. Do not run it again. Offline reading is available; offline editing and conflict syncing are not implemented.
 
 ## Simplified song fields
+
+In **Add song**, choose **Chords above lyrics** or **Formatted chart**, paste into the Chart field, and check the suggested key. Enter a key if none is suggested. The same form is available from the setlist planner and saves directly into the active setlist draft.
 
 Category has been removed from forms, displays and search. Existing category values remain stored for compatibility with old files and history. No automatic artist lookup is performed. Paste chord sheet suggests the arrangement’s key from its chords, showing a possible alternative. Review the estimate in the preview and correct it in the editor before saving. The editor keeps its key if there is no estimate.
 

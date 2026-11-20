@@ -18,7 +18,7 @@ function looksLikeChordRow(line: string) {
       /^[A-G][#b]?[^\s]*[\d/?#][^\s]*$/.test(token) || /^\|+$/.test(token))
 }
 
-export function convertChordSheet(raw: string): { title: string; content: string; warnings: ChordSheetWarning[] } {
+export function convertChordSheet(raw: string, enteredTitle = ''): { title: string; content: string; warnings: ChordSheetWarning[] } {
   const lines = raw.replace(/\r\n?/g, '\n').replace(/\u00a0/g, ' ').replace(/\t/g, '    ')
     .split('\n').map((text, index) => ({ text, number: index + 1 }))
     .filter(({ text }) => !pageMarker.test(text.trim()))
@@ -29,6 +29,7 @@ export function convertChordSheet(raw: string): { title: string; content: string
     const next = lines.slice(first + 1).find(({ text }) => !!text.trim())?.text
     if (/^\*\*.+\*\*$/.test(candidate)) title = candidate.slice(2, -2)
     else if (next && (chordRow(next) || barChordParts(next) || sectionHeading(next)) && candidate.length <= 100 &&
+      (!enteredTitle.trim() || candidate.toLowerCase().replace(/\s+/g,' ')===enteredTitle.trim().toLowerCase().replace(/\s+/g,' ')) &&
       !/[{}\[\]#]/.test(candidate) && !chordRow(candidate) && !barChordParts(candidate) && !looksLikeChordRow(candidate)) title = candidate
     if (title) lines.splice(first, 1)
   }

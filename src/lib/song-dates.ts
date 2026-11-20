@@ -3,3 +3,16 @@ type DatedSong={title:string;id:number;created_at?:string|null;updated_at?:strin
 export const songSortLabels:Record<SongDateSort,string>={title:'Title A–Z','title-desc':'Title Z–A','added-newest':'Date added — newest first','added-oldest':'Date added — oldest first','edited-newest':'Last edited — newest first','edited-oldest':'Last edited — oldest first'}
 /** Sort a copy; unknown dates always follow dated songs, with deterministic ties. */
 export function sortSongsByDate<T extends DatedSong>(songs:T[],sort:SongDateSort):T[]{return [...songs].sort((a,b)=>{if(sort.startsWith('added')||sort.startsWith('edited')){const field=sort.startsWith('added')?'created_at':'updated_at',av=Date.parse(a[field]??''),bv=Date.parse(b[field]??'');if(Number.isFinite(av)!==Number.isFinite(bv))return Number.isFinite(av)?-1:1;if(Number.isFinite(av)&&av!==bv)return (av-bv)*(sort.endsWith('newest')?-1:1)}return (a.title.localeCompare(b.title)*(sort==='title-desc'?-1:1))||a.id-b.id})}
+
+type SongVersion = DatedSong & { key: string; artist: string }
+
+function versionSummary(song: SongVersion){
+ const saved=Date.parse(song.created_at??'')
+ return [song.key?`Key ${song.key}`:'Key not set',song.artist||'Artist not listed',
+  Number.isFinite(saved)?`Saved ${new Date(saved).toLocaleDateString()}`:'Date not recorded'].join(' · ')
+}
+
+export function songVersionDetails(song: SongVersion, matches: SongVersion[]){
+ const details=versionSummary(song)
+ return matches.filter(match=>versionSummary(match)===details).length>1?`${details} · #${song.id}`:details
+}
