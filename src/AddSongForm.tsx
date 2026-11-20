@@ -46,10 +46,12 @@ export default function AddSongForm({input,onChange,chart,matches,personal,inSet
           onChange={()=>update({mode:'chord-sheet'})}/> Chords above lyrics</label>
         <label><input type="radio" name="chart-format" checked={input.mode==='formatted'}
           onChange={()=>update({mode:'formatted'})}/> Formatted chart</label>
+        <label><input type="radio" name="chart-format" checked={input.mode==='chordpro'}
+          onChange={()=>update({mode:'chordpro'})}/> ChordPro</label>
       </fieldset>
       <label htmlFor={chartId}>Chart</label>
       <textarea id={chartId} className="song-editor" required value={input.text}
-        placeholder={input.mode==='formatted'?'# Verse 1\n{D}Lyrics with {G}chords':'D            G\nLyrics with chords'}
+        placeholder={input.mode==='chordpro'?'{title: My Song}\n{key: D}\n[D]Lyrics with [G]chords':input.mode==='formatted'?'# Verse 1\n{D}Lyrics with {G}chords':'D            G\nLyrics with chords'}
         onChange={event=>update({text:event.target.value})}/>
       {input.alternate&&<button type="button" onClick={()=>{
         const {mode,text}=input.alternate!
@@ -59,6 +61,7 @@ export default function AddSongForm({input,onChange,chart,matches,personal,inSet
       {!!chart.warnings.length&&<p role="status">
         Check chord placement on {chart.warnings.length===1?'line':'lines'} {chart.warnings.map(warning=>warning.line).join(', ')}.
       </p>}
+      {!!chart.unsupportedDirectives.length&&<p role="status">Check the preview. ChordPro features without a BIC equivalent: {chart.unsupportedDirectives.join(', ')}.</p>}
       {chart.content.trim()&&<details className="new-song-preview" onToggle={event=>setPreviewOpen(event.currentTarget.open)}>
         <summary>Preview chart</summary>
         {previewOpen&&<div className="chord-paste-chart song-display" role="region" aria-label="Chart preview">
