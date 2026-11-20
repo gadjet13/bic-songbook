@@ -217,3 +217,8 @@
 @media screen and (pointer: coarse) {
   .full-set-song .cue-heading-button { min-height: 44px; }
 }
+
+@media screen {
+  .member-songbooks .song-display { margin-top: 16px; padding: clamp(12px, 3vw, 24px); }
+  .member-songbooks article > p:first-child { color: var(--muted); }
+}
