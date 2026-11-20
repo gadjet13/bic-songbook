@@ -74,6 +74,12 @@ Chords display above the lyrics. Chords can appear inside a word, such as `re{C}
 
 Legacy `[Verse 1]` headings still render. Saves use `# Verse 1`. A standalone `[C]` remains a C chord.
 
+### ChordPro import and export
+
+Choose **ChordPro** in Add song to paste a chart with inline chords such as `[D]` and directives such as `{title: My Song}`. The importer reads title, artist and key metadata, verse/chorus/bridge sections, comments and chorus repeats. It flags features without an equivalent in the BIC chart. Review the preview before saving a chart with warnings.
+
+On a saved song, open **Copy → Export ChordPro** to download a `.cho` file in the saved key. BIC section headings export as visible ChordPro comments.
+
 ## Folders and setlists
 
 ### Personal folders
@@ -222,7 +228,7 @@ You can also open a personal song and choose **Add to setlist**, select an exist
 
 ## Simplified song fields
 
-In **Add song**, choose **Chords above lyrics** or **Formatted chart**, paste into the Chart field, and check the suggested key. Enter a key if none is suggested. The same form is available from the setlist planner and saves directly into the active setlist draft.
+In **Add song**, choose **Chords above lyrics**, **Formatted chart**, or **ChordPro**, paste into the Chart field, and check the suggested key. Enter a key if none is suggested. The same form is available from the setlist planner and saves directly into the active setlist draft.
 
 Category has been removed from forms, displays and search. Existing category values remain stored for compatibility with old files and history. No automatic artist lookup is performed. Paste chord sheet suggests the arrangement’s key from its chords, showing a possible alternative. Review the estimate in the preview and correct it in the editor before saving. The editor keeps its key if there is no estimate.
 

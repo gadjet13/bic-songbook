@@ -14,6 +14,7 @@ function load(name,path){
 modules['./chord/transpose.ts']=load('./chord/transpose','chord/transpose')
 load('./song-flow','song-flow')
 load('./chord-sheet','chord-sheet')
+const {exportChordPro,importChordPro}=load('./chordpro','chordpro')
 load('./suggest-key','suggest-key')
 const {emptyNewSong,prepareNewSong,recoverNewSong}=load('./new-song','new-song')
 
@@ -89,4 +90,22 @@ test('removes blank lines around pasted headings and keeps stanza breaks and for
  assert.equal(result.sectionsRenamed,false)
  const formatted=prepareNewSong({...emptyNewSong,mode:'formatted',text:raw})
  assert.equal(formatted.content,raw.replace('[Verse]','# Verse').replace('[Chorus]','# Chorus'))
+})
+
+test('imports ChordPro metadata, section aliases and repeats without printing directives',()=>{
+ const input='\uFEFF{t: Practice}\r\n{artist: Fixture}\r\n{key: D}\r\n# Internal comment\r\n{sov: label="Verse 1"}\r\n[D]Opening [A/C#]line\r\n{eov}\r\n{soc: Refrain}\r\n[G]Chorus words\r\n{eoc}\r\n{chorus: Refrain}\r\n{comment: Instrumental}\r\n(|[D] / [G] / |)\r\n{capo: 2}\r\n{key: E}\r\n{constructor: every chart}'
+ const chart=prepareNewSong({...emptyNewSong,mode:'chordpro',text:input})
+ assert.equal(chart.title,'Practice')
+ assert.equal(chart.artist,'Fixture')
+ assert.equal(chart.key,'D')
+ assert.equal(chart.content,'# Verse 1\n{D}Opening {A/C#}line\n# Refrain\n{G}Chorus words\n# Refrain\n{G}Chorus words\n# Instrumental\n(|D / G / |)')
+ assert.deepEqual(Array.from(chart.unsupportedDirectives),['capo','key change','constructor'])
+ assert.equal(recoverNewSong({title:'Draft',artist:'',key:'D',content:'',raw:input,inputMode:'chordpro'}).text,input)
+})
+
+test('exports ChordPro metadata and visible labels while preserving chord positions',()=>{
+ const chart={title:'Practice',artist:'Fixture',key:'D',content:'# Verse 1 [soft]\n{D}Opening [A/C#]line\n# Intro\n(|D / G / |)'}
+ const output=exportChordPro(chart)
+ assert.equal(output,'{title: Practice}\n{artist: Fixture}\n{key: D}\n\n{comment: Verse 1 [soft]}\n[D]Opening [A/C#]line\n{comment: Intro}\n(|[D] / [G] / |)\n')
+ assert.equal(importChordPro(output).content,chart.content.replace('[A/C#]','{A/C#}'))
 })

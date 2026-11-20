@@ -1,3 +1,4 @@
+import { downloadChordPro } from './lib/chordpro'
 import { cloud } from './lib/cloud'
 import AddSongForm from './AddSongForm'
 import { emptyNewSong, prepareNewSong, recoverNewSong } from './lib/new-song'
@@ -417,7 +418,7 @@ function App({library}: {library: SharedLibrary}) {
   }
   useEffect(()=>{
     if(library.sharedSetlist||!library.canEdit)return
-    const draft:SongDraft|null=dirtyNew?{id:'new',songId:null,title:newSong.title,artist:newSong.artist,artistEntered:newSong.artistEntered,key:newSong.key,content:newSong.mode==='formatted'?newSong.text:'',raw:newSong.mode==='chord-sheet'?newSong.text:'',inputMode:newSong.mode,alternateInput:newSong.alternate,folderId:folder==='all'||folder==='unfiled'?null:folder,updatedAt:new Date().toISOString()}:dirtySong&&selectedSong?{id:'song:'+selectedSong.id,songId:selectedSong.id,baseRevision:selectedSong.revision,title:editedTitle,artist:editedArtist,key:editedKey,content:editedContent,raw:editedRaw,folderId:selectedSong.folder_id??null,updatedAt:new Date().toISOString()}:null
+    const draft:SongDraft|null=dirtyNew?{id:'new',songId:null,title:newSong.title,artist:newSong.artist,artistEntered:newSong.artistEntered,key:newSong.key,content:newSong.mode==='formatted'?newSong.text:'',raw:newSong.mode!=='formatted'?newSong.text:'',inputMode:newSong.mode,alternateInput:newSong.alternate,folderId:folder==='all'||folder==='unfiled'?null:folder,updatedAt:new Date().toISOString()}:dirtySong&&selectedSong?{id:'song:'+selectedSong.id,songId:selectedSong.id,baseRevision:selectedSong.revision,title:editedTitle,artist:editedArtist,key:editedKey,content:editedContent,raw:editedRaw,folderId:selectedSong.folder_id??null,updatedAt:new Date().toISOString()}:null
     if(!draft){const id=isAddingSong?'new':isEditing&&selectedSong?'song:'+selectedSong.id:null;if(id&&readSongDrafts(recoveryKey).some(row=>row.id===id)){setSongDrafts(removeSongDraft(recoveryKey,id));setDraftStatus('')}return}
     setSongDrafts(writeSongDraft(recoveryKey,draft))
     setDraftStatus(loginPersistence.isPersisted(recoveryKey)?'Draft saved on this browser. Save the song to update the database.':'Draft is only in memory. Browser storage is unavailable or full; do not close this tab before saving.')
@@ -963,6 +964,7 @@ function App({library}: {library: SharedLibrary}) {
                 <details className="copy-options"><summary>Copy</summary>
                   <button onClick={()=>void copySong(false)}>Copy with chords</button>
                   <button onClick={()=>void copySong(true)}>Copy lyrics</button>
+                  <button onClick={()=>downloadChordPro(selectedSong)}>Export ChordPro</button>
                 </details>
                 <button
                   hidden={!library.canEdit}
