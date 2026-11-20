@@ -236,3 +236,43 @@
   .member-songbooks .song-display { margin-top: 16px; padding: clamp(12px, 3vw, 24px); }
   .member-songbooks article > p:first-child { color: var(--muted); }
 }
+
+@media screen {
+  body:has(.setlist-chart-dialog[open]) { overflow: hidden; }
+  .setlist-chart-dialog {
+    position: fixed;
+    inset: 0;
+    margin: 0;
+    width: 100%;
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+      max(12px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    border: 0;
+    background: var(--page);
+    color: var(--text);
+    overscroll-behavior: contain;
+  }
+  .setlist-chart-dialog .reader-chart-editor {
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+  .setlist-chart-dialog legend {
+    font-size: clamp(1.2rem, 3vw, 1.75rem);
+    font-weight: 700;
+    overflow-wrap: anywhere;
+  }
+  .setlist-chart-dialog .reader-chart-editor p { margin-block: 6px; }
+  .setlist-chart-dialog .reader-raw-chart {
+    min-height: max(12rem, calc(100dvh - 15rem));
+    resize: vertical;
+  }
+  .setlist-chart-dialog .reader-edit-actions {
+    position: sticky;
+    bottom: 0;
+    padding: 8px 0;
+    background: var(--page);
+  }
+}

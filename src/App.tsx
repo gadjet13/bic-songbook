@@ -389,13 +389,13 @@ function App({library}: {library: SharedLibrary}) {
     }
     setNotice('');setReaderError('')
     setReaderEdit({song,occurrence,content:draft?.content??song.content,scroll:window.scrollY,trigger})
-    requestAnimationFrame(()=>document.querySelector<HTMLElement>('[data-reader-edit-heading]')?.focus())
+    if(!fullSetReading)requestAnimationFrame(()=>document.querySelector<HTMLElement>('[data-reader-edit-heading]')?.focus())
   }
   function lockReader(){
     if(!readerEdit)return
     const {trigger,scroll}=readerEdit
     setReaderEdit(null);setReaderError('')
-    requestAnimationFrame(()=>{window.scrollTo(0,scroll);trigger.focus({preventScroll:true})})
+    if(!fullSetReading)requestAnimationFrame(()=>{window.scrollTo(0,scroll);trigger.focus({preventScroll:true})})
   }
   function cancelReaderEdit(){
     if(!readerEdit||readerSavePending.current)return
@@ -759,15 +759,14 @@ function App({library}: {library: SharedLibrary}) {
   const canEditInReader=!!library.ownerId&&library.canEdit&&!library.offline&&!library.sharedSetlist
   const readerEditor=readerEdit?<ReaderChartEditor key={readerEdit.occurrence} content={readerEdit.content}
     onChange={content=>setReaderEdit({...readerEdit,content})}
-    baseKey={readerEdit.song.key} busy={readerSaving} canSave={!readerDirty||canEditInReader}
+    baseKey={readerEdit.song.key} songTitle={fullSetReading?readerEdit.song.title:undefined} busy={readerSaving} canSave={!readerDirty||canEditInReader}
     error={readerError||(!canEditInReader?'Reconnect to save your chart.':'')} dirty={readerDirty}
     onSave={()=>void saveReaderEdit()} onCancel={cancelReaderEdit}/>:null
   const fullReader:FullReaderControls|null=fullSetReading?{
     userId:library.userId,preferenceId,canEditTeamCues:!!library.ownerId&&!library.sharedSetlist,legacyId:oldPreferenceId,offline:!!library.offline,
     content:readingContent,changeContent:setReadingContent,changeCapo,exit:exitFullSet,
     wakeStatus,preferenceError,fontSize,changeFontSize:setFontSize,readerColumns,changeColumns:setReaderColumns,
-    onEditRaw:canEditInReader?openRawEditor:undefined,editingOccurrence:readerEdit?.occurrence,editor:readerEditor,
-    cancelEditing:cancelReaderEdit
+    onEditRaw:canEditInReader?openRawEditor:undefined,editing:readerEdit??undefined,editor:readerEditor
   }:null
   if(fullReader&&library.sharedSetlist)return <div className="app"><main>
     <FullSetlistReader title={library.bookName} songs={songList} controls={fullReader}/>

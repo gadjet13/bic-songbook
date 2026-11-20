@@ -6,7 +6,7 @@ import type { ReaderColumns } from './lib/reader-lines'
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Song } from './App'
-import { CueAnchor, CueText, UnplacedCues } from './SetlistCues'
+import { CueAnchor, UnplacedCues } from './SetlistCues'
 import { songCueLocation } from './lib/cue-locations'
 import { useSetlistCues } from './lib/setlist-cues'
 import SetlistSongNote from './SetlistSongNote'
@@ -31,9 +31,8 @@ export type FullReaderControls = {
   readerColumns:ReaderColumns
   changeColumns:(columns:ReaderColumns)=>void
   onEditRaw?:(song:Song,occurrence:string,trigger:HTMLElement)=>void
-  editingOccurrence?:string
+  editing?:{occurrence:string;trigger:HTMLElement}
   editor?:ReactNode
-  cancelEditing:()=>void
 }
 
 export default function FullSetlistReader({title,songs,controls,shareOptions}:{
@@ -62,6 +61,7 @@ export default function FullSetlistReader({title,songs,controls,shareOptions}:{
   const reader=useRef<HTMLElement>(null)
   const [currentId,setCurrentId]=useState('')
   const commanded=useRef<{id:string;top:number}|null>(null)
+  const returnToSong=useRef<FullReaderControls['editing']>(undefined)
   const currentIndex=Math.max(0,available.findIndex(row=>row.id===currentId))
 
   function jumpTo(id:string) {
@@ -78,6 +78,7 @@ export default function FullSetlistReader({title,songs,controls,shareOptions}:{
     window.scrollTo(0,0)
     heading.current?.focus({preventScroll:true})
     const close=(event:KeyboardEvent)=>{
+      if(latestControls.current.editor)return
       if(event.key==='Escape'&&!event.defaultPrevented&&viewOptions.current?.open){
         event.preventDefault()
         viewOptions.current.open=false
@@ -87,18 +88,34 @@ export default function FullSetlistReader({title,songs,controls,shareOptions}:{
       if(event.key==='Escape'&&!event.defaultPrevented&&!event.repeat&&
         !(event.target instanceof HTMLElement&&event.target.matches('input, textarea, select'))){
         event.preventDefault()
-        const current=latestControls.current
-        if(current.editingOccurrence)current.cancelEditing()
-        else current.exit()
+        latestControls.current.exit()
       }
     }
     window.addEventListener('keydown',close)
     return ()=>window.removeEventListener('keydown',close)
   },[])
+  const editing=controls.editing
+  useEffect(()=>{
+    if(editing){
+      returnToSong.current=editing
+      return
+    }
+    const target=returnToSong.current
+    if(!target)return
+    returnToSong.current=undefined
+    const frame=requestAnimationFrame(()=>{
+      if(!sections.current.has(target.occurrence))return
+      jumpTo(target.occurrence)
+      target.trigger.focus({preventScroll:true})
+    })
+    return ()=>cancelAnimationFrame(frame)
+  },[editing])
+
   useEffect(()=>{
     const ids=order?order.split(','):[]
     let frame=0
     function update() {
+      if(latestControls.current.editor)return
       const offset=(toolbar.current?.offsetHeight??0)+10
       const pinned=commanded.current
       if(pinned&&ids.includes(pinned.id)&&Math.abs(window.scrollY-pinned.top)<1)return
@@ -107,6 +124,11 @@ export default function FullSetlistReader({title,songs,controls,shareOptions}:{
       for(const id of ids){
         const target=sections.current.get(id)
         if(target&&target.getBoundingClientRect().top<=offset)current=id
+      }
+      const last=ids.at(-1)
+      const atBottom=window.scrollY>0&&window.scrollY+window.innerHeight>=document.documentElement.scrollHeight-1
+      if(last&&atBottom&&(sections.current.get(last)?.getBoundingClientRect().top??Infinity)<window.innerHeight){
+        current=last
       }
       setCurrentId(current)
     }
@@ -180,7 +202,6 @@ export default function FullSetlistReader({title,songs,controls,shareOptions}:{
       const capo=preference?.capo??0
       const chart=arrangedSong(song,capo)
       const songCues=cues.filter(cue=>cue.song_id===song.id)
-      const editing=controls.editingOccurrence===id
       const titleId='full-set-song-'+id
       const cueControls=preferenceId?{
         songId:song.id,cues:songCues,canEditTeam:controls.canEditTeamCues,offline,save:saveCue
@@ -192,14 +213,11 @@ export default function FullSetlistReader({title,songs,controls,shareOptions}:{
         }}>{title}</h2>
       }
       return <article key={id} className="full-set-song" aria-labelledby={titleId}>
-        {editing ? <>
-          {songHeading(`${index+1}. ${song.title}`)}
-          <CueText cues={songCues} location={songCueLocation}/>
-        </> : <CueAnchor location={songCueLocation} title={`${index+1}. ${song.title}`}
-          heading={songHeading} controls={cueControls}/>}
+        <CueAnchor location={songCueLocation} title={`${index+1}. ${song.title}`}
+          heading={songHeading} controls={cueControls}/>
         <div className="full-set-song-settings">
           <span>Sounding key: {setlistSoundingKey(song.key,song.setlist_key)||'Not set'}</span>
-          {localId&&songKey(song.key)&&<label>My capo<select disabled={editing} value={capo}
+          {localId&&songKey(song.key)&&<label>My capo<select value={capo}
             onChange={event=>changeCapo(song.id,Number(event.target.value))}>
             {Array.from({length:12},(_,fret)=><option key={fret} value={fret}>{fret===0?'No capo':fret}</option>)}
           </select></label>}
@@ -210,17 +228,17 @@ export default function FullSetlistReader({title,songs,controls,shareOptions}:{
         <div className="full-set-song-actions">
           {localId&&<SetlistSongNote userId={userId} listId={localId} songId={song.id}
             note={preference?.note??''} offline={offline||!preferenceId} label={preference?.note?'Edit my notes':'My notes'}/>}
-          {cueControls&&!editing&&<UnplacedCues content={song.content} controls={cueControls}/>}
-          {controls.onEditRaw&&<button type="button" hidden={editing}
+          {cueControls&&<UnplacedCues content={song.content} controls={cueControls}/>}
+          {controls.onEditRaw&&<button type="button"
             onClick={event=>controls.onEditRaw?.(song,id,event.currentTarget)}>Edit raw content</button>}
         </div>
-        {editing&&controls.editor}
-        <div hidden={editing} className="full-set-chart reader-chart" data-columns={readerColumns} style={{fontSize}}>
+        <div className="full-set-chart reader-chart" data-columns={readerColumns} style={{fontSize}}>
           {displaySong(chart.content,0,chart.key,true,content==='chords',(location,label)=>
             <CueAnchor key={location} location={location} title={label}
               heading={title=><div className="song-section">{title}</div>} controls={cueControls}/>)}
         </div>
       </article>
     })}
+    {controls.editor}
   </section>
 }
