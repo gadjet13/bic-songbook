@@ -183,7 +183,7 @@ export default function SongOrganization({songs,canEdit,ownerId,offlineLists,chu
   </details>}/>
  if(fullReader)return <section className="setlist-page"><button type="button" onClick={fullReader.exit}>Back to setlists</button>
   <p>{loaded?'This setlist is no longer available.':'Loading setlist…'}</p></section>
- if(!activeId)return <section className="setlist-panel setlist-index" aria-label="My setlists">{!!drafts.length&&<section className="draft-recovery" aria-label="Recover unsaved setlists"><h3>Unsaved setlist drafts</h3><p>Stored in this browser only. Recovering does not change a saved setlist.</p>{drafts.map(draft=><div className="draft-row" key={draft.id}><span>{draft.title||'Untitled setlist'} · {draft.songIds.length} songs · {new Date(draft.updatedAt).toLocaleString()}</span><button disabled={busy||!canEdit||!loaded} onClick={()=>void recoverDraft(draft)}>Recover setlist draft</button><button disabled={busy} onClick={()=>{if(window.confirm('Permanently discard this setlist draft?'))clearDraft(draft.id)}}>Discard setlist draft</button></div>)}</section>}<div className="setlist-tools"><button disabled={busy} onClick={()=>void action(async()=>{await refresh()})}>Refresh setlists</button>{canEdit&&<button disabled={busy} onClick={startNew}>New setlist</button>}</div><LibrarySortControl label="Setlists" value={listSort} onChange={setListSort}/><div className="setlist-cards">{sortLibraryItems(lists,listSort).map(list=>{
+ if(!activeId)return <section className="setlist-panel setlist-index" aria-label="My setlists">{!!drafts.length&&<section className="draft-recovery" aria-label="Recover unsaved setlists"><h3>Unsaved setlist drafts</h3><p>Stored in this browser only. Recovering does not change a saved setlist.</p>{drafts.map(draft=><div className="draft-row" key={draft.id}><span>{draft.title||'Untitled setlist'} · {draft.songIds.length} songs · {new Date(draft.updatedAt).toLocaleString()}</span><button disabled={busy||!canEdit||!loaded} onClick={()=>void recoverDraft(draft)}>Recover setlist draft</button><button disabled={busy} onClick={()=>{if(window.confirm('Permanently discard this setlist draft?'))clearDraft(draft.id)}}>Discard setlist draft</button></div>)}</section>}<div className="setlist-tools"><button disabled={busy} onClick={()=>void action(async()=>{await refresh()})}>Refresh setlists</button>{canEdit&&<button className="worship-primary" disabled={busy} onClick={startNew}>New setlist</button>}</div><LibrarySortControl label="Setlists" value={listSort} onChange={setListSort}/><div className="setlist-cards">{sortLibraryItems(lists,listSort).map(list=>{
   const playable=queue(list)
   return <article className="library-setlist-card" key={list.id} aria-label={list.title}>
    <button type="button" className="setlist-card-summary" aria-label={list.title} title={canEdit?'Edit setlist':'Open setlist'}
@@ -217,15 +217,17 @@ export default function SongOrganization({songs,canEdit,ownerId,offlineLists,chu
    </>}
   </article>
  })}</div>{loaded&&!lists.length&&<p>No setlists yet.</p>}<p role="status">{notice}</p></section>
- return <section className="setlist-page" aria-label="Setlist page"><nav className="songbook-back-bar" aria-label="Setlist navigation"><button className="back-button" onClick={onBack}>← Back to setlists</button></nav><h2>{activeId==='new'?'Plan a worship set':selected?.title??'Setlist'}</h2>
+ return <section className="setlist-page" aria-label="Setlist page"><nav className="songbook-back-bar" aria-label="Setlist navigation"><button className="back-button" onClick={onBack}>← Back to setlists</button></nav><h1>{activeId==='new'?'Plan a worship set':selected?.title??'Setlist'}</h1>
  {!editing&&!selected&&<p>{loaded?'This setlist is no longer available.':'Loading setlist…'}</p>}
- {editing&&draftStatus&&<p className="storage-note" role="status">{draftStatus}</p>}
  {limit&&ownerId&&<SetlistLimitPanel ownerId={ownerId} title={title} songIds={ids} songEntries={entries} onCreated={list=>{setLimit(false);showSavedSet(list,true);void refresh().catch(error=>setNotice(message(error)))}} onCancel={onBack}/>}
  {editing?<fieldset className="worship-set-editor" disabled={!canEdit||busy}>
-  <label>Setlist name<input maxLength={200} value={title} placeholder="Sunday worship" onChange={event=>setTitle(event.target.value)}/></label>
-  <div className="worship-set-actions">
-   <button type="button" aria-expanded={pickerOpen} aria-controls="worship-song-picker" onClick={()=>setPickerOpen(open=>!open)}>Add from library</button>
-   <button type="button" disabled={ids.length>=100} onClick={event=>onSongEditor(null,appendSong,event.currentTarget)}>Add new song</button>
+  <label className="setlist-name">Setlist name<input maxLength={200} value={title} placeholder="Sunday worship" onChange={event=>setTitle(event.target.value)}/></label>
+  <div className="setlist-order-header">
+   <h2>Song order</h2>
+   <div className="worship-set-actions">
+    <button type="button" aria-expanded={pickerOpen} aria-controls="worship-song-picker" onClick={()=>setPickerOpen(open=>!open)}>Add from library</button>
+    <button type="button" disabled={ids.length>=100} onClick={event=>onSongEditor(null,appendSong,event.currentTarget)}>Add new song</button>
+   </div>
   </div>
   {ids.length>=100&&<p role="status">This setlist has 100 songs. Remove a song to add another.</p>}
   {pickerOpen&&<section id="worship-song-picker" aria-label="Song library">
@@ -239,13 +241,13 @@ export default function SongOrganization({songs,canEdit,ownerId,offlineLists,chu
    </button>})}</div>
    {results.length===0&&<p>{search.trim()?'No matching songs. Choose Add new song to create a chart.':'No songs in the library yet.'}</p>}
   </section>}
-  <h3>Song order</h3>
-  {entries.length===0&&<p>Add songs to start building this set.</p>}
-  <ol className="setlist-songs">{entries.map(({song_id,key_override},index)=>{
+  {entries.length===0&&<p className="setlist-empty">Add songs to start building this set.</p>}
+  <ol className="setlist-songs" role="list">{entries.map(({song_id,key_override},index)=>{
    const song=personal.find(item=>item.id===song_id)
    return <li key={song_id+'-'+index}>
-    <span>{song?.title??'Song removed from library'} <strong className="key-badge">{song?.key||'Not set'}</strong></span>
-    {song&&<label>Sounding key<select aria-label={'Sounding key for song '+(index+1)} value={key_override??''} disabled={!songKey(song.key)}
+    <span className="setlist-row-number" aria-hidden="true">{index+1}</span>
+    <div className="setlist-row-title"><strong>{song?.title??'Song removed from library'}</strong> <span className="key-badge">{song?.key||'Not set'}</span></div>
+    {song&&<label className="setlist-row-key">Sounding key<select aria-label={'Sounding key for song '+(index+1)} value={key_override??''} disabled={!songKey(song.key)}
      onChange={event=>setEntries(entries.map((entry,i)=>i===index?{...entry,key_override:event.target.value||undefined}:entry))}>
      <option value="">Song key</option>{soundingTonics.map(note=><option key={note} value={note}>{setlistSoundingKey(song.key,note)}</option>)}
     </select>{!songKey(song.key)&&<small>Set a recognized song key to transpose.</small>}</label>}
@@ -254,15 +256,16 @@ export default function SongOrganization({songs,canEdit,ownerId,offlineLists,chu
       rememberSong(saved)
       setNotice(`Saved your arrangement of “${saved.title}”.`)
      },event.currentTarget)}>Edit arrangement</button>}
-     <button type="button" disabled={index===0} aria-label={'Move song '+(index+1)+' up'} onClick={()=>move(index,-1)}>↑</button>
-     <button type="button" disabled={index===entries.length-1} aria-label={'Move song '+(index+1)+' down'} onClick={()=>move(index,1)}>↓</button>
-     <button type="button" onClick={()=>setEntries(entries.filter((_,i)=>i!==index))}>Remove</button>
+     <button type="button" className="setlist-move" disabled={index===0} aria-label={'Move song '+(index+1)+' up'} onClick={()=>move(index,-1)}>↑</button>
+     <button type="button" className="setlist-move" disabled={index===entries.length-1} aria-label={'Move song '+(index+1)+' down'} onClick={()=>move(index,1)}>↓</button>
+     <button type="button" className="danger-action" onClick={()=>setEntries(entries.filter((_,i)=>i!==index))}>Remove</button>
     </div>
    </li>
   })}</ol>
-  <div className="worship-set-actions">
+  <div className="worship-set-actions setlist-save-bar">
    <button type="button" className="worship-primary" onClick={()=>void action(save)}>Save setlist</button>
    <button type="button" onClick={()=>{if(!allowNavigation())return;clearDraft(selected?.id??'new');setEditing(false);onBack()}}>Cancel</button>
   </div>
- </fieldset>:null}<p role="status">{notice}</p></section>
+  {draftStatus&&<p className="storage-note" role="status">{draftStatus}</p>}
+ </fieldset>:null}{notice&&<p className="notice" role="status">{notice}</p>}</section>
 }

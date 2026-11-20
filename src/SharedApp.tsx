@@ -212,9 +212,9 @@ export default function SharedApp() {
     try {await fn()} catch(error){setNotice(message(error))} finally{setBusy(false)}
   }
   function message(error:unknown) {return error instanceof Error ? error.message : String((error as {message?:string})?.message ?? error)}
-  if(!cloud) return <main className="auth-panel"><h1 className="brand"><img src="/bic-logo.png" alt="BIC" />BIC Worship DB</h1><p><a href="/guide.html" target="_blank" rel="noopener">ⓘ First time? Read the user guide</a></p><p>The shared database has not been connected yet.</p><p>Set the Supabase URL and public publishable key, then rebuild the app. See SETUP.md in the source folder.</p></main>
+  if(!cloud) return <main className="auth-panel"><h1>BIC Songbook</h1><p><a href="/guide.html" target="_blank" rel="noopener">User guide</a></p><p>The shared database has not been connected yet.</p><p>Set the Supabase URL and public publishable key, then rebuild the app. See SETUP.md in the source folder.</p></main>
   if(!ready) return <main><p>Loading your account…</p></main>
-  if(!session || recovery) return <main className="auth-panel"><h1 className="brand"><img src="/bic-logo.png" alt="BIC" />BIC Worship DB</h1><p><a href="/guide.html" target="_blank" rel="noopener">ⓘ First time? Read the user guide</a></p><p>{pendingLink?'Sign in to open the shared setlist.':'One songbook for you and your friends.'}</p>
+  if(!session || recovery) return <main className="auth-panel"><h1>{recovery?'Reset password':signup?'Create an account':'Sign in'}</h1>{pendingLink&&<p>Sign in to open the shared setlist.</p>}
     <form onSubmit={event=>{event.preventDefault(); void action(async()=>{
       if(recovery) {const {error}=await cloud!.auth.updateUser({password});if(error)throw error;setRecovery(false);setPassword('');setNotice('Password updated.');history.replaceState(history.state,'',location.pathname);return}
       loginPersistence.setRememberMe(rememberMe)
@@ -226,7 +226,7 @@ export default function SharedApp() {
     {!recovery && <label>Email<input type="email" autoComplete="email" required value={email} onChange={e=>setEmail(e.target.value)} /></label>}
     <label>{recovery ? 'New password' : 'Password'}<input type="password" minLength={signup || recovery ? 12 : undefined} required autoComplete={signup || recovery ? 'new-password':'current-password'} value={password} onChange={e=>setPassword(e.target.value)} /></label>
     {!recovery&&<><label className="remember-login"><input type="checkbox" checked={rememberMe} disabled={busy} onChange={event=>{setRememberMe(event.target.checked);loginPersistence.setRememberMe(event.target.checked)}}/> Remember me on this device</label><p className="storage-note">{rememberMe?'Stay signed in when you return using this browser.':'Keep this login only for this tab session.'} Use Sign out on shared devices.</p>{rememberMe&&!loginPersistence.canRemember()&&<p role="status">This browser is blocking saved login. Allow site storage to stay signed in after closing the browser.</p>}</>}
-    <button disabled={busy}>{busy ? 'Please wait…' : recovery ? 'Save password' : signup ? 'Create account' : 'Sign in'}</button>
+    <button className="auth-submit" disabled={busy}>{busy ? 'Please wait…' : recovery ? 'Save password' : signup ? 'Create account' : 'Sign in'}</button>
     </form>
     {!recovery && <><button disabled={busy} onClick={()=>void action(async()=>{loginPersistence.setRememberMe(rememberMe);const {error}=await cloud!.auth.signInWithOAuth({provider:'google',options:{redirectTo:authReturnUrl()}});if(error)throw error})}>Continue with Google</button><button disabled={busy} onClick={()=>{setSignup(!signup);setNotice('')}}>{signup ? 'Already have an account? Sign in' : 'Create an account'}</button>
     <button disabled={busy || !email} onClick={()=>void action(async()=>{const {error}=await cloud!.auth.resetPasswordForEmail(email,{redirectTo:location.origin});if(error)throw error;setNotice('If this account exists, you will receive a password reset email.')})}>Forgot password</button></>}
@@ -258,14 +258,34 @@ export default function SharedApp() {
     <RegistrationGate key={session.user.id} userId={session.user.id} offline={offline} onRefresh={refresh}>
 
 
-    {role && role!=='owner' && book==='home' && !sharedList && <main className="songbook-home"><h1 className="brand"><img src="/bic-logo.png" alt="BIC" />BIC Worship DB</h1><p><a href="/guide.html" target="_blank" rel="noopener">ⓘ User guide</a></p><div className="worship-planner-entry"><button type="button" className="worship-primary" disabled={offline} onClick={()=>openBook('personal',true)}>Plan a worship set</button>
-      {offline&&<small>Reconnect to plan a worship set.</small>}</div><h2>Your songbooks</h2><p>Choose a songbook to visit.</p><div className="songbook-cards">
-      <button onClick={()=>{openBook('personal')}}><strong>My songbook</strong><span>Your versions, folders, and personal setlists.</span></button>
-      <button onClick={()=>{openBook('church')}}><strong>Bukchon International Chapel</strong><span>Visit the church songbook · Shared with approved members.</span></button>
-    </div><h2>Shared with me</h2><button disabled={loading} onClick={()=>void refresh()}>Refresh shared setlists</button>{!sharedLists.length&&<p>No shared setlists yet.</p>}<div className="songbook-cards">{sharedLists.map(list=><button key={list.id} onClick={()=>openShared(list)}><strong>{list.title}</strong><span>From {list.sender_email} · {list.songs.length} songs</span></button>)}</div></main>}
-    {sharedList && role && role!=='owner' && <><div className="shared-set-actions"><button onClick={backToBooks}>← Songbooks</button><p>Shared by {sharedList.sender_email} · {offline?'Saved shared setlist · Updates when reconnected':'Live shared setlist · Updates automatically'}</p></div><App key={sharedList.id} library={{sharedSetlistId:sharedList.id,sourceSetlistId:sharedList.setlist_id,offline,offlineData:offlineBundle??undefined,sharedSetlist:true,userId:session.user.id,ownerId:null,bookName:sharedList.title,songs:sharedList.songs,canEdit:false,refresh,add:async()=>{throw new Error('Read only')},update:async()=>{throw new Error('Read only')},remove:async()=>{throw new Error('Read only')}}}/><div className="shared-set-actions"><button disabled={busy||offline} onClick={()=>void action(async()=>{const {error}=await cloud!.from('songbook_setlist_shares').delete().eq('id',sharedList.id);if(error)throw error;setSharedList(null);await refresh()})}>Remove shared setlist</button>{!offline&&<SaveSharedSetlist key={sharedList.id+'-save'} shareId={sharedList.id} title={sharedList.title} ownerId={session.user.id} onSaved={refresh}/>}</div></>}
+    {role && role!=='owner' && book==='home' && !sharedList && <main className="songbook-home">
+      <section className="home-planner">
+        <div><h1>Worship sets</h1><p>Choose songs and prepare a set for your team.</p></div>
+        <div className="worship-planner-entry">
+          <button type="button" className="worship-primary" disabled={offline} onClick={()=>openBook('personal',true)}>Plan a worship set</button>
+          {offline&&<small>Reconnect to plan a worship set.</small>}
+        </div>
+      </section>
+      <section>
+        <h2>Your songbooks</h2>
+        <div className="songbook-cards">
+          <button onClick={()=>openBook('personal')}><strong>My songbook</strong><span>Personal charts and setlists</span></button>
+          <button onClick={()=>openBook('church')} aria-label="Church songbook, Bukchon International Chapel"><strong>Church songbook</strong><span>Bukchon International Chapel</span></button>
+        </div>
+      </section>
+      <section>
+        <div className="home-section-heading"><h2>Shared with me</h2>
+          <button disabled={loading} onClick={()=>void refresh()}>Refresh shared setlists</button>
+        </div>
+        {!sharedLists.length&&<p className="storage-note">No shared setlists yet.</p>}
+        <div className="songbook-cards">{sharedLists.map(list=><button key={list.id} onClick={()=>openShared(list)}>
+          <strong>{list.title}</strong><span>From {list.sender_email} · {list.songs.length} songs</span>
+        </button>)}</div>
+      </section>
+    </main>}
+    {sharedList && role && role!=='owner' && <><div className="shared-set-actions"><button onClick={backToBooks}>← Songbooks</button><p>Shared by {sharedList.sender_email} · {offline?'Saved shared setlist · Updates when reconnected':'Live shared setlist · Updates automatically'}</p></div><App key={sharedList.id} library={{sharedSetlistId:sharedList.id,sourceSetlistId:sharedList.setlist_id,offline,offlineData:offlineBundle??undefined,sharedSetlist:true,userId:session.user.id,ownerId:null,bookName:sharedList.title,songs:sharedList.songs,canEdit:false,refresh,add:async()=>{throw new Error('Read only')},update:async()=>{throw new Error('Read only')},remove:async()=>{throw new Error('Read only')}}}/><div className="shared-set-actions"><button className="danger-action" disabled={busy||offline} onClick={()=>void action(async()=>{const {error}=await cloud!.from('songbook_setlist_shares').delete().eq('id',sharedList.id);if(error)throw error;setSharedList(null);await refresh()})}>Remove shared setlist</button>{!offline&&<SaveSharedSetlist key={sharedList.id+'-save'} shareId={sharedList.id} title={sharedList.title} ownerId={session.user.id} onSaved={refresh}/>}</div></>}
 
-    {role && book!=='home' && <><nav className="songbook-location" aria-label="Songbook navigation">{role!=='owner'&&<button onClick={backToBooks}>← Songbooks</button>}<strong>{book==='personal'?'My songbook':'Bukchon International Chapel'}</strong></nav>
+    {role && book!=='home' && <><nav className="songbook-location" aria-label="Songbook navigation">{role!=='owner'&&<button onClick={backToBooks}>← Songbooks</button>}<span>{book==='personal'?'My songbook':'Church songbook'}</span></nav>
     {<App key={session.user.id+'-'+book} library={{loading,initialSongId:pendingSong,openChurchSong:song=>{openBook('church');setPendingSong(song.id)},offline,offlineData:offlineBundle??undefined,userId:session.user.id,refresh,ownerId:book==='personal'?session.user.id:null,bookName:book==='personal'?'My songbook':'Church songbook',songs,canEdit:!offline&&(book==='personal'||role==='owner'),copyToPersonal:!offline&&book==='church'&&role!=='owner'?async song=>{await insertSongs([{...song,folder_id:null,source_song_id:song.id}],session.user.id)}:undefined,
       add:async rows=>{if(offline||!navigator.onLine)throw new Error('Reconnect before saving songs.');const saved=await insertSongs(rows,book==='personal'?session.user.id:null);setSongs(current=>[...current,...saved]);void refresh();return saved},
       update:async song=>{if(offline||!navigator.onLine)throw new Error('Reconnect before saving songs.');const saved=await updateSong(song);setSongs(current=>current.map(s=>s.id===saved.id?saved:s));void refresh();return saved},

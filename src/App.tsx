@@ -28,6 +28,7 @@ import { loginPersistence } from './lib/login-storage'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { transposeSongContent } from './lib/chord/transpose'
 import './App.css'
+import './Songbook.css'
 import { parseSongFile, downloadSongs, makeSongLink, readSongLink } from './lib/sharing'
 import { MenuSection } from './ThemePreference'
 import SongPages from './SongPages'
@@ -778,11 +779,8 @@ function App({library}: {library: SharedLibrary}) {
 
   return (
     <div className="app">
-      <header>
-        <h1 className="brand"><img src="/bic-logo.png" alt="BIC" /> BIC Worship DB</h1><p>{library.bookName} · <a href="/guide.html" target="_blank" rel="noopener">ⓘ User guide</a></p>
-      </header>
-
       <main>
+        {libraryPage&&<h1 className="library-title">{library.bookName}</h1>}
         {!selectedSong&&library.sharedSetlist&&<div className="setlist-primary-actions">
           <button className="worship-primary" data-read-full-set="" onClick={()=>readFullSet()}>Read full set</button>
         </div>}
@@ -821,7 +819,7 @@ function App({library}: {library: SharedLibrary}) {
               <div className="song-search-toolbar">
                 <input type="search" aria-label="Search songs" placeholder="Search songs…" value={search}
                   onChange={event=>setSearch(event.target.value)}/>
-                {library.canEdit&&<button className="add-song-button" onClick={()=>startNewSong()}>+ Add Song</button>}
+                {library.canEdit&&<button className="add-song-button worship-primary" onClick={()=>startNewSong()}>+ Add Song</button>}
               </div>
 
               {filteredSongs.length === 0 && <p>No songs found. Try another search or add a song.</p>}
