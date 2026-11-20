@@ -31,10 +31,9 @@ A new personal song’s first saved version is also added to the church collecti
 
 ## 3. Add a song or paste a chord sheet
 
-1. Open **My songbook → + Add Song → Paste chord sheet**.
-1. Paste the title, section headings and chords above the lyrics. To mark the title explicitly, type literal asterisks: `**Song title**`. Bold formatting alone is not retained.
-1. Press **Convert into editor**. Check the title, estimated key and chord positions in the editing fields.
-1. Open **Adjust chord positions visually**. Drag a chord to a lyric character, or select the chord and tap its destination. Use arrows for one-character adjustments, and **Undo last move** if needed. Moving chords between lyric lines is supported. You can also edit `{chord}` markers directly. Save afterward; conversion and positioning alone do not save.
+1. Open **My songbook → + Add Song**, or choose **Add new song** while planning a setlist.
+1. Paste the chart. Choose **Chords above lyrics** for a chord sheet, or **Formatted chart** for source with inline chord markers.
+1. Check the title and key, enter an artist if you want, and save. The app converts chord sheets and flags lines that may need a closer look.
 
 ```text
 **Morning Song**
@@ -47,7 +46,7 @@ A new day is here
 
 In the editor, chords use braces, such as `{G}A new day is {D}here`. Start a section line with `# ` followed by its title, for example `# Verse 1`, `# Chorus`.
 
-If a duplicate warning appears above Save, open the existing song first. Overwrite replaces an existing editable version; review carefully before confirming.
+You can keep a separate personal arrangement under the same title. In the setlist planner you can also use an existing chart.
 
 ## 4. Find and organize songs
 

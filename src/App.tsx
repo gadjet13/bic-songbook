@@ -1,3 +1,8 @@
+import { cloud } from './lib/cloud'
+import AddSongForm from './AddSongForm'
+import { emptyNewSong, prepareNewSong, recoverNewSong } from './lib/new-song'
+import { normalizeTitle } from './lib/setlist-search'
+import { songKey } from './lib/setlist-arrangement'
 import ReaderChartEditor from './ReaderChartEditor'
 import ReadingColumns from './ReadingColumns'
 import ReadingTextSize, { maxReadingTextSize, minReadingTextSize } from './ReadingTextSize'
@@ -7,7 +12,7 @@ import type { FullReaderControls } from './FullSetlistReader'
 import { flushSetlistCapos, loadSetlistPreferences, preferencesChanged, queueSetlistCapo } from './lib/setlist-preferences'
 import SongFlowEditor from './SongFlowEditor'
 import {hasFlowConflicts,mapFlowCursor,syncLinkedSections} from './lib/song-flow'
-import {songSortLabels,sortSongsByDate} from './lib/song-dates'
+import {songSortLabels,sortSongsByDate,songVersionDetails} from './lib/song-dates'
 import type {SongDateSort} from './lib/song-dates'
 import ChordPositionEditor from './ChordPositionEditor'
 import { displaySong } from './SongChart'
@@ -17,7 +22,7 @@ import SetlistKeyOverview from './SetlistKeyOverview'
 import { draftKey,readSongDrafts,writeSongDraft,removeSongDraft,canResumeSongDraft } from './lib/song-drafts'
 import type { SongDraft } from './lib/song-drafts'
 import { loginPersistence } from './lib/login-storage'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { transposeSongContent, lyricsOnly } from './lib/chord/transpose'
 import './App.css'
 import { parseSongFile, downloadSongs, makeSongLink, readSongLink } from './lib/sharing'
@@ -324,26 +329,30 @@ function App({library}: {library: SharedLibrary}) {
   },[isAddingSong,isEditing,readingMode])
 
 
-  const [newSongTitle, setNewSongTitle] =
-    useState('')
-
-  const [newSongArtist, setNewSongArtist] =
-    useState('')
-
-  const [newSongKey, setNewSongKey] =
-    useState('C')
-
-
-  const [newSongContent, setNewSongContent] =
-    useState('')
-  const [newRaw,setNewRaw]=useState('')
+  const [newSong,setNewSong]=useState(emptyNewSong)
+  const [newSongError,setNewSongError]=useState('')
+  const newChart=useMemo(()=>prepareNewSong(newSong),[newSong])
+  const songsByTitle=useMemo(()=>{
+    const groups=new Map<string,Song[]>()
+    for(const song of songList){
+      const title=normalizeTitle(song.title)
+      const rows=groups.get(title)??[]
+      rows.push(song)
+      groups.set(title,rows)
+    }
+    return groups
+  },[songList])
+  const newTitle=normalizeTitle(newChart.title)
+  const existingPersonal=songsByTitle.get(newTitle)??[]
+  const existingChurch=(library.offlineData?.church??[]).filter(song=>normalizeTitle(song.title)===newTitle)
+  const newSongMatches=existingPersonal.length?existingPersonal:existingChurch
   const [editedRaw,setEditedRaw]=useState('')
   const recoveryKey=draftKey(library.userId,library.ownerId?'personal':'church')
   const [songDrafts,setSongDrafts]=useState(()=>library.sharedSetlist?[]:readSongDrafts(recoveryKey))
   const [draftStatus,setDraftStatus]=useState('')
   const dirtySong=!!isEditing&&!!selectedSong&&(editedTitle!==selectedSong.title||editedArtist!==selectedSong.artist||editedKey!==selectedSong.key||editedContent!==selectedSong.content||!!editedRaw.trim())
-  const dirtyNew=isAddingSong&&!!(newSongTitle.trim()||newSongArtist.trim()||newSongContent.trim()||newRaw.trim()||newSongKey!=='C')
-  useUnsavedChanges(dirtySong||dirtyNew)
+  const dirtyNew=isAddingSong&&!!(newSong.title.trim()||newSong.artist.trim()||newSong.key.trim()||newSong.text.trim()||newSong.alternate)
+  useUnsavedChanges(dirtySong||dirtyNew,savingSong)
   const readerDirty=!!readerEdit&&readerEdit.content!==readerEdit.song.content
   useUnsavedChanges(readerDirty,readerSaving)
   useEffect(()=>{
@@ -393,11 +402,11 @@ function App({library}: {library: SharedLibrary}) {
   }
   useEffect(()=>{
     if(library.sharedSetlist||!library.canEdit)return
-    const draft:SongDraft|null=dirtyNew?{id:'new',songId:null,title:newSongTitle,artist:newSongArtist,key:newSongKey,content:newSongContent,raw:newRaw,folderId:folder==='all'||folder==='unfiled'?null:folder,updatedAt:new Date().toISOString()}:dirtySong&&selectedSong?{id:'song:'+selectedSong.id,songId:selectedSong.id,baseRevision:selectedSong.revision,title:editedTitle,artist:editedArtist,key:editedKey,content:editedContent,raw:editedRaw,folderId:selectedSong.folder_id??null,updatedAt:new Date().toISOString()}:null
+    const draft:SongDraft|null=dirtyNew?{id:'new',songId:null,title:newSong.title,artist:newSong.artist,key:newSong.key,content:newSong.mode==='formatted'?newSong.text:'',raw:newSong.mode==='chord-sheet'?newSong.text:'',inputMode:newSong.mode,alternateInput:newSong.alternate,folderId:folder==='all'||folder==='unfiled'?null:folder,updatedAt:new Date().toISOString()}:dirtySong&&selectedSong?{id:'song:'+selectedSong.id,songId:selectedSong.id,baseRevision:selectedSong.revision,title:editedTitle,artist:editedArtist,key:editedKey,content:editedContent,raw:editedRaw,folderId:selectedSong.folder_id??null,updatedAt:new Date().toISOString()}:null
     if(!draft){const id=isAddingSong?'new':isEditing&&selectedSong?'song:'+selectedSong.id:null;if(id&&readSongDrafts(recoveryKey).some(row=>row.id===id)){setSongDrafts(removeSongDraft(recoveryKey,id));setDraftStatus('')}return}
     setSongDrafts(writeSongDraft(recoveryKey,draft))
     setDraftStatus(loginPersistence.isPersisted(recoveryKey)?'Draft saved on this browser. Save the song to update the database.':'Draft is only in memory. Browser storage is unavailable or full; do not close this tab before saving.')
-  },[recoveryKey,isAddingSong,isEditing,library.canEdit,library.sharedSetlist,dirtyNew,dirtySong,newSongTitle,newSongArtist,newSongKey,newSongContent,newRaw,editedTitle,editedArtist,editedKey,editedContent,editedRaw,selectedSong?.id,folder])
+  },[recoveryKey,isAddingSong,isEditing,library.canEdit,library.sharedSetlist,dirtyNew,dirtySong,newSong,editedTitle,editedArtist,editedKey,editedContent,editedRaw,selectedSong?.id,folder])
   function clearDraft(id:string){setSongDrafts(removeSongDraft(recoveryKey,id));setDraftStatus('')}
   function recoverDraft(draft:SongDraft, withinSet=false, selected?:Song){
     if(!library.canEdit||(!withinSet&&(library.loading||!allowNavigation())))return
@@ -405,14 +414,14 @@ function App({library}: {library: SharedLibrary}) {
     const canResume=canResumeSongDraft(draft,current)
     if(draft.songId!==null&&!canResume&&!window.confirm('This song changed or was deleted after the draft began. Recover it as a new song instead? The current saved version will stay unchanged.'))return
     if(canResume&&current){selectSong(current,true);setEditedTitle(draft.title);setEditedArtist(draft.artist);setEditedKey(draft.key);setEditedContent(draft.content);setEditedRaw(draft.raw);setIsEditing(true);setIsAddingSong(false)}
-    else {if(draft.songId!==null&&songDrafts.some(row=>row.id==='new')){setNotice('Recover or discard your existing new-song draft first.');return}setSelectedSong(null);setNewSongTitle(draft.title);setNewSongArtist(draft.artist);setNewSongKey(draft.key);setNewSongContent(draft.content);setNewRaw(draft.raw);setFolder(draft.folderId??'all');setIsEditing(false);setIsAddingSong(true);if(draft.songId!==null)clearDraft(draft.id)}
+    else {if(draft.songId!==null&&songDrafts.some(row=>row.id==='new')){setNotice('Recover or discard your existing new-song draft first.');return}setSelectedSong(null);setNewSong(recoverNewSong(draft));setNewSongError('');setFolder(draft.folderId??'all');setIsEditing(false);setIsAddingSong(true);if(draft.songId!==null)clearDraft(draft.id)}
     setNotice(canResume?'Draft recovered. Review and save when ready.':'Draft recovered as a new song. Review it before saving.')
   }
   function startNewSong(withinSet=false){
     if(!withinSet&&!allowNavigation())return
     const draft=songDrafts.find(row=>row.id==='new')
     if(draft){recoverDraft(draft,withinSet);return}
-    setNewSongTitle('');setNewSongArtist('');setNewSongKey('C');setNewSongContent('');setNewRaw('');setIsAddingSong(true)
+    setNewSong(emptyNewSong);setNewSongError('');setIsAddingSong(true)
   }
   function openSetlistSongEditor(song:Song|null,onSaved:(song:Song)=>void,returnFocus:HTMLElement){
     if(!library.canEdit)return
@@ -452,7 +461,7 @@ function App({library}: {library: SharedLibrary}) {
       ? !dirty||window.confirm('Discard the unsaved song changes and return to the set?')
       : allowNavigation()
   }
-  function cancelNewSong(){if(!canCancelSong(dirtyNew))return;clearDraft('new');setNewSongTitle('');setNewSongArtist('');setNewSongKey('C');setNewSongContent('');setNewRaw('');setIsAddingSong(false);returnToSetlist()}
+  function cancelNewSong(){if(!canCancelSong(dirtyNew))return;clearDraft('new');setNewSong(emptyNewSong);setNewSongError('');setIsAddingSong(false);returnToSetlist()}
 
 
   const changeTranspose = (amount: number) => {
@@ -589,7 +598,7 @@ function App({library}: {library: SharedLibrary}) {
     const startedSong=currentSongId.current
     const saved=await library.update({...target,...draft,title:draft.title.trim()})
     if(currentSongId.current!==startedSong){setNotice("Existing version overwritten. Open it to see the changes.");return}
-    clearDraft(isAddingSong?'new':'song:'+startedSong);setNewRaw('');setEditedRaw('');
+    clearDraft(isAddingSong?'new':'song:'+startedSong);setEditedRaw('');
     setIsAddingSong(false);selectSong(saved,true);setNotice('Existing version overwritten. The previous version is in song history.')
   }
   function beginEditing(){
@@ -632,39 +641,53 @@ function App({library}: {library: SharedLibrary}) {
     finally{songSaveInProgress.current=false;setSavingSong(false)}
   }
 
-  const addSong = async () => {
+  async function finishNewSong(save:()=>Promise<Song>){
     if(songSaveInProgress.current)return
-    if(hasFlowConflicts(newSongContent)){setNotice('Resolve the different section versions in Song flow before saving.');return}
-    if (!newSongTitle.trim()) {
-      setNotice('Please enter a song title.')
+    songSaveInProgress.current=true
+    setSavingSong(true);setNewSongError('')
+    try{
+      const saved=await save()
+      clearDraft('new')
+      setNewSong(emptyNewSong)
+      if(setlistSongEditor)returnToSetlist(saved)
+      else {setSelectedSong(saved);setTranspose(0);setIsAddingSong(false)}
+    }catch(error){
+      setNewSongError(error instanceof Error?error.message:String((error as {message?:string})?.message??error))
+    }finally{
+      songSaveInProgress.current=false;setSavingSong(false)
+    }
+  }
+
+  async function addSong(){
+    if(!newChart.title){setNewSongError('Enter a song title.');return}
+    if(!songKey(newChart.key)){setNewSongError('Enter a key such as D or F#m.');return}
+    if(!newChart.content.trim()){setNewSongError('Paste a chart with lyrics or chords.');return}
+    if(hasFlowConflicts(newChart.content)){
+      setNewSongError('Give repeated sections with different lyrics or chords distinct names, such as Chorus 1 and Chorus 2.')
       return
     }
+    if(!library.ownerId&&newSongMatches.length)return
+    await finishNewSong(async()=>{
+      const [saved]=await library.add([{
+        id:Date.now(),folder_id:folderNames.some(item=>item.id===folder)?folder:null,
+        title:newChart.title,artist:newChart.artist,key:newChart.key,category:'',content:newChart.content,
+      }])
+      if(!saved)throw new Error('No saved song was returned.')
+      return saved
+    })
+  }
 
-    const newSong: Song = {
-      id: Date.now(),
-      folder_id: folderNames.some(item=>item.id===folder)?folder:null,
-      title: newSongTitle.trim(),
-      artist: newSongArtist.trim(),
-      key: newSongKey.trim() || 'C',
-      category: '',
-      content: newSongContent,
-    }
-
-    songSaveInProgress.current=true
-    setSavingSong(true)
-    try { const [saved] = await library.add([newSong]); clearDraft('new');setNewRaw('')
-      if(setlistSongEditor)returnToSetlist(saved)
-      else setSelectedSong(saved)
-    }
-    catch (error) { setNotice(String(error instanceof Error ? error.message : error)); return }
-    finally {songSaveInProgress.current=false;setSavingSong(false)}
-    setTranspose(0)
-    setIsAddingSong(false)
-
-    setNewSongTitle('')
-    setNewSongArtist('')
-    setNewSongKey('C')
-    setNewSongContent('')
+  function useChartInSet(song:Song){
+    if(!setlistSongEditor||!library.ownerId||!library.canEdit||library.offline||songSaveInProgress.current)return
+    if((newSong.text.trim()||newSong.alternate)&&!window.confirm('Use this existing chart and discard the new song draft?'))return
+    void finishNewSong(async()=>{
+      if(existingPersonal.some(match=>match.id===song.id))return song
+      const {data,error}=await cloud!.rpc('ensure_personal_church_song',{church_song_id:song.id})
+      if(error)throw error
+      if(!data)throw new Error('Could not add the existing chart.')
+      void library.refresh()
+      return data as Song
+    })
   }
 
   const deleteSong = async () => {
@@ -761,94 +784,15 @@ function App({library}: {library: SharedLibrary}) {
 
         {!selectedSong&&!isAddingSong&&(setlistId||setlistIndex) ? null : !selectedSong ? (
           isAddingSong ? (
-            <fieldset className="add-song-form song-form" disabled={savingSong}>
-              <h2 tabIndex={-1} data-setlist-song-heading>Add New Song</h2><ChordSheetPaste title={newSongTitle} songKey={newSongKey} raw={newRaw} onRawChange={setNewRaw} onApply={(content,title,key)=>{setNewSongContent(content);if(title)setNewSongTitle(title);if(key)setNewSongKey(key)}}/>{library.ownerId && <p className="storage-note">The first saved version also goes to the church songbook. Later edits stay in your personal songbook.</p>}
+            <AddSongForm input={newSong} onChange={input=>{setNewSong(input);setNewSongError('')}}
+              chart={newChart} matches={newSongMatches} personal={!!library.ownerId} inSet={!!setlistSongEditor}
+              offline={!!library.offline} busy={savingSong} error={newSongError}
+              onSave={()=>void addSong()} onCancel={cancelNewSong} onUseExisting={useChartInSet}
+              onOpenExisting={song=>{
+                if(!canCancelSong(dirtyNew))return
+                setNewSongError('');setIsAddingSong(false);selectSong(song,true)
+              }}/>
 
-              <SongFlowEditor content={newSongContent} onChange={setNewSongContent} disabled={savingSong||library.offline}/>
-              <label>
-                Song Title
-                <input
-                  type="text"
-                  placeholder="Amazing Grace"
-                  value={newSongTitle}
-                  onChange={(event) =>
-                    setNewSongTitle(
-                      event.target.value,
-                    )
-                  }
-                />
-              </label>
-
-              <label>
-                Artist
-                <input
-                  type="text"
-                  placeholder="Traditional"
-                  value={newSongArtist}
-                  onChange={(event) =>
-                    setNewSongArtist(
-                      event.target.value,
-                    )
-                  }
-                />
-              </label>
-
-              <label>
-                Original Key
-                <input
-                  type="text"
-                  placeholder="C"
-                  value={newSongKey}
-                  onChange={(event) =>
-                    setNewSongKey(
-                      event.target.value,
-                    )
-                  }
-                />
-              </label>
-
-              <label>
-                Song Content
-
-                <textarea
-                  className="song-editor"
-                  placeholder={`# Verse 1
-{G}Amazing grace, {D}how sweet the sound
-
-# Chorus
-{C}Amazing grace`}
-                  value={newSongContent}
-                  onChange={(event) =>
-                    editLinkedText(event.currentTarget,newSongContent,setNewSongContent)
-                  }
-                />
-
-                <small className="editor-help">
-                  Use <strong># Verse 1</strong>, <strong># Chorus</strong> or <strong># Tag</strong> for sections. Use <strong>{'{C}'}</strong> and <strong>{'{G/B}'}</strong> for chords. Existing # headings and [C] chords still work.
-                </small>
-              </label>
-
-              <ChordPositionEditor content={newSongContent} onChange={value=>setNewSongContent(current=>syncLinkedSections(current,value))} disabled={savingSong||library.offline}/>
-              <DuplicateSongNotice onOpen={setlistSongEditor?undefined:openDuplicate} canOverwrite={song=>!!library.canEdit&&!!duplicateTarget(song)} onOverwrite={setlistSongEditor?undefined:song=>overwriteDuplicate(song,{title:newSongTitle,artist:newSongArtist,key:newSongKey,content:newSongContent})} title={newSongTitle} personal={!!library.ownerId} onUseExisting={song=>{setNewSongTitle(song.title);setNewSongArtist(song.artist);setNewSongKey(song.key);setNewSongContent(song.content)}}/>
-              <div className="edit-buttons">
-                <button
-                  className="save-button"
-                  disabled={savingSong||library.offline||hasFlowConflicts(newSongContent)}
-                  title={hasFlowConflicts(newSongContent)?'Resolve section variations in Song flow first':undefined}
-                  onClick={addSong}
-                >
-                  {setlistSongEditor?'Save and add to set':'Save Song'}
-                </button>
-
-                <button
-                  className="cancel-button"
-                  disabled={savingSong}
-                  onClick={cancelNewSong}
-                >
-                  Cancel
-                </button>
-              </div>
-            </fieldset>
           ) : (
             <>
               <div className="song-search-toolbar">
@@ -871,7 +815,9 @@ function App({library}: {library: SharedLibrary}) {
                     }
                   >
                     <span className="library-song-name"><strong>{song.title}</strong>
-                      {song.artist&&<small>{song.artist}</small>}</span>
+                      {(songsByTitle.get(normalizeTitle(song.title))?.length??0)>1
+                        ?<small>{songVersionDetails(song,songsByTitle.get(normalizeTitle(song.title))!)}</small>
+                        :song.artist&&<small>{song.artist}</small>}</span>
                     <span className="library-song-key">{favorites.includes(song.id)&&<span aria-label="Favorite">★ </span>}
                       <strong className="key-badge" aria-label={song.key?'Key '+song.key:'Key not set'}>{song.key||'—'}</strong>
                     </span>

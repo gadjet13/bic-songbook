@@ -15,7 +15,8 @@ import { loadSongs, cloud } from './lib/cloud'
 import type { Song } from './App'
 import type { OfflineList } from './lib/offline'
 import SetlistLimitPanel from './SetlistLimitPanel'
-import { setlistSearch } from './lib/setlist-search'
+import { songVersionDetails } from './lib/song-dates'
+import { normalizeTitle, setlistSearch } from './lib/setlist-search'
 import useUnsavedChanges from './useUnsavedChanges'
 import { allowNavigation } from './lib/unsaved'
 
@@ -45,7 +46,8 @@ export default function SongOrganization({songs,canEdit,ownerId,offlineLists,chu
  const actionPending=useRef(false)
  const ids=entries.map(entry=>entry.song_id)
  const dirty=!!activeId&&editing&&(title!==(selected?.title??'')||JSON.stringify(entries)!==JSON.stringify(selected?setlistEntries(selected):[]))
- useUnsavedChanges(dirty)
+ // Returning from a song editor stays inside the same setlist draft.
+ useUnsavedChanges(dirty,false,event=>event.state?.bicSetlist!==activeId)
  const [drafts,setDrafts]=useState(()=>ownerId?readSetlistDrafts(ownerId):[]),[draftStatus,setDraftStatus]=useState('')
  const pendingDraft=useRef<SetlistDraft|null>(null)
  function clearDraft(id:string){if(ownerId)setDrafts(removeSetlistDraft(ownerId,id));setDraftStatus('')}
@@ -229,10 +231,12 @@ export default function SongOrganization({songs,canEdit,ownerId,offlineLists,chu
   {pickerOpen&&<section id="worship-song-picker" aria-label="Song library">
    <label>Search songs to add<input ref={searchInput} type="search" value={search} placeholder="Song title or artist" onChange={event=>setSearch(event.target.value)}/></label>
    {churchError&&<p role="status">Church search unavailable. {churchError}</p>}
-   <div className="setlist-search-results">{results.map(({song,source})=><button type="button" key={source+song.id}
+   <div className="setlist-search-results">{results.map(({song,source})=>{
+    const versions=source==='personal'?personal.filter(item=>normalizeTitle(item.title)===normalizeTitle(song.title)):[]
+    return <button type="button" key={source+song.id}
     disabled={ids.length>=100} onClick={()=>addCandidate(song,source)}>
-    <strong>{song.title}</strong> <small>{source==='personal'?'My songbook':'Church library'}{song.artist&&` · ${song.artist}`}</small>
-   </button>)}</div>
+    <strong>{song.title}</strong> <small>{source==='personal'?'My songbook':'Church library'}{versions.length>1?` · ${songVersionDetails(song,versions)}`:song.artist&&` · ${song.artist}`}</small>
+   </button>})}</div>
    {results.length===0&&<p>{search.trim()?'No matching songs. Choose Add new song to create a chart.':'No songs in the library yet.'}</p>}
   </section>}
   <h3>Song order</h3>

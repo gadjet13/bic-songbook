@@ -1,10 +1,22 @@
+import { barChordParts, sectionHeading } from './chord/transpose'
 const notes=['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B']
 const roots:Record<string,number>={C:0,'C#':1,Db:1,D:2,'D#':3,Eb:3,E:4,F:5,'F#':6,Gb:6,G:7,'G#':8,Ab:8,A:9,'A#':10,Bb:10,B:11}
+export const chartKeyLine = /^[ \t]*(?:original[ \t]+)?key[ \t]*:[ \t]*([A-G](?:#|b)?(?:maj|min|m)?)[ \t]*\r?$/im
+export function explicitChartKey(content:string) {
+ const match=chartKeyLine.exec(content)
+ if(!match)return ''
+ const [,note,accidental,quality]=/^([A-G])([#b]?)(.*)$/i.exec(match[1])!
+ return note.toUpperCase()+accidental.toLowerCase()+quality.toLowerCase().replace(/^min$/,'m').replace(/^maj$/,'')
+}
 /** Estimate the pasted arrangement's key; relative major/minor can remain ambiguous. */
 export function suggestKeys(content:string):string[] {
- const explicit=content.match(/(?:^|\n)\s*(?:original\s+)?key\s*:\s*([A-G](?:#|b)?(?:m|maj|min)?)\b/i)
- if(explicit)return [explicit[1][0].toUpperCase()+explicit[1].slice(1).replace(/min$/,'m').replace(/maj$/,'')]
- const chords=[...content.matchAll(/\{([A-G](?:#|b)?)([^}\s/]*)?(?:\/[A-G](?:#|b)?)?\/*\}|\[([A-G](?:#|b)?)([^\]\s/]*)?(?:\/[A-G](?:#|b)?)?\/*\]/g)].flatMap(match=>{
+ const explicit=explicitChartKey(content)
+ if(explicit)return [explicit]
+ const chart=content.split('\n').filter(line=>!sectionHeading(line)).map(line=>{
+  const parts=barChordParts(line)
+  return parts?parts.filter(part=>part.chord).map(part=>'{'+part.text+'}').join(' '):line
+ }).join('\n')
+ const chords=[...chart.matchAll(/\{([A-G](?:#|b)?)([^}\s/]*)?(?:\/[A-G](?:#|b)?)?\/*\}|\[([A-G](?:#|b)?)([^\]\s/]*)?(?:\/[A-G](?:#|b)?)?\/*\]/g)].flatMap(match=>{
   const root=match[1]??match[3],quality=match[2]??match[4]??''
   if(!/^(?:(?:maj|min|dim|aug|sus|add|omit|no|m|M)|\d|[#b()+-])*$/.test(quality))return []
   return [{root:roots[root],minor:/^(?:m(?!aj)|min)/.test(quality),dim:quality.includes('dim')}]
