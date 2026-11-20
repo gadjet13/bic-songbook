@@ -28,7 +28,7 @@ export function useSetlistLink(listId:string|null){
   useEffect(()=>{
     if(!listId)return
     let active=true
-    const request=manage(listId,'status')
+    const request=loadSetlistLink(listId)
     setStatus({id:listId,token:null,busy:true,notice:''})
     void request.then(token=>{
       if(active)setStatus({id:listId,token,busy:false,notice:''})
@@ -62,6 +62,10 @@ export function useSetlistLink(listId:string|null){
     enableLink: () => changeLink('enable'),
     disableLink: () => changeLink('disable'),
   }
+}
+
+export function loadSetlistLink(listId: string) {
+  return manage(listId, 'status')
 }
 
 export function createSetlistLink(listId:string){

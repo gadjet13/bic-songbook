@@ -1,5 +1,5 @@
 import { setlistLink } from './lib/setlist-links'
-import { copySetlistLink, createSetlistLink, ReaderShareLink, useSetlistLink } from './SetlistLinkSharing'
+import { copySetlistLink, createSetlistLink, loadSetlistLink, ReaderShareLink, useSetlistLink } from './SetlistLinkSharing'
 import FullSetlistReader from './FullSetlistReader'
 import type { FullReaderControls } from './FullSetlistReader'
 import { setlistEntries, setlistSoundingKey, songKey, soundingTonics } from './lib/setlist-arrangement'
@@ -139,10 +139,10 @@ export default function SongOrganization({songs,canEdit,ownerId,offlineLists,chu
   })
  }
  function showSavedSet(list:Setlist,created:boolean){
-  if(created)void createSetlistLink(list.id).then(token=>{
+  if(created)void loadSetlistLink(list.id).then(token=>{
    if(!token)throw new Error('No link returned.')
    setCardLink({id:list.id,fallback:setlistLink(token),created:true})
-  }).catch(()=>setNotice('Setlist saved. Use Copy setlist link to retry creating its link.'))
+  }).catch(()=>setNotice('Setlist saved. Use Copy setlist link to get its share URL.'))
   clearDraft(created?'new':list.id)
   setLists(rows=>[...rows.filter(row=>row.id!==list.id),list])
   setEditing(false);setReturnAfterSave(true)
