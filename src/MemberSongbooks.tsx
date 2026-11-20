@@ -7,14 +7,15 @@ type Member = { member_id: string; display_name: string }
 type ChartSummary = Pick<Song, 'id' | 'title' | 'artist' | 'key'>
 const pageSize = 50
 
-export default function MemberSongbooks({ back, openCopy }: {
+export default function MemberSongbooks({ memberId, chartId, navigate, back, openCopy }: {
+  memberId?: string
+  chartId?: number
+  navigate: (member: string, chart?: number) => void
   back: () => void
   openCopy?: (id: number) => void
 }) {
   const [members, setMembers] = useState<Member[] | null>(null)
-  const [member, setMember] = useState<Member | null>(null)
   const [charts, setCharts] = useState<ChartSummary[]>([])
-  const [selection, setSelection] = useState<ChartSummary | null>(null)
   const [chart, setChart] = useState<Song | null>(null)
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
@@ -25,8 +26,7 @@ export default function MemberSongbooks({ back, openCopy }: {
   const copyingRequest = useRef(false)
   const active = useRef(false)
   const heading = useRef<HTMLHeadingElement>(null)
-  const memberId = member?.member_id
-  const chartId = selection?.id
+  const member = members?.find(row => row.member_id === memberId)
 
   useEffect(() => {
     active.current = true
@@ -42,6 +42,8 @@ export default function MemberSongbooks({ back, openCopy }: {
     const client = cloud!
     const request = new AbortController()
     setLoading(true)
+    setChart(null)
+    setCopyError('')
     setError('')
     const load = async () => {
       if (memberId && chartId) {
@@ -56,17 +58,6 @@ export default function MemberSongbooks({ back, openCopy }: {
         }).abortSignal(request.signal)
         if (error) throw error
         if (!request.signal.aborted) setCharts(data as ChartSummary[])
-      } else {
-        const rows: Member[] = []
-        const batchSize = 500
-        for (let offset = 0; !request.signal.aborted; offset += batchSize) {
-          const { data, error } = await client.rpc('list_member_songbooks')
-            .range(offset, offset + batchSize - 1).abortSignal(request.signal)
-          if (error) throw error
-          rows.push(...data as Member[])
-          if (data.length < batchSize) break
-        }
-        if (!request.signal.aborted) setMembers(rows)
       }
     }
     const timer = setTimeout(() => {
@@ -82,20 +73,31 @@ export default function MemberSongbooks({ back, openCopy }: {
     }
   }, [memberId, chartId, search, page])
 
-  function selectMember(value: Member | null) {
-    setMember(value)
-    setSelection(null)
-    setChart(null)
-    setCharts([])
+  useEffect(() => {
+    const request = new AbortController()
+    async function loadMembers() {
+      const rows: Member[] = []
+      const batchSize = 500
+      for (let offset = 0; !request.signal.aborted; offset += batchSize) {
+        const { data, error } = await cloud!.rpc('list_member_songbooks')
+          .range(offset, offset + batchSize - 1).abortSignal(request.signal)
+        if (error) throw error
+        rows.push(...data as Member[])
+        if (data.length < batchSize) break
+      }
+      if (!request.signal.aborted) setMembers(rows)
+    }
+    void loadMembers().catch((error: Error) => {
+      if (!request.signal.aborted) setError(error.message)
+    })
+    return () => request.abort()
+  }, [])
+
+  useEffect(() => {
     setSearch('')
     setPage(0)
-  }
-
-  function selectChart(value: ChartSummary | null) {
-    setSelection(value)
-    setChart(null)
-    setCopyError('')
-  }
+    setCharts([])
+  }, [memberId])
 
   async function copy() {
     if (!memberId || !chart || !openCopy || copyingRequest.current) return
@@ -114,25 +116,25 @@ export default function MemberSongbooks({ back, openCopy }: {
     }
   }
 
-  const title = selection?.title ?? member?.display_name ?? 'Member songbooks'
+  const title = chart?.title ?? member?.display_name ?? (memberId ? 'Member songbook' : 'Member songbooks')
   return <div className="app"><main className="member-songbooks">
     <nav className="songbook-back-bar" aria-label="Member songbook navigation">
       <button type="button" className="back-button" disabled={copying}
-        onClick={() => selection ? selectChart(null) : member ? selectMember(null) : back()}>
-        {selection ? '← Back to member charts' : member ? '← Member songbooks' : '← Back to songbooks'}
+        onClick={back}>
+        {chartId ? '← Back to member charts' : memberId ? '← Member songbooks' : '← Back to songbooks'}
       </button>
     </nav>
     <h1 ref={heading} tabIndex={-1}>{title}</h1>
-    {!member && <p>{openCopy ? 'Browse charts from approved members and copy a version into your songbook.' : 'Browse charts from approved members.'}</p>}
-    {loading && <p role="status">Loading…</p>}
+    {!memberId && <p>{openCopy ? 'Browse charts from approved members and copy a version into your songbook.' : 'Browse charts from approved members.'}</p>}
+    {(loading||!members) && !error && <p role="status">Loading…</p>}
     {error && <p className="notice" role="alert">{error}</p>}
-    {!member && members && !error && <>
+    {!memberId && members && !error && <>
       {members.length === 0 && <p>No other member songbooks yet.</p>}
       <div className="songbook-cards">{members.map(item =>
-        <button type="button" key={item.member_id} onClick={() => selectMember(item)}><strong>{item.display_name}</strong></button>
+        <button type="button" key={item.member_id} onClick={() => navigate(item.member_id)}><strong>{item.display_name}</strong></button>
       )}</div>
     </>}
-    {member && !selection && <>
+    {memberId && !chartId && <>
       <div className="song-search-toolbar">
         <input type="search" aria-label="Search member charts" placeholder="Search songs…" value={search}
           maxLength={120} onChange={event => { setSearch(event.target.value); setPage(0) }}/>
@@ -140,7 +142,7 @@ export default function MemberSongbooks({ back, openCopy }: {
       {!loading && !error && <>
         {charts.length === 0 && <p>{search.trim() ? 'No matching charts.' : 'No charts available.'}</p>}
         {!!charts.length && <div className="song-list">{charts.slice(0, pageSize).map(item =>
-          <button type="button" className="song-item" key={item.id} onClick={() => selectChart(item)}>
+          <button type="button" className="song-item" key={item.id} onClick={() => navigate(memberId, item.id)}>
             <span className="library-song-name"><strong>{item.title}</strong>{item.artist && <small>{item.artist}</small>}</span>
             <span className="key-badge">{item.key || '—'}</span>
           </button>
@@ -151,8 +153,8 @@ export default function MemberSongbooks({ back, openCopy }: {
         </nav>}
       </>}
     </>}
-    {member && chart && <article>
-      <p>{member.display_name} · Read-only{chart.artist ? ` · ${chart.artist}` : ''}{chart.key ? ` · Key ${chart.key}` : ''}</p>
+    {chart && <article>
+      <p>{member?.display_name ?? 'Member songbook'} · Read-only{chart.artist ? ` · ${chart.artist}` : ''}{chart.key ? ` · Key ${chart.key}` : ''}</p>
       {openCopy && <button type="button" className="worship-primary" disabled={copying} onClick={() => void copy()}>
         {copying ? 'Copying…' : 'Copy to My songbook'}
       </button>}
