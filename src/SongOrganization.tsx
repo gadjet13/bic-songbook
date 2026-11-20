@@ -217,7 +217,7 @@ export default function SongOrganization({songs,canEdit,ownerId,offlineLists,chu
    </>}
   </article>
  })}</div>{loaded&&!lists.length&&<p>No setlists yet.</p>}<p role="status">{notice}</p></section>
- return <section className="setlist-page" aria-label="Setlist page"><button className="back-button" onClick={onBack}>← Back to setlists</button><h2>{activeId==='new'?'Plan a worship set':selected?.title??'Setlist'}</h2>
+ return <section className="setlist-page" aria-label="Setlist page"><nav className="songbook-back-bar" aria-label="Setlist navigation"><button className="back-button" onClick={onBack}>← Back to setlists</button></nav><h2>{activeId==='new'?'Plan a worship set':selected?.title??'Setlist'}</h2>
  {!editing&&!selected&&<p>{loaded?'This setlist is no longer available.':'Loading setlist…'}</p>}
  {editing&&draftStatus&&<p className="storage-note" role="status">{draftStatus}</p>}
  {limit&&ownerId&&<SetlistLimitPanel ownerId={ownerId} title={title} songIds={ids} songEntries={entries} onCreated={list=>{setLimit(false);showSavedSet(list,true);void refresh().catch(error=>setNotice(message(error)))}} onCancel={onBack}/>}
