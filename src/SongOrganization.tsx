@@ -175,6 +175,7 @@ export default function SongOrganization({songs,canEdit,ownerId,offlineLists,chu
  const sharingId=canEdit&&!offlineLists?readingSet?.id??null:null
  const link=useSetlistLink(sharingId)
  if(fullReader&&readingSet)return <FullSetlistReader title={readingSet.title} songs={slots(readingSet)} controls={fullReader}
+  shareToken={sharingId&&link.resolved?link.token:undefined}
   shareLink={sharingId&&<ReaderShareLink key={sharingId} token={link.token} busy={link.busy} notice={link.notice} enableLink={link.enableLink}/>}
   shareOptions={sharingId&&link.token&&<details className="setlist-sharing"><summary>Share options</summary>
    {link.token&&<button type="button" disabled={link.busy} onClick={()=>void link.disableLink().then(disabled=>{

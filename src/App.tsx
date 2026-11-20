@@ -118,6 +118,7 @@ function getCurrentKey(
 }
 
 export type SharedLibrary = {
+  shareToken?: string | null
   sharedSetlistId?:string
   sourceSetlistId?:string
   loading?: boolean
@@ -772,7 +773,7 @@ function App({library}: {library: SharedLibrary}) {
     onEditRaw:canEditInReader?openRawEditor:undefined,editing:readerEdit??undefined,editor:readerEditor
   }:null
   if(fullReader&&library.sharedSetlist)return <div className="app"><main>
-    <FullSetlistReader title={library.bookName} songs={songList} controls={fullReader}/>
+    <FullSetlistReader title={library.bookName} songs={songList} controls={fullReader} shareToken={library.shareToken}/>
   </main></div>
 
   return (

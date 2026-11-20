@@ -1,6 +1,6 @@
 import { clearSetlistCueCache } from './lib/setlist-cues'
 import { clearSetlistPreferenceCache, flushSetlistCapos } from './lib/setlist-preferences'
-import { clearSetlistLink, pendingSetlistLink } from './lib/setlist-links'
+import { clearSetlistLink, isSetlistPath, pendingSetlistLink, setlistLink, setlistTokenFromPath } from './lib/setlist-links'
 import ConnectorConsent, { authReturnUrl, isConnectorConsent } from './ConnectorConsent'
 import RegistrationGate from './RegistrationGate'
 import AccessRequests from './AccessRequests'
@@ -31,6 +31,8 @@ export default function SharedApp() {
   const [pendingLink,setPendingLink]=useState<string|null>(null)
   const [linkRetry,setLinkRetry]=useState(0)
   const [linkError,setLinkError]=useState('')
+  const [readerEntry,setReaderEntry]=useState(0)
+  const [sharedToken,setSharedToken]=useState<{id:string;token:string|null}|null>(null)
   const [pendingSong,setPendingSong]=useState<number|undefined>()
   const [memberBooksOpen,setMemberBooksOpen]=useState(false)
   const [book,setBook]=useState<'home'|'personal'|'church'>('home')
@@ -53,32 +55,36 @@ export default function SharedApp() {
   bookRef.current=book
   const sharedListsRef=useRef(sharedLists)
   sharedListsRef.current=sharedLists
-  function openBook(next:'personal'|'church', planSet = false, ownedSet?:string) {
+  function openBook(next:'personal'|'church', planSet = false) {
     if(!allowNavigation())return
     setPendingSong(undefined)
     setMemberBooksOpen(false)
     setSharedList(null)
-    history.pushState({bicBook:next,bicSetlistIndex:planSet||!!ownedSet},'',location.href)
-    if(planSet||ownedSet)history.pushState({bicBook:next,bicSetlistIndex:true,bicSetlist:ownedSet??'new',...(ownedSet?{bicFullSet:ownedSet}:{})},'',location.href)
+    history.pushState({bicBook:next,bicSetlistIndex:planSet},'',isSetlistPath()?'/':location.href)
+    if(planSet)history.pushState({bicBook:next,bicSetlistIndex:true,bicSetlist:'new'},'',location.href)
     generation.current++;setSongs([]);setBook(next)
     requestAnimationFrame(()=>window.scrollTo(0,0))
   }
   function openMemberBooks() {
     if(offline||!allowNavigation())return
-    history.pushState({bicBook:book,bicMemberBooks:true},'',location.href)
+    history.pushState({bicBook:book,bicMemberBooks:true},'',isSetlistPath()?'/':location.href)
     setMemberBooksOpen(true)
   }
-  function openShared(list:SharedSetlist, force=false) {
-    if(!force&&!allowNavigation())return
+  function openShared(list:SharedSetlist) {
+    if(!allowNavigation())return
     setMemberBooksOpen(false)
-    history.pushState({bicBook:'home',bicShared:list.id},'',location.href)
+    history.pushState({bicBook:'home',bicShared:list.id},'',isSetlistPath()?'/':location.href)
     setSharedList(list)
   }
   function backToBooks() {
     history.go(history.state?.bicSong ? -2 : -1)
   }
   useEffect(()=>{
-    function readLink(){setLinkError('');setPendingLink(pendingSetlistLink())}
+    function readLink(){
+      const token=pendingSetlistLink()
+      setLinkError(isSetlistPath()&&!token?'This setlist link is no longer available.':'')
+      setPendingLink(token)
+    }
     readLink()
     window.addEventListener('hashchange',readLink)
     return ()=>window.removeEventListener('hashchange',readLink)
@@ -86,7 +92,13 @@ export default function SharedApp() {
   const exitPressed=useRef(0)
   const historyInitialized=useRef(false)
   useEffect(()=>{
-    if(!historyInitialized.current){historyInitialized.current=true;history.replaceState({bicExitGuard:true},'',location.href);history.pushState({bicBook:'home'},'',location.href)}
+    if(!historyInitialized.current){
+      historyInitialized.current=true
+      if(!isSetlistPath()){
+        history.replaceState({bicExitGuard:true},'',location.href)
+        history.pushState({bicBook:'home'},'',location.href)
+      }
+    }
     const back=(event:PopStateEvent)=>{
       const state=event.state??{}
       if(state.bicExitGuard){
@@ -99,7 +111,16 @@ export default function SharedApp() {
       setBook(state.bicBook??'home')
       setMemberBooksOpen(!!state.bicMemberBooks)
       if(state.bicMemberBooks)setPendingSong(undefined)
-      setSharedList(state.bicShared?sharedListsRef.current.find(list=>list.id===state.bicShared)??null:null)
+      const share=state.bicShared?sharedListsRef.current.find(list=>list.id===state.bicShared)??null:null
+      setSharedList(current=>share??(current?.id===state.bicShared?current:null))
+      setLinkError('')
+      if(isSetlistPath()&&(!state.bicFullSet||(state.bicShared&&!share))){
+        const token=pendingSetlistLink()
+        setPendingLink(token)
+        if(!token)setLinkError('This setlist link is no longer available.')
+      }else{
+        setPendingLink(null)
+      }
     }
     window.addEventListener('popstate',back)
     return ()=>window.removeEventListener('popstate',back)
@@ -109,11 +130,15 @@ export default function SharedApp() {
   const activeUser=useRef<string|null>(null)
   useEffect(()=>{
     if(!cloud) {setReady(true);return}
-    if(!navigator.onLine){const user=offlineIdentity();if(user){activeUser.current=user.id;setSession({user});setReady(true)}}
+    if(!navigator.onLine){
+      const user=offlineIdentity()
+      if(user){activeUser.current=user.id;setSession({user})}
+      setReady(true)
+    }
     const {data:{subscription}}=cloud!.auth.onAuthStateChange((event,newSession)=>{
       if(!newSession&&!navigator.onLine&&event!=='SIGNED_OUT')return
       const id=newSession?.user.id ?? null
-      if(activeUser.current!==id) {generation.current++;setAccounts([]);setShowAccounts(false);setSharedLists([]);setSharedList(null);setPendingSong(undefined);setMemberBooksOpen(false);setBook('home');setSongs([]);setRole(null);setOfflineBundle(null);setOfflineStatus('Not saved on this device yet.');setLoading(false);setNotice('');if(activeUser.current&&activeUser.current!==id){clearSetlistPreferenceCache(activeUser.current);clearSetlistCueCache(activeUser.current);void clearOffline(activeUser.current).catch(()=>{})};if(!id)forgetIdentity();activeUser.current=id}
+      if(activeUser.current!==id) {generation.current++;setAccounts([]);setShowAccounts(false);setSharedLists([]);setSharedList(null);setSharedToken(null);setPendingSong(undefined);setMemberBooksOpen(false);setBook('home');setSongs([]);setRole(null);setOfflineBundle(null);setOfflineStatus('Not saved on this device yet.');setLoading(false);setNotice('');if(activeUser.current&&activeUser.current!==id){clearSetlistPreferenceCache(activeUser.current);clearSetlistCueCache(activeUser.current);void clearOffline(activeUser.current).catch(()=>{})};if(!id)forgetIdentity();activeUser.current=id}
       setSession(newSession);setReady(true)
       if(event==='PASSWORD_RECOVERY') setRecovery(true)
     })
@@ -153,7 +178,18 @@ export default function SharedApp() {
       if(generation.current!==current||request!==refreshSerial.current)return
       const bundle:OfflineBundle={userId:session.user.id,role:next,savedAt:new Date().toISOString(),personal,church,folders:folders.data??[],setlists:lists.data??[],favorites:(favorites.data??[]).map(row=>row.song_id),shared:shares.data??[]}
       const openedShare=sharedListsRef.current.find(row=>row.id===history.state?.bicShared)
-      if(openedShare&&!bundle.shared.some(row=>row.id===openedShare.id))setNotice('This shared setlist is no longer available.')
+      if(openedShare&&!bundle.shared.some(row=>row.id===openedShare.id)){
+        if(isSetlistPath())history.replaceState({bicBook:'home'},'','/')
+        setNotice('This shared setlist is no longer available.')
+      }
+      const sharedReader=bundle.shared.find(row=>history.state?.bicFullSet&&row.id===history.state.bicShared)
+      if(sharedReader?.setlist_id){
+        const result=await cloud.rpc('get_setlist_reader_link',{target:sharedReader.setlist_id})
+        if(generation.current!==current||request!==refreshSerial.current)return
+        if(!result.error&&history.state?.bicShared===sharedReader.id&&history.state.bicFullSet){
+          setSharedToken({id:sharedReader.id,token:result.data as string|null})
+        }
+      }
       const visibleShares=new Set(bundle.shared.map(share=>share.id))
       for(const share of sharedListsRef.current){
         if(share.setlist_id&&!visibleShares.has(share.id))clearSetlistCueCache(session.user.id,share.setlist_id)
@@ -190,29 +226,49 @@ export default function SharedApp() {
         const {data,error}=await cloud!.rpc('open_setlist_link',{link_token:pendingLink})
         if(error)throw error
         if(!active)return
-        if(!data){
-          setNotice('This setlist link is no longer available.')
-        }else if(data.owned_setlist_id){
-          if(!allowNavigation()){setLinkError('Finish your edits before opening the setlist.');return}
-          if(book==='home') openBook('personal',false,data.owned_setlist_id)
-          else {
-            setBook('home')
-            setLinkRetry(value=>value+1)
-            return
-          }
-        }else{
+        const ownedId=data?.owned_setlist_id as string|undefined
+        let shared:SharedSetlist|null=null
+        if(data?.share_id){
           const {data:list,error:readError}=await cloud!.from('songbook_setlist_shares')
             .select('id,setlist_id,title,sender_email,songs').eq('id',data.share_id).maybeSingle()
           if(readError)throw readError
           if(!active)return
-          if(!list){setNotice('This setlist link is no longer available.')}
-          else{
-            if(!allowNavigation()){setLinkError('Finish your edits before opening the setlist.');return}
-            if(book!=='home'){generation.current++;setBook('home');setSongs([])}
-            openShared(list,true)
-            void refresh()
-          }
+          shared=list
         }
+        if(!ownedId&&!shared){
+          clearSetlistLink()
+          setPendingLink(null)
+          if(history.state?.bicFullSet)history.replaceState({bicBook:'home'},'','/')
+          setLinkError('This setlist link is no longer available.')
+          return
+        }
+        if(!allowNavigation()){setLinkError('Finish your edits before opening the setlist.');return}
+        const userId=session!.user.id
+        const parent=ownedId
+          ? {bicBook:'personal',bicSetlistIndex:true}
+          : {bicBook:'home',bicShared:shared!.id}
+        const reader={...parent,bicFullSet:ownedId??true,bicReaderUser:userId,...(ownedId?{bicSetlist:ownedId}:{})}
+        const current=history.state
+        const reuse=current?.bicFullSet&&current.bicReaderUser===userId&&
+          (ownedId?current.bicSetlist===ownedId:current.bicShared===shared!.id)
+        if(reuse)history.replaceState(reader,'',setlistLink(pendingLink!))
+        else{
+          if(setlistTokenFromPath())history.replaceState(parent,'','/')
+          else history.pushState(parent,'','/')
+          history.pushState(reader,'',setlistLink(pendingLink!))
+        }
+        setPendingSong(undefined)
+        setMemberBooksOpen(false)
+        const nextBook=ownedId?'personal':'home'
+        generation.current++
+        setLoading(false)
+        if(bookRef.current!==nextBook){setSongs([]);setBook(nextBook)}
+        if(shared){
+          setSharedToken({id:shared.id,token:pendingLink!})
+          setSharedLists(current=>current.some(row=>row.id===shared.id)?current:[...current,shared])
+        }
+        setSharedList(shared)
+        setReaderEntry(value=>value+1)
         clearSetlistLink();setPendingLink(null);setLinkError('')
       }catch(error){if(active)setLinkError(message(error))}
     }
@@ -226,7 +282,7 @@ export default function SharedApp() {
   function message(error:unknown) {return error instanceof Error ? error.message : String((error as {message?:string})?.message ?? error)}
   if(!cloud) return <main className="auth-panel"><h1>BIC Songbook</h1><p><a href="/guide.html" target="_blank" rel="noopener">User guide</a></p><p>The shared database has not been connected yet.</p><p>Set the Supabase URL and public publishable key, then rebuild the app. See SETUP.md in the source folder.</p></main>
   if(!ready) return <main><p>Loading your account…</p></main>
-  if(!session || recovery) return <main className="auth-panel"><h1>{recovery?'Reset password':signup?'Create an account':'Sign in'}</h1>{pendingLink&&<p>Sign in to open the shared setlist.</p>}
+  if(!session || recovery) return <main className="auth-panel"><h1>{recovery?'Reset password':signup?'Create an account':'Sign in'}</h1>{pendingLink&&<p>{offline?'Reconnect to open this setlist link.':'Sign in to open the shared setlist.'}</p>}{linkError&&<p role="status">{linkError}</p>}
     <form onSubmit={event=>{event.preventDefault(); void action(async()=>{
       if(recovery) {const {error}=await cloud!.auth.updateUser({password});if(error)throw error;setRecovery(false);setPassword('');setNotice('Password updated.');history.replaceState(history.state,'',location.pathname);return}
       loginPersistence.setRememberMe(rememberMe)
@@ -249,7 +305,7 @@ export default function SharedApp() {
     <MenuSection>
     <div className="account-bar"><span>{session.user.email} · {role ?? 'Awaiting access'}</span>
     <button disabled={loading} onClick={()=>void refresh()}>Refresh library</button>
-    <button disabled={busy} onClick={()=>void action(async()=>{if(!allowNavigation())return;clearSongDrafts(session.user.id);clearSetlistDrafts(session.user.id);clearSetlistLink();setPendingLink(null);await clearOffline(session.user.id);forgetIdentity();const {error}=await cloud!.auth.signOut({scope:'local'});if(error&&!offline)throw error;if(offline){loginPersistence.storage.removeItem('sb-tggcpgfunzaxftbkghbn-auth-token');setSession(null);setRole(null);setSongs([]);setSharedLists([]);setSharedList(null);setOfflineBundle(null)}setRecovery(false)})}>Sign out</button></div>
+    <button disabled={busy} onClick={()=>void action(async()=>{if(!allowNavigation())return;clearSongDrafts(session.user.id);clearSetlistDrafts(session.user.id);clearSetlistLink(true);setPendingLink(null);await clearOffline(session.user.id);forgetIdentity();const {error}=await cloud!.auth.signOut({scope:'local'});if(error&&!offline)throw error;if(offline){loginPersistence.storage.removeItem('sb-tggcpgfunzaxftbkghbn-auth-token');setSession(null);setRole(null);setSongs([]);setSharedLists([]);setSharedList(null);setOfflineBundle(null)}setRecovery(false)})}>Sign out</button></div>
     {!offline&&role&&<button type="button" onClick={event=>{
       const menu=event.currentTarget.closest('details')
       if(menu)menu.open=false
@@ -269,7 +325,7 @@ export default function SharedApp() {
     </MenuSection>
     {offline&&<p className="notice" role="status">Offline · Reading saved copies · {offlineStatus}</p>}
     {notice && <p role="status" className="notice">{notice}</p>}
-    {linkError&&<p role="status">{linkError} <button onClick={()=>{setLinkError('');setLinkRetry(n=>n+1)}}>Retry setlist link</button></p>}
+    {linkError&&<p role="status">{linkError} {pendingLink&&<button onClick={()=>{setLinkError('');setLinkRetry(n=>n+1)}}>Retry setlist link</button>}</p>}
     {pendingLink&&offline&&<p role="status">Reconnect to open this setlist link.</p>}
     {loading && <p className="storage-note">Loading library…</p>}
     <RegistrationGate key={session.user.id} userId={session.user.id} offline={offline} onRefresh={refresh}>
@@ -301,10 +357,10 @@ export default function SharedApp() {
         </button>)}</div>
       </section>
     </main>}
-    {!memberBooksOpen && sharedList && role && role!=='owner' && <><div className="shared-set-actions"><button onClick={backToBooks}>← Songbooks</button><p>Shared by {sharedList.sender_email} · {offline?'Saved shared setlist · Updates when reconnected':'Live shared setlist · Updates automatically'}</p></div><App key={sharedList.id} library={{sharedSetlistId:sharedList.id,sourceSetlistId:sharedList.setlist_id,offline,offlineData:offlineBundle??undefined,sharedSetlist:true,userId:session.user.id,ownerId:null,bookName:sharedList.title,songs:sharedList.songs,canEdit:false,refresh,add:async()=>{throw new Error('Read only')},update:async()=>{throw new Error('Read only')},remove:async()=>{throw new Error('Read only')}}}/><div className="shared-set-actions"><button className="danger-action" disabled={busy||offline} onClick={()=>void action(async()=>{const {error}=await cloud!.from('songbook_setlist_shares').delete().eq('id',sharedList.id);if(error)throw error;setSharedList(null);await refresh()})}>Remove shared setlist</button>{!offline&&<SaveSharedSetlist key={sharedList.id+'-save'} shareId={sharedList.id} title={sharedList.title} ownerId={session.user.id} onSaved={refresh}/>}</div></>}
+    {!memberBooksOpen && sharedList && role && role!=='owner' && <><div className="shared-set-actions"><button onClick={backToBooks}>← Songbooks</button><p>Shared by {sharedList.sender_email} · {offline?'Saved shared setlist · Updates when reconnected':'Live shared setlist · Updates automatically'}</p></div><App key={sharedList.id+'-'+readerEntry} library={{shareToken:sharedToken?.id===sharedList.id?sharedToken.token:undefined,sharedSetlistId:sharedList.id,sourceSetlistId:sharedList.setlist_id,offline,offlineData:offlineBundle??undefined,sharedSetlist:true,userId:session.user.id,ownerId:null,bookName:sharedList.title,songs:sharedList.songs,canEdit:false,refresh,add:async()=>{throw new Error('Read only')},update:async()=>{throw new Error('Read only')},remove:async()=>{throw new Error('Read only')}}}/><div className="shared-set-actions"><button className="danger-action" disabled={busy||offline} onClick={()=>void action(async()=>{const {error}=await cloud!.from('songbook_setlist_shares').delete().eq('id',sharedList.id);if(error)throw error;setSharedList(null);await refresh()})}>Remove shared setlist</button>{!offline&&<SaveSharedSetlist key={sharedList.id+'-save'} shareId={sharedList.id} title={sharedList.title} ownerId={session.user.id} onSaved={refresh}/>}</div></>}
 
     {!memberBooksOpen && role && book!=='home' && <><nav className="songbook-location" aria-label="Songbook navigation">{role!=='owner'&&<button onClick={backToBooks}>← Songbooks</button>}<span>{book==='personal'?'My songbook':'Church songbook'}</span></nav>
-    {<App key={session.user.id+'-'+book} library={{loading,initialSongId:pendingSong,openChurchSong:song=>{openBook('church');setPendingSong(song.id)},offline,offlineData:offlineBundle??undefined,userId:session.user.id,refresh,ownerId:book==='personal'?session.user.id:null,bookName:book==='personal'?'My songbook':'Church songbook',songs,canEdit:!offline&&(book==='personal'||role==='owner'),copyToPersonal:!offline&&book==='church'&&role!=='owner'?async song=>{await insertSongs([{...song,folder_id:null,source_song_id:song.id}],session.user.id)}:undefined,
+    {<App key={session.user.id+'-'+book+'-'+readerEntry} library={{loading,initialSongId:pendingSong,openChurchSong:song=>{openBook('church');setPendingSong(song.id)},offline,offlineData:offlineBundle??undefined,userId:session.user.id,refresh,ownerId:book==='personal'?session.user.id:null,bookName:book==='personal'?'My songbook':'Church songbook',songs,canEdit:!offline&&(book==='personal'||role==='owner'),copyToPersonal:!offline&&book==='church'&&role!=='owner'?async song=>{await insertSongs([{...song,folder_id:null,source_song_id:song.id}],session.user.id)}:undefined,
       add:async rows=>{if(offline||!navigator.onLine)throw new Error('Reconnect before saving songs.');const saved=await insertSongs(rows,book==='personal'?session.user.id:null);setSongs(current=>[...current,...saved]);void refresh();return saved},
       update:async song=>{if(offline||!navigator.onLine)throw new Error('Reconnect before saving songs.');const saved=await updateSong(song);setSongs(current=>current.map(s=>s.id===saved.id?saved:s));void refresh();return saved},
       remove:async song=>{if(offline||!navigator.onLine)throw new Error('Reconnect before deleting songs.');await removeSong(song);setSongs(current=>current.filter(s=>s.id!==song.id));void refresh()}

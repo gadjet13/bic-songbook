@@ -100,6 +100,8 @@ Saving a new set returns to its card and shows the share link. Select the green 
 
 For deployments upgrading from email sharing, apply `database/link-only-setlist-sharing.sql` after `database/setlist-links-and-preferences.sql` to retire the old API endpoints. Existing share records and legacy version 2 backups are supported.
 
+Apply `database/setlist-reader-url.sql` before deploying canonical setlist reader URLs. Share links use `/setlists/<token>`, and older fragment links still open the reader.
+
 Apply `database/automatic-setlist-links.sql` after `database/setlist-links-and-preferences.sql` before deploying automatic link creation. New personal setlists receive a share link in the same transaction that saves them. Existing setlists retain their current link settings.
 
 Apply `database/setlist-cues.sql` after `database/setlist-links-and-preferences.sql` before deploying the reader with team and private cues.

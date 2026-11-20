@@ -1,3 +1,4 @@
+import { isSetlistPath, setlistLink } from './lib/setlist-links'
 import SetlistPrint from './SetlistPrint'
 import SetlistCopy from './SetlistCopy'
 import ReadingColumns from './ReadingColumns'
@@ -35,10 +36,11 @@ export type FullReaderControls = {
   editor?:ReactNode
 }
 
-export default function FullSetlistReader({title,songs,controls,shareLink,shareOptions}:{
+export default function FullSetlistReader({title,songs,controls,shareToken,shareLink,shareOptions}:{
   title:string
   songs:(Song|undefined)[]
   controls:FullReaderControls
+  shareToken?: string | null
   shareLink?:ReactNode
   shareOptions?:ReactNode
 }){
@@ -64,6 +66,16 @@ export default function FullSetlistReader({title,songs,controls,shareLink,shareO
   const commanded=useRef<{id:string;top:number}|null>(null)
   const returnToSong=useRef<FullReaderControls['editing']>(undefined)
   const currentIndex=Math.max(0,available.findIndex(row=>row.id===currentId))
+
+  useEffect(() => {
+    const entry = history.state
+    if (offline || shareToken === undefined || !entry?.bicFullSet ||
+        (entry.bicShared ? entry.bicShared !== legacyId : entry.bicSetlist !== preferenceId)) return
+    if (shareToken || isSetlistPath()) {
+      const address = shareToken ? setlistLink(shareToken) : '/'
+      history.replaceState({ ...entry, bicReaderUser: userId }, '', address)
+    }
+  }, [shareToken, offline, userId, legacyId, preferenceId])
 
   function jumpTo(id:string) {
     const target=sections.current.get(id)
