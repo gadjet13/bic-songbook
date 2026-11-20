@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { chartCueLocations } from './lib/cue-locations'
 import { readingWords } from './lib/reader-lines'
-import { barChordParts, formatStoredChordRows, lyricsOnly, sectionHeading, transposeChord } from './lib/chord/transpose'
+import { barChordParts, storedChartLines, lyricsOnly, sectionHeading, transposeChord } from './lib/chord/transpose'
 
 export function displaySong(
   content: string,
@@ -10,15 +10,20 @@ export function displaySong(
   wrapWords=false,
   showChords=true,
   renderSection?: (location: string, heading: string) => ReactNode,
+  includeSourceLines=false,
 ) {
-  content = showChords ? formatStoredChordRows(content) : lyricsOnly(content)
+  const lines = showChords
+    ? storedChartLines(content)
+    : lyricsOnly(content).split('\n').map((text, sourceLine) => ({text, sourceLine}))
   const useFlats = currentKey.includes('b')
+  const cueIds = renderSection
+    ? new Map(chartCueLocations(lines.map(({text}) => text).join('\n')).map(section => [section.lineIndex, section.id]))
+    : null
 
-  const cueIds = renderSection ? new Map(chartCueLocations(content).map(section => [section.lineIndex, section.id])) : null
-  const groups: { heading?: string; cueId?: string; lines: string[] }[] = []
-  for (const [lineIndex, line] of content.split('\n').entries()) {
-    const heading = sectionHeading(line)
-    if (heading !== undefined) groups.push({ heading, cueId: cueIds?.get(lineIndex), lines: [] })
+  const groups: { heading?: string; sourceLine?: number; cueId?: string; lines: typeof lines }[] = []
+  for (const [lineIndex, line] of lines.entries()) {
+    const heading = sectionHeading(line.text)
+    if (heading !== undefined) groups.push({ heading, sourceLine: line.sourceLine, cueId: cueIds?.get(lineIndex), lines: [] })
     else {
       if (!groups.length) groups.push({ lines: [] })
       groups[groups.length - 1].lines.push(line)
@@ -27,15 +32,16 @@ export function displaySong(
   return groups.map((group, index) => <div className={showChords?'song-block':'song-block lyrics-only-block'} key={index}>
     {group.heading && (group.cueId && renderSection
       ? renderSection(group.cueId, group.heading)
-      : <div className="song-section">{group.heading}</div>)}
-    {group.lines.map((line, lineIndex) => {
+      : <div className="song-section" data-source-line={includeSourceLines ? group.sourceLine : undefined}>{group.heading}</div>)}
+    {group.lines.map(({text: line, sourceLine}, lineIndex) => {
+      const source = includeSourceLines ? sourceLine : undefined
       const barParts = showChords ? barChordParts(line) : null
-      if (barParts) return <div className="song-line song-bar-row" key={lineIndex}>
+      if (barParts) return <div className="song-line song-bar-row" data-source-line={source} key={lineIndex}>
         {barParts.map(({text, chord}, index) => chord
           ? <span className="chord" key={index}>{transposeChord(text, transpose, useFlats)}</span>
           : text)}
       </div>
-      return <div className="song-line" data-reader-spacer={wrapWords && !line.trim() || undefined} key={lineIndex}>
+      return <div className="song-line" data-source-line={source} data-reader-spacer={wrapWords && !line.trim() || undefined} key={lineIndex}>
       {wrapWords?readingWords(parseLine(line,transpose,useFlats)).map((word,wordIndex)=>word.kind==='space'?word.text:<span className="song-word" key={wordIndex}>{word.parts.map((segment,segmentIndex)=><span key={segmentIndex} style={segment.chord?{minWidth:`${(segment.chord.length+.7)*.65}em`}:undefined} className={segment.chord&&!segment.lyrics.trim()?'song-segment chord-only':'song-segment'}><span className="chord">{segment.chord}</span><span className="lyrics">{segment.lyrics}</span></span>)}</span>):parseLine(line, transpose, useFlats).map((segment, segmentIndex) => <span style={segment.chord ? {minWidth: `${(segment.chord.length + 0.7) * 0.65}em`} : undefined} className={segment.chord && !segment.lyrics.trim() ? "song-segment chord-only" : "song-segment"} key={segmentIndex}>
         <span className="chord">{segment.chord}</span><span className="lyrics">{segment.lyrics}</span>
       </span>)}

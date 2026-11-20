@@ -58,23 +58,32 @@ export function alignChordRow(row: NonNullable<ReturnType<typeof chordRowPositio
   return content.trimEnd()
 }
 
-/** Compose older, unmarked chord rows for the reader without changing saved text. */
-export function formatStoredChordRows(content: string) {
+/** Compose older chord rows and retain the first source line for each rendered row. */
+export function storedChartLines(content: string) {
   const lines = content.split('\n')
-  const output: string[] = []
+  const output: {text: string; sourceLine: number}[] = []
   for (let index = 0; index < lines.length; index++) {
-    const row = storedChordRow(lines[index])
+    const line = lines[index]
+    const row = storedChordRow(line)
     const next = lines[index + 1]
-    if (!row) output.push(lines[index])
-    else if (!next?.trim() || /[{}\[\]]/.test(next) || sectionHeading(next) ||
-             storedChordRow(next) || barChordParts(next)) {
-      output.push(row.map(({chord}) => `{${chord}}`).join(' ') + (lines[index].endsWith('\r') ? '\r' : ''))
-    } else {
-      output.push(alignChordRow(row, next.replace(/\r$/, '')) + (next.endsWith('\r') ? '\r' : ''))
-      index++
+    let text = line
+    const sourceLine = index
+    if (row) {
+      if (!next?.trim() || /[{}\[\]]/.test(next) || sectionHeading(next) ||
+          storedChordRow(next) || barChordParts(next)) {
+        text = row.map(({chord}) => `{${chord}}`).join(' ') + (line.endsWith('\r') ? '\r' : '')
+      } else {
+        text = alignChordRow(row, next.replace(/\r$/, '')) + (next.endsWith('\r') ? '\r' : '')
+        index++
+      }
     }
+    output.push({ text, sourceLine })
   }
-  return output.join('\n')
+  return output
+}
+
+export function formatStoredChordRows(content: string) {
+  return storedChartLines(content).map(({text}) => text).join('\n')
 }
 
 /** Read a standalone bar chart while retaining its rhythmic notation verbatim. */
