@@ -52,7 +52,7 @@ export function prepareNewSong(input: NewSongInput) {
     ? convertChordSheet(explicitKey?input.text.replace(chartKeyLine,''):input.text,input.title)
     : { title: chordPro?.title ?? '', artist: chordPro?.artist, content: normalizeSectionHeadings(chordPro?.content ?? input.text), warnings: [] }
   const compact = input.mode !== 'formatted' ? compactSectionSpacing(chart.content) : chart.content
-  const content = input.mode !== 'formatted' ? namePastedSectionVariants(compact) : compact
+  const content = namePastedSectionVariants(compact)
   const suggestedArtist = 'artist' in chart ? chart.artist ?? '' : ''
   const suggestedKey = explicitKey || (suggestKeys(chart.content)[0] ?? '')
   return {
