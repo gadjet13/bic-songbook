@@ -6,7 +6,7 @@ import type { ReaderColumns } from './lib/reader-lines'
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Song } from './App'
-import SetlistCues, { CueText } from './SetlistCues'
+import { CueAnchor, CueText, UnplacedCues } from './SetlistCues'
 import { songCueLocation } from './lib/cue-locations'
 import { useSetlistCues } from './lib/setlist-cues'
 import SetlistSongNote from './SetlistSongNote'
@@ -170,12 +170,21 @@ export default function FullSetlistReader({title,songs,controls,shareOptions}:{
       const songCues=cues.filter(cue=>cue.song_id===song.id)
       const editing=controls.editingOccurrence===id
       const titleId='full-set-song-'+id
-      return <article key={id} className="full-set-song" aria-labelledby={titleId}>
-        <h2 id={titleId} tabIndex={-1} ref={element=>{
+      const cueControls=preferenceId?{
+        songId:song.id,cues:songCues,canEditTeam:controls.canEditTeamCues,offline,save:saveCue
+      }:null
+      function songHeading(title:ReactNode) {
+        return <h2 id={titleId} tabIndex={-1} ref={element=>{
           if(element)sections.current.set(id,element)
           else sections.current.delete(id)
-        }}>{index+1}. {song.title}</h2>
-        <CueText cues={songCues} location={songCueLocation}/>
+        }}>{title}</h2>
+      }
+      return <article key={id} className="full-set-song" aria-labelledby={titleId}>
+        {editing ? <>
+          {songHeading(`${index+1}. ${song.title}`)}
+          <CueText cues={songCues} location={songCueLocation}/>
+        </> : <CueAnchor location={songCueLocation} title={`${index+1}. ${song.title}`}
+          heading={songHeading} controls={cueControls}/>}
         <div className="full-set-song-settings">
           <span>Sounding key: {setlistSoundingKey(song.key,song.setlist_key)||'Not set'}</span>
           {localId&&songKey(song.key)&&<label>My capo<select disabled={editing} value={capo}
@@ -188,13 +197,14 @@ export default function FullSetlistReader({title,songs,controls,shareOptions}:{
         {preference?.note&&<p className="full-set-note"><strong>My notes</strong> {preference.note}</p>}
         {localId&&<SetlistSongNote userId={userId} listId={localId} songId={song.id}
           note={preference?.note??''} offline={offline||!preferenceId} label={preference?.note?'Edit my notes':'My notes'}/>}
-        {preferenceId&&!editing&&<SetlistCues key={preferenceId+':'+id}
-          songId={song.id} content={song.content} cues={songCues} canEditTeam={controls.canEditTeamCues} offline={offline} save={saveCue}/>}
+        {cueControls&&!editing&&<UnplacedCues content={song.content} controls={cueControls}/>}
         {controls.onEditRaw&&<button type="button" hidden={editing}
           onClick={event=>controls.onEditRaw?.(song,id,event.currentTarget)}>Edit raw content</button>}
         {editing&&controls.editor}
         <div hidden={editing} className="full-set-chart reader-chart" data-columns={readerColumns} style={{fontSize}}>
-          {displaySong(chart.content,0,chart.key,true,content==='chords',location=><CueText cues={songCues} location={location}/>)}
+          {displaySong(chart.content,0,chart.key,true,content==='chords',(location,label)=>
+            <CueAnchor key={location} location={location} title={label}
+              heading={title=><div className="song-section">{title}</div>} controls={cueControls}/>)}
         </div>
       </article>
     })}

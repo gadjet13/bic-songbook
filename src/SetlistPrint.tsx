@@ -65,7 +65,10 @@ export default function SetlistPrint({title,songs,userId,listId,legacyListId=lis
           <h2>{index+1}. {song.title}</h2>
           <p>Sounding key: {sounding||'Not set'}{fret>0&&<> · Capo {fret} · Chord shapes: {chart.key}</>}</p>
           <CueText cues={teamCues} location={songCueLocation}/>
-          {displaySong(chart.content,0,chart.key,true,mode==='chords',location=><CueText cues={teamCues} location={location}/>)}
+          {displaySong(chart.content,0,chart.key,true,mode==='chords',(location, heading)=><>
+            <div className="song-section">{heading}</div>
+            <CueText cues={teamCues} location={location}/>
+          </>)}
         </section>
       })}
     </article>,document.body)}

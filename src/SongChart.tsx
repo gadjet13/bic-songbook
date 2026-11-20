@@ -9,12 +9,12 @@ export function displaySong(
   currentKey: string,
   wrapWords=false,
   showChords=true,
-  sectionCues?: (location: string) => ReactNode,
+  renderSection?: (location: string, heading: string) => ReactNode,
 ) {
   content = showChords ? formatStoredChordRows(content) : lyricsOnly(content)
   const useFlats = currentKey.includes('b')
 
-  const cueIds = sectionCues ? new Map(chartCueLocations(content).map(section => [section.lineIndex, section.id])) : null
+  const cueIds = renderSection ? new Map(chartCueLocations(content).map(section => [section.lineIndex, section.id])) : null
   const groups: { heading?: string; cueId?: string; lines: string[] }[] = []
   for (const [lineIndex, line] of content.split('\n').entries()) {
     const heading = sectionHeading(line)
@@ -25,8 +25,9 @@ export function displaySong(
     }
   }
   return groups.map((group, index) => <div className={showChords?'song-block':'song-block lyrics-only-block'} key={index}>
-    {group.heading && <div className="song-section">{group.heading}</div>}
-    {group.cueId && sectionCues?.(group.cueId)}
+    {group.heading && (group.cueId && renderSection
+      ? renderSection(group.cueId, group.heading)
+      : <div className="song-section">{group.heading}</div>)}
     {group.lines.map((line, lineIndex) => {
       const barParts = showChords ? barChordParts(line) : null
       if (barParts) return <div className="song-line song-bar-row" key={lineIndex}>
