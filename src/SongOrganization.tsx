@@ -30,7 +30,7 @@ export function useFavorites(userId: string, offlineFavorites?:number[]) {
  async function toggle(id:number){if(busy)return;setBusy(true);setError('');try{const exists=favorites.includes(id);const result=exists?await cloud!.from('songbook_favorites').delete().eq('user_id',userId).eq('song_id',id):await cloud!.from('songbook_favorites').insert({user_id:userId,song_id:id});if(result.error)throw result.error;setFavorites(current=>exists?current.filter(value=>value!==id):[...current,id])}catch(error){setError(message(error))}finally{setBusy(false)}}
  return {favorites,toggle,error,busy}
 }
-export default function SongOrganization({songs,canEdit,ownerId,offlineLists,churchSongs,onSongsChanged,activeId,onNavigate,onBack,onSongEditor,fullReader,onReadFull}: {activeId:string|null;onNavigate:(id:string)=>void;onBack:()=>void;churchSongs:Song[];onSongsChanged:()=>Promise<void>;offlineLists?:OfflineList[];songs:Song[];canEdit:boolean;ownerId:string|null;onSongEditor:(song:Song|null,onSaved:(song:Song)=>void,returnFocus:HTMLElement)=>void;fullReader:FullReaderControls|null;onReadFull:(id?:string)=>void}) {
+export default function SongOrganization({songs,canEdit,ownerId,offlineLists,churchSongs,onSongsChanged,requestedSong,activeId,onNavigate,onBack,onSongEditor,fullReader,onReadFull}: {requestedSong?:number|'new';activeId:string|null;onNavigate:(id:string)=>void;onBack:()=>void;churchSongs:Song[];onSongsChanged:()=>Promise<void>;offlineLists?:OfflineList[];songs:Song[];canEdit:boolean;ownerId:string|null;onSongEditor:(song:Song|null,onSaved:(song:Song)=>void,returnFocus:HTMLElement)=>void;fullReader:FullReaderControls|null;onReadFull:(id?:string)=>void}) {
  const [listSort,setListSort]=useState<LibrarySort>('added-newest')
  const [church,setChurch]=useState(churchSongs),[churchError,setChurchError]=useState('')
  useEffect(()=>{let active=true;if(offlineLists){setChurch(churchSongs);return}setChurch(churchSongs);void loadSongs(null).then(rows=>{if(active){setChurch(rows);setChurchError('')}}).catch(error=>{if(active)setChurchError(message(error))});return()=>{active=false}},[ownerId,churchSongs,offlineLists])
@@ -68,7 +68,7 @@ export default function SongOrganization({songs,canEdit,ownerId,offlineLists,chu
  async function refresh(){if(offlineLists){setLists(offlineLists);setLoaded(true);return offlineLists}const {data,error}=await query();if(error)throw error;setLists(data??[]);setLoaded(true);return (data??[]) as Setlist[]}
  useEffect(()=>{let active=true;if(offlineLists){setLists(offlineLists);setLoaded(true);return}void query().then(({data,error})=>{if(active){if(error)setNotice(error.message);else setLists(data??[]);setLoaded(true)}});return()=>{active=false}},[ownerId,offlineLists])
  useEffect(()=>{const restored=()=>{setSelected(null);void refresh().catch(error=>setNotice(message(error)))};window.addEventListener('songbook-restored',restored);return()=>window.removeEventListener('songbook-restored',restored)},[ownerId])
- function choose(list:Setlist,edit=false){if(pendingDraft.current?.listId===list.id){applyDraft(pendingDraft.current,list);return}setSelected(list);setTitle(list.title);setEntries(setlistEntries(list));setEditing(edit);setSearch('');setNotice('');if(!offlineLists)void cloud!.rpc('recover_setlist_songs',{list_id:list.id}).then(async({data,error})=>{if(error){setNotice(error.message);return}if(data?.length){setPersonal(rows=>[...rows.filter(row=>!data.some((song:Song)=>song.id===row.id)),...data]);await onSongsChanged();setNotice('Missing setlist songs restored to your personal songbook.')}})}
+ function choose(list:Setlist,edit=false){const draft=pendingDraft.current??(edit?drafts.find(row=>row.listId===list.id):undefined);if(draft?.listId===list.id&&canResumeSetlistDraft(draft,list)){applyDraft(draft,list);return}setSelected(list);setTitle(list.title);setEntries(setlistEntries(list));setEditing(edit&&!draft);setSearch('');setNotice(draft?'This setlist changed since your draft began. Return to Setlists to recover or discard the draft.':'');if(!offlineLists)void cloud!.rpc('recover_setlist_songs',{list_id:list.id}).then(async({data,error})=>{if(error){setNotice(error.message);return}if(data?.length){setPersonal(rows=>[...rows.filter(row=>!data.some((song:Song)=>song.id===row.id)),...data]);await onSongsChanged();setNotice('Missing setlist songs restored to your personal songbook.')}})}
  function editSetlist(list:Setlist){
   if(!canEdit||offlineLists){onReadFull(list.id);return}
   const draft=drafts.find(row=>row.listId===list.id)
@@ -85,6 +85,16 @@ export default function SongOrganization({songs,canEdit,ownerId,offlineLists,chu
    else{setSelected(null);setTitle('');setEntries([]);setEditing(true)}
   }else if(!activeId){setSelected(null);setEditing(false)}
  },[activeId,ownerId])
+ const reopenedRoute=useRef<number|'new'|undefined>(undefined)
+ useEffect(()=>{
+  if(!requestedSong){reopenedRoute.current=undefined;return}
+  if(!canEdit||!editing||reopenedRoute.current===requestedSong)return
+  const trigger=document.querySelector<HTMLElement>(requestedSong==='new'?'[data-setlist-new-song]':`[data-setlist-edit-song="${requestedSong}"]`)
+  const song=personal.find(row=>row.id===requestedSong)
+  if(!trigger||(!song&&requestedSong!=='new'))return
+  reopenedRoute.current=requestedSong
+  onSongEditor(song??null,song?rememberSong:appendSong,trigger)
+ },[requestedSong,editing,canEdit,personal])
  useEffect(()=>{if(pickerOpen)searchInput.current?.focus()},[pickerOpen])
  useEffect(()=>{if(activeId&&activeId!=='new'&&selected?.id!==activeId){const list=lists.find(row=>row.id===activeId);if(list)choose(list,!fullReader)}},[activeId,lists,selected?.id,!!fullReader])
  useEffect(()=>{
@@ -175,6 +185,7 @@ export default function SongOrganization({songs,canEdit,ownerId,offlineLists,chu
  const sharingId=canEdit&&!offlineLists?readingSet?.id??null:null
  const link=useSetlistLink(sharingId)
  if(fullReader&&readingSet)return <FullSetlistReader title={readingSet.title} songs={slots(readingSet)} controls={fullReader}
+  shareToken={sharingId&&link.resolved?link.token:undefined}
   shareLink={sharingId&&<ReaderShareLink key={sharingId} token={link.token} busy={link.busy} notice={link.notice} enableLink={link.enableLink}/>}
   shareOptions={sharingId&&link.token&&<details className="setlist-sharing"><summary>Share options</summary>
    {link.token&&<button type="button" disabled={link.busy} onClick={()=>void link.disableLink().then(disabled=>{
@@ -226,7 +237,7 @@ export default function SongOrganization({songs,canEdit,ownerId,offlineLists,chu
    <h2>Song order</h2>
    <div className="worship-set-actions">
     <button type="button" aria-expanded={pickerOpen} aria-controls="worship-song-picker" onClick={()=>setPickerOpen(open=>!open)}>Add from library</button>
-    <button type="button" disabled={ids.length>=100} onClick={event=>onSongEditor(null,appendSong,event.currentTarget)}>Add new song</button>
+    <button type="button" data-setlist-new-song disabled={ids.length>=100} onClick={event=>onSongEditor(null,appendSong,event.currentTarget)}>Add new song</button>
    </div>
   </div>
   {ids.length>=100&&<p role="status">This setlist has 100 songs. Remove a song to add another.</p>}
@@ -252,7 +263,7 @@ export default function SongOrganization({songs,canEdit,ownerId,offlineLists,chu
      <option value="">Song key</option>{soundingTonics.map(note=><option key={note} value={note}>{setlistSoundingKey(song.key,note)}</option>)}
     </select>{!songKey(song.key)&&<small>Set a recognized song key to transpose.</small>}</label>}
     <div className="worship-set-actions">
-     {song&&<button type="button" onClick={event=>onSongEditor(song,saved=>{
+     {song&&<button type="button" data-setlist-edit-song={song.id} onClick={event=>onSongEditor(song,saved=>{
       rememberSong(saved)
       setNotice(`Saved your arrangement of “${saved.title}”.`)
      },event.currentTarget)}>Edit arrangement</button>}

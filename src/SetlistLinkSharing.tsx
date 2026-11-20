@@ -20,7 +20,7 @@ export async function copySetlistLink(token:string|null){
 }
 
 export function useSetlistLink(listId:string|null){
-  const [status,setStatus]=useState<{id:string;token:string|null;busy:boolean;notice:string}|null>(null)
+  const [status,setStatus]=useState<{id:string;token:string|null;busy:boolean;notice:string;resolved:boolean}|null>(null)
   const current=status?.id===listId?status:null
   const activeId=useRef(listId)
   activeId.current=listId
@@ -29,11 +29,11 @@ export function useSetlistLink(listId:string|null){
     if(!listId)return
     let active=true
     const request=loadSetlistLink(listId)
-    setStatus({id:listId,token:null,busy:true,notice:''})
+    setStatus({id:listId,token:null,busy:true,notice:'',resolved:false})
     void request.then(token=>{
-      if(active)setStatus({id:listId,token,busy:false,notice:''})
+      if(active)setStatus({id:listId,token,busy:false,notice:'',resolved:true})
     }).catch(error=>{
-      if(active)setStatus({id:listId,token:null,busy:false,notice:String(error.message)})
+      if(active)setStatus({id:listId,token:null,busy:false,notice:String(error.message),resolved:false})
     })
     return ()=>{active=false}
   },[listId])
@@ -48,7 +48,7 @@ export function useSetlistLink(listId:string|null){
       if (operation === 'enable' && !token) throw new Error('Could not create the setlist link.')
       if (activeId.current === listId) {
         const notice = operation === 'enable' ? 'Share link created.' : 'Setlist link turned off.'
-        setStatus({ id: listId, token, busy: false, notice })
+        setStatus({ id: listId, token, busy: false, notice, resolved: true })
       }
       return true
     } catch (error) {
@@ -58,6 +58,7 @@ export function useSetlistLink(listId:string|null){
   return {
     token: current?.token ?? null,
     busy: !current || current.busy,
+    resolved: !!current?.resolved && !current.busy,
     notice: current?.notice ?? '',
     enableLink: () => changeLink('enable'),
     disableLink: () => changeLink('disable'),

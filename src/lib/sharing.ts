@@ -25,7 +25,7 @@ export function downloadSongs(songs: Song[]) {
 export function makeSongLink(song: Song): string {
   const bytes = new TextEncoder().encode(JSON.stringify(song))
   const encoded = btoa(Array.from(bytes, b => String.fromCharCode(b)).join(''))
-  return `${location.origin}${location.pathname}#song=${encodeURIComponent(encoded)}`
+  return `${location.origin}/#song=${encodeURIComponent(encoded)}`
 }
 export function readSongLink(): Song | null {
   try {

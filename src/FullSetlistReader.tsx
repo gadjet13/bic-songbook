@@ -1,3 +1,5 @@
+import { appPath } from './lib/app-routes'
+import { isSetlistPath, setlistLink } from './lib/setlist-links'
 import SetlistPrint from './SetlistPrint'
 import SetlistCopy from './SetlistCopy'
 import ReadingColumns from './ReadingColumns'
@@ -30,15 +32,18 @@ export type FullReaderControls = {
   changeFontSize:(size:number)=>void
   readerColumns:ReaderColumns
   changeColumns:(columns:ReaderColumns)=>void
+  requestedRaw?:string
+  routeVersion:number
   onEditRaw?:(song:Song,occurrence:string,trigger:HTMLElement)=>void
   editing?:{occurrence:string;trigger:HTMLElement}
   editor?:ReactNode
 }
 
-export default function FullSetlistReader({title,songs,controls,shareLink,shareOptions}:{
+export default function FullSetlistReader({title,songs,controls,shareToken,shareLink,shareOptions}:{
   title:string
   songs:(Song|undefined)[]
   controls:FullReaderControls
+  shareToken?: string | null
   shareLink?:ReactNode
   shareOptions?:ReactNode
 }){
@@ -64,6 +69,24 @@ export default function FullSetlistReader({title,songs,controls,shareLink,shareO
   const commanded=useRef<{id:string;top:number}|null>(null)
   const returnToSong=useRef<FullReaderControls['editing']>(undefined)
   const currentIndex=Math.max(0,available.findIndex(row=>row.id===currentId))
+
+  useEffect(() => {
+    const entry = history.state
+    if (offline || shareToken === undefined || !entry?.bicFullSet || entry.bicRawChart ||
+        (entry.bicShared ? entry.bicShared !== legacyId : entry.bicSetlist !== preferenceId)) return
+    if (shareToken || isSetlistPath()) {
+      const address = shareToken ? setlistLink(shareToken) : appPath(entry)
+      history.replaceState({ ...entry, bicReaderUser: userId }, '', address)
+    }
+  }, [shareToken, offline, userId, legacyId, preferenceId, controls.routeVersion])
+
+  useEffect(()=>{
+    const occurrence=controls.requestedRaw
+    if(!occurrence||controls.editing||!controls.onEditRaw)return
+    const entry=entries.find(row=>row.id===occurrence)
+    const trigger=reader.current?.querySelector<HTMLElement>(`[data-raw-occurrence="${CSS.escape(occurrence)}"]`)
+    if(entry?.song&&trigger)controls.onEditRaw(entry.song,occurrence,trigger)
+  },[controls.requestedRaw,controls.routeVersion,order,!!controls.onEditRaw])
 
   function jumpTo(id:string) {
     const target=sections.current.get(id)
@@ -231,7 +254,7 @@ export default function FullSetlistReader({title,songs,controls,shareLink,shareO
           {localId&&<SetlistSongNote userId={userId} listId={localId} songId={song.id}
             note={preference?.note??''} offline={offline||!preferenceId} label={preference?.note?'Edit my notes':'My notes'}/>}
           {cueControls&&<UnplacedCues content={song.content} controls={cueControls}/>}
-          {controls.onEditRaw&&<button type="button"
+          {controls.onEditRaw&&<button type="button" data-raw-occurrence={id}
             onClick={event=>controls.onEditRaw?.(song,id,event.currentTarget)}>Edit raw content</button>}
         </div>
         <div className="full-set-chart reader-chart" data-columns={readerColumns} style={{fontSize}}>

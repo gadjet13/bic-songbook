@@ -1,3 +1,4 @@
+import { writeAppRoute } from './lib/app-routes'
 import { copyFormattedLyrics } from './lib/lyrics-document'
 import { downloadLyricsRtf } from './lib/lyrics-rtf'
 import { downloadChordPro } from './lib/chordpro'
@@ -118,6 +119,7 @@ function getCurrentKey(
 }
 
 export type SharedLibrary = {
+  shareToken?: string | null
   sharedSetlistId?:string
   sourceSetlistId?:string
   loading?: boolean
@@ -141,13 +143,16 @@ type ReaderEdit = {song:Song; occurrence:string; content:string; scroll:number; 
 
 function App({library}: {library: SharedLibrary}) {
   const {favorites,toggle:toggleFavorite,error:favoriteError,busy:favoriteBusy}=useFavorites(library.userId,library.offline?library.offlineData?.favorites:undefined)
-  const [folder,setFolder]=useState('all')
+  const [folder,setFolder]=useState(()=>history.state?.bicFolder??'all')
   const [letter,setLetter]=useState('All')
   const [artistFilter,setArtistFilter]=useState('all')
   const [dateSort,setDateSort]=useState<SongDateSort>('title')
   function resetSongSort(){setDateSort('title')}
   const [libraryView,setLibraryView]=useState<'songs'|'setlists'>(()=>library.ownerId&&history.state?.bicSetlistIndex?'setlists':'songs')
   const [setlistId,setSetlistId]=useState<string|null>(()=>library.ownerId?history.state?.bicSetlist??null:null)
+  const [routeVersion,setRouteVersion]=useState(0)
+  const restoredSongRoute=useRef<number|null>(null)
+  const [requestedSetlistSong,setRequestedSetlistSong]=useState<number|'new'|undefined>(()=>history.state?.bicSetlistSong)
   const [setlistSongEditor,setSetlistSongEditor]=useState<{
     onSaved: (song: Song) => void
     returnFocus: HTMLElement
@@ -258,6 +263,9 @@ function App({library}: {library: SharedLibrary}) {
 
   const historyFullSetRef=useRef(fullSetReading)
   historyFullSetRef.current=fullSetReading
+  const historyEditingRef=useRef(false)
+  const historySetlistRef=useRef(setlistId)
+  historySetlistRef.current=setlistId
   const historySongRef=useRef<Song|null>(null)
   historySongRef.current=selectedSong
   useEffect(()=>{
@@ -266,13 +274,16 @@ function App({library}: {library: SharedLibrary}) {
     if(state.bicSong===selectedSong.id)return
     const next={...state,bicSong:selectedSong.id}
     if(state.bicMode==='adding')delete next.bicMode
-    if(state.bicSong || state.bicMode==='adding')history.replaceState(next,'',location.href)
-    else history.pushState(next,'',location.href)
+    writeAppRoute(next,!!state.bicSong||state.bicMode==='adding')
   },[selectedSong?.id])
   useEffect(()=>{
     const back=(event:PopStateEvent)=>{
       setReaderEdit(null)
-      setFullChartEdit(false)
+      setFullChartEdit(!!event.state?.bicFullChartEdit)
+      if(activeSetlistSongEditor.current&&event.state?.bicSetlist===historySetlistRef.current&&
+          event.state?.bicSetlistSong===historySongRef.current?.id)return
+      setRequestedSetlistSong(event.state?.bicSetlistSong)
+      setRouteVersion(value=>value+1)
       setlistReturnFocus.current=null
       activeSetlistSongEditor.current=null
       setSetlistSongEditor(null)
@@ -284,7 +295,11 @@ function App({library}: {library: SharedLibrary}) {
       setFolder(event.state?.bicFolder??'all')
       if(event.state?.bicSong){
         const song=library.songs.find(item=>item.id===event.state.bicSong)
-        if(song){selectSong(song);setReadingMode(event.state.bicMode==='reading');setIsEditing(event.state.bicMode==='editing')}
+        if(song){
+          if(historySongRef.current?.id!==song.id||!historyEditingRef.current||event.state.bicMode!=='editing')selectSong(song)
+          setReadingMode(event.state.bicMode==='reading')
+          setIsEditing(event.state.bicMode==='editing')
+        }
         setIsAddingSong(false)
       } else if(historySongRef.current){
         setSelectedSong(null);setIsEditing(false);setReadingMode(false);setIsAddingSong(event.state?.bicMode==='adding')
@@ -335,17 +350,20 @@ function App({library}: {library: SharedLibrary}) {
     useState('')
 
 
-  useEffect(()=>{setReadingChoice(false);setFullChartEdit(false)},[selectedSong?.id,isEditing])
+  useEffect(()=>{setReadingChoice(false);setFullChartEdit(!!history.state?.bicFullChartEdit)},[selectedSong?.id,isEditing])
 
   const [isAddingSong, setIsAddingSong] =
     useState(false)
   useEffect(()=>{
     const mode=isAddingSong?'adding':isEditing?'editing':readingMode?'reading':null
     const state=history.state??{}
-    if(mode=== (state.bicMode??null))return
-    if(mode)history.pushState({...state,bicMode:mode},'',location.href)
-    else if(state.bicMode)history.back()
-  },[isAddingSong,isEditing,readingMode])
+    if(restoredSongRoute.current!==routeVersion||state.bicSetlistSong||setlistSongEditor||state.bicMode===mode||(!state.bicMode&&!mode))return
+    if(mode)writeAppRoute({...state,bicMode:mode})
+    else if(state.bicMode){
+      if(state.bicFullChartEdit)history.go(-2)
+      else history.back()
+    }
+  },[isAddingSong,isEditing,readingMode,setlistSongEditor,routeVersion])
 
 
   const [newSong,setNewSong]=useState(emptyNewSong)
@@ -371,7 +389,13 @@ function App({library}: {library: SharedLibrary}) {
   const [draftStatus,setDraftStatus]=useState('')
   const dirtySong=!!isEditing&&!!selectedSong&&(editedTitle!==selectedSong.title||editedArtist!==selectedSong.artist||editedKey!==selectedSong.key||editedContent!==selectedSong.content||!!editedRaw.trim())
   const dirtyNew=isAddingSong&&!!(newSong.title.trim()||newSong.artist.trim()||newSong.key.trim()||newSong.text.trim()||newSong.alternate)
-  useUnsavedChanges(dirtySong||dirtyNew,savingSong)
+  historyEditingRef.current=isEditing
+  useUnsavedChanges(dirtySong||dirtyNew,savingSong,event=>{
+    const destination=event.state
+    if(!isEditing||!selectedSong)return true
+    if(setlistSongEditor)return destination?.bicSetlist!==setlistId||destination?.bicSetlistSong!==selectedSong.id
+    return destination?.bicSong!==selectedSong.id||destination?.bicMode!=='editing'
+  })
   const readerDirty=!!readerEdit&&readerEdit.content!==readerEdit.song.content
   useUnsavedChanges(readerDirty,readerSaving)
   useEffect(()=>{
@@ -390,6 +414,7 @@ function App({library}: {library: SharedLibrary}) {
       return
     }
     setNotice('');setReaderError('')
+    if(history.state?.bicRawChart!==occurrence)writeAppRoute({...history.state,bicRawChart:occurrence})
     setReaderEdit({song,occurrence,content:draft?.content??song.content,scroll:window.scrollY,trigger})
     if(!fullSetReading)requestAnimationFrame(()=>document.querySelector<HTMLElement>('[data-reader-edit-heading]')?.focus())
   }
@@ -397,6 +422,7 @@ function App({library}: {library: SharedLibrary}) {
     if(!readerEdit)return
     const {trigger,scroll}=readerEdit
     setReaderEdit(null);setReaderError('')
+    if(history.state?.bicRawChart)requestAnimationFrame(()=>history.back())
     if(!fullSetReading)requestAnimationFrame(()=>{window.scrollTo(0,scroll);trigger.focus({preventScroll:true})})
   }
   function cancelReaderEdit(){
@@ -450,6 +476,9 @@ function App({library}: {library: SharedLibrary}) {
       return
     }
     setNotice('')
+    const routeSong=song?.id??'new'
+    if(history.state?.bicSetlistSong!==routeSong)writeAppRoute({...history.state,bicSetlistSong:routeSong})
+    setRequestedSetlistSong(undefined)
     setSetlistSongEditor({onSaved,returnFocus})
     if(draft&&song)recoverDraft(draft,true,song)
     else if(song){selectSong(song,true);setIsEditing(true)}
@@ -462,6 +491,10 @@ function App({library}: {library: SharedLibrary}) {
     setlistReturnFocus.current=setlistSongEditor.returnFocus
     setSetlistSongEditor(null)
     setSelectedSong(null);setIsEditing(false);setIsAddingSong(false);setNotice('')
+    if(history.state?.bicSetlistSong){
+      const distance=history.state.bicFullChartEdit?-2:-1
+      requestAnimationFrame(()=>history.go(distance))
+    }
   }
   useEffect(()=>{
     if(setlistSongEditor)return
@@ -471,7 +504,7 @@ function App({library}: {library: SharedLibrary}) {
     if(button.isConnected)button.focus()
   },[setlistSongEditor])
   function switchLibraryView(view:'songs'|'setlists'){
-    history.replaceState({...history.state,bicSetlistIndex:view==='setlists'},'',location.href)
+    writeAppRoute({...history.state,bicSetlistIndex:view==='setlists'})
     setLibraryView(view)
   }
   function canCancelSong(dirty:boolean){
@@ -557,7 +590,7 @@ function App({library}: {library: SharedLibrary}) {
       delete next.bicMode
       setSetlistId(listId)
     }
-    history.pushState(next,'',location.href)
+    writeAppRoute(next)
     fullSetCard.current=listId??null
     setFullSetReading(true)
   }
@@ -569,14 +602,14 @@ function App({library}: {library: SharedLibrary}) {
   function openSetlist(id:string){
     if(!allowNavigation())return
     const next={...history.state,bicSetlist:id};delete next.bicSong;delete next.bicMode
-    if(setlistId)history.replaceState(next,'',location.href);else history.pushState(next,'',location.href)
+    writeAppRoute(next,!!setlistId)
     setSetlistId(id);setSelectedSong(null);setIsAddingSong(false)
   }
   function backToSetlists(){if(history.state?.bicSetlist)history.back();else if(allowNavigation())setSetlistId(null)}
-  function selectFolder(id:string){setFolder(id);history.replaceState({...history.state,bicFolder:id},'',location.href)}
+  function selectFolder(id:string){setFolder(id);writeAppRoute({...history.state,bicFolder:id},true)}
   function openFolder(id:string){
     const next={...history.state,bicFolder:id};delete next.bicSong;delete next.bicMode;delete next.bicSetlist
-    history.pushState(next,'',location.href);setFolder(id);setSelectedSong(null);setIsEditing(false);setReadingMode(false);setSetlistId(null);setLetter('All');setArtistFilter('all');setSearch('');setFavoritesOnly(false);resetSongSort()
+    writeAppRoute(next);setFolder(id);setSelectedSong(null);setIsEditing(false);setReadingMode(false);setSetlistId(null);setLetter('All');setArtistFilter('all');setSearch('');setFavoritesOnly(false);resetSongSort()
   }
   const libraryPage=!selectedSong&&!isAddingSong&&!setlistId
   const setlistIndex=libraryPage&&!!library.ownerId&&libraryView==='setlists'
@@ -604,6 +637,30 @@ function App({library}: {library: SharedLibrary}) {
     if (mode === 'editing') beginEditing(song)
     requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-setlist-song-heading]')?.focus())
   }
+
+  // Resolve direct song addresses against the authorized library after it loads.
+  useEffect(()=>{
+    if(library.loading||restoredSongRoute.current===routeVersion)return
+    const route=history.state
+    if(!route||route.bicSetlistSong||route.bicFullSet){restoredSongRoute.current=routeVersion;return}
+    const target=songList.find(song=>song.id===route.bicSong)
+    restoredSongRoute.current=routeVersion
+    if(route.bicSong&&!target){
+      setNotice('This song is no longer available.')
+      return
+    }
+    if(target){
+      if(selectedSong?.id!==target.id)selectSong(target,true)
+      if(route.bicMode==='reading')setReadingMode(true)
+      if(route.bicMode==='editing'&&library.canEdit){
+        const draft=readSongDrafts(recoveryKey).find(row=>row.songId===target.id)
+        if(draft&&canResumeSongDraft(draft,target))recoverDraft(draft,true,target)
+        else if(!isEditing)beginEditing(target)
+      }
+      if(route.bicMode==='editing'&&!library.canEdit)setNotice('Editing is unavailable for this song.')
+    }else if(route.bicMode==='adding'&&library.canEdit)startNewSong()
+    else if(route.bicMode==='adding')setNotice('Adding songs is unavailable in this songbook.')
+  },[library.loading,library.canEdit,library.songs,routeVersion])
 
   const initialOpened=useRef<number|undefined>(undefined)
   useEffect(()=>{
@@ -765,14 +822,20 @@ function App({library}: {library: SharedLibrary}) {
     fullWindow={fullSetReading?'setlist':undefined} busy={readerSaving} canSave={!readerDirty||canEditInReader}
     error={readerError||(!canEditInReader?'Reconnect to save your chart.':'')} dirty={readerDirty}
     onSave={()=>void saveReaderEdit()} onCancel={cancelReaderEdit}/>:null
+  useEffect(()=>{
+    if(fullSetReading||!readingMode||!selectedSong||!canEditInReader||readerEdit||
+        history.state?.bicRawChart!==String(selectedSong.id))return
+    const trigger=document.querySelector<HTMLElement>('[data-single-raw-edit]')
+    if(trigger)openRawEditor(selectedSong,String(selectedSong.id),trigger)
+  },[readingMode,selectedSong?.id,canEditInReader,routeVersion])
   const fullReader:FullReaderControls|null=fullSetReading?{
     userId:library.userId,preferenceId,canEditTeamCues:!!library.ownerId&&!library.sharedSetlist,legacyId:oldPreferenceId,offline:!!library.offline,
     content:readingContent,changeContent:setReadingContent,changeCapo,exit:exitFullSet,
     wakeStatus,preferenceError,fontSize,changeFontSize:setFontSize,readerColumns,changeColumns:setReaderColumns,
-    onEditRaw:canEditInReader?openRawEditor:undefined,editing:readerEdit??undefined,editor:readerEditor
+    requestedRaw:history.state?.bicRawChart,routeVersion,onEditRaw:canEditInReader?openRawEditor:undefined,editing:readerEdit??undefined,editor:readerEditor
   }:null
   if(fullReader&&library.sharedSetlist)return <div className="app"><main>
-    <FullSetlistReader title={library.bookName} songs={songList} controls={fullReader}/>
+    <FullSetlistReader title={library.bookName} songs={songList} controls={fullReader} shareToken={library.shareToken}/>
   </main></div>
 
   return (
@@ -796,7 +859,7 @@ function App({library}: {library: SharedLibrary}) {
         {libraryPage&&!setlistIndex&&!library.sharedSetlist&&<SongDraftRecovery drafts={songDrafts} canRestore={library.canEdit&&!library.loading} onRestore={recoverDraft} onDiscard={draft=>{if(window.confirm('Permanently discard this unsaved draft?'))clearDraft(draft.id)}}/>}
         {(isAddingSong||isEditing)&&draftStatus&&<p className="storage-note" role="status">{draftStatus}</p>}
 
-        {(setlistSongEditor||(!selectedSong&&!isAddingSong)) && library.ownerId && (setlistId||setlistIndex) && <div hidden={!!setlistSongEditor}><SongOrganization activeId={setlistId} onNavigate={openSetlist} onBack={backToSetlists} churchSongs={library.offlineData?.church??[]} onSongsChanged={library.refresh} offlineLists={library.offline?library.offlineData?.setlists:undefined} ownerId={library.ownerId} songs={songList} canEdit={library.canEdit} onSongEditor={openSetlistSongEditor} fullReader={fullReader} onReadFull={readFullSet}/></div>}
+        {(setlistSongEditor||(!selectedSong&&!isAddingSong)) && library.ownerId && (setlistId||setlistIndex) && <div hidden={!!setlistSongEditor}><SongOrganization requestedSong={requestedSetlistSong} activeId={setlistId} onNavigate={openSetlist} onBack={backToSetlists} churchSongs={library.offlineData?.church??[]} onSongsChanged={library.refresh} offlineLists={library.offline?library.offlineData?.setlists:undefined} ownerId={library.ownerId} songs={songList} canEdit={library.canEdit} onSongEditor={openSetlistSongEditor} fullReader={fullReader} onReadFull={readFullSet}/></div>}
         {favoriteError && <p role="status" className="notice">{favoriteError}</p>}
         {notice && <p role="status" className="notice">{notice}<button aria-label="Dismiss notification" onClick={() => setNotice('')}>×</button></p>}
         {!setlistId && incoming && <section className="incoming"><h2>A friend shared “{incoming.title}”</h2><p>{incoming.artist} · Key: {incoming.key}</p><button disabled={!library.canEdit} onClick={async () => { try { const [song] = await library.add([incoming]); selectSong(song); setIncoming(null); history.replaceState(history.state, '', location.pathname + location.search) } catch (error) { setNotice(String(error instanceof Error ? error.message : error)) } }}>Add to this songbook</button><button onClick={() => {setIncoming(null); history.replaceState(history.state, '', location.pathname + location.search)}}>Dismiss</button></section>}
@@ -940,12 +1003,12 @@ function App({library}: {library: SharedLibrary}) {
                 </label>
 
                 <ChordSheetPaste title={editedTitle} songKey={editedKey} raw={editedRaw} onRawChange={setEditedRaw} key={selectedSong.id} onApply={(content,title,key)=>{setEditedContent(content);if(title)setEditedTitle(title);if(key)setEditedKey(key)}}/>
-                <button type="button" onClick={()=>{setNotice('');setFullChartEdit(true)}}>Open editor in full window</button>
+                <button type="button" onClick={()=>{setNotice('');writeAppRoute({...history.state,bicFullChartEdit:true});setFullChartEdit(true)}}>Open editor in full window</button>
                 {fullChartEdit&&<ReaderChartEditor content={editedContent} onChange={setEditedContent}
                   songTitle={editedTitle.trim()||selectedSong.title} fullWindow="song"
                   baseKey={editedKey} busy={savingSong} canSave={library.canEdit&&!library.offline}
                   error={notice||(!library.canEdit?'Reconnect to save your chart.':'')} dirty={dirtySong}
-                  onSave={()=>void saveSong()} onCancel={()=>setFullChartEdit(false)}/>}
+                  onSave={()=>void saveSong()} onCancel={()=>{setFullChartEdit(false);if(history.state?.bicFullChartEdit)history.back()}}/>}
                 <label>
                   Song Content
                   <textarea
@@ -1045,7 +1108,7 @@ function App({library}: {library: SharedLibrary}) {
               </div>}
               {readingMode&&<small role="status">{wakeStatus}</small>}
               {readingMode&&canEditInReader&&<button type="button" hidden={!!readerEdit}
-                onClick={event=>openRawEditor(selectedSong,'single-'+selectedSong.id,event.currentTarget)}>Edit raw content</button>}
+                data-single-raw-edit onClick={event=>openRawEditor(selectedSong,String(selectedSong.id),event.currentTarget)}>Edit raw content</button>}
               {readingMode&&readerEditor}
               {readingMode ? <div hidden={!!readerEdit}><SongPages key={selectedSong.id+'-'+readingContent} columnPreference={readerColumns} fontSize={fontSize} onFitFontSize={setFontSize}>{displaySong(selectedSong.content,transpose,getCurrentKey(selectedSong.key,transpose),true,readingContent==='chords')}</SongPages></div> : <div className="song-display" style={{fontSize: `${fontSize}px`}} tabIndex={0} aria-label="Song lyrics and chords">
                 {displaySong(

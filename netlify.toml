@@ -22,3 +22,49 @@ for = "/oauth/consent"
 [headers.values]
 Cache-Control = "no-store"
 Referrer-Policy = "no-referrer"
+
+[[redirects]]
+from = "/setlists/*"
+to = "/index.html"
+status = 200
+
+[[headers]]
+for = "/setlists/*"
+[headers.values]
+Cache-Control = "no-cache"
+Referrer-Policy = "no-referrer"
+
+[[redirects]]
+from = "/my"
+to = "/index.html"
+status = 200
+
+[[redirects]]
+from = "/my/*"
+to = "/index.html"
+status = 200
+
+[[redirects]]
+from = "/church"
+to = "/index.html"
+status = 200
+
+[[redirects]]
+from = "/church/*"
+to = "/index.html"
+status = 200
+
+[[redirects]]
+from = "/members"
+to = "/index.html"
+status = 200
+
+[[redirects]]
+from = "/members/*"
+to = "/index.html"
+status = 200
+
+[[redirects]]
+from = "/shared/*"
+to = "/index.html"
+status = 200
