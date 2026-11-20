@@ -284,11 +284,26 @@ function App({library}: {library: SharedLibrary}) {
         setIsAddingSong(false)
       } else if(historySongRef.current){
         setSelectedSong(null);setIsEditing(false);setReadingMode(false);setIsAddingSong(event.state?.bicMode==='adding')
+        const libraryScroll=event.state?.bicLibraryScroll
+        if(!event.state?.bicSetlist&&typeof libraryScroll==='number'){
+          requestAnimationFrame(()=>window.scrollTo(0,libraryScroll))
+        }
       } else {setIsAddingSong(event.state?.bicMode==='adding')}
     }
     window.addEventListener('popstate',back)
     return ()=>window.removeEventListener('popstate',back)
   },[library.songs])
+
+  useEffect(()=>{
+    if(!selectedSong)return
+    const frame=requestAnimationFrame(()=>window.scrollTo(0,0))
+    return ()=>cancelAnimationFrame(frame)
+  },[selectedSong?.id])
+  useEffect(()=>{
+    if(!setlistId||fullSetReading)return
+    const frame=requestAnimationFrame(()=>window.scrollTo(0,0))
+    return ()=>cancelAnimationFrame(frame)
+  },[setlistId])
 
   const currentSongId = useRef<number | null>(null)
   currentSongId.current = selectedSong?.id ?? null
@@ -810,9 +825,10 @@ function App({library}: {library: SharedLibrary}) {
                   <button
                     key={song.id}
                     className="song-item"
-                    onClick={() =>
+                    onClick={()=>{
+                      history.replaceState({...history.state,bicLibraryScroll:window.scrollY},'',location.href)
                       selectSong(song)
-                    }
+                    }}
                   >
                     <span className="library-song-name"><strong>{song.title}</strong>
                       {(songsByTitle.get(normalizeTitle(song.title))?.length??0)>1
@@ -828,7 +844,7 @@ function App({library}: {library: SharedLibrary}) {
           )
         ) : (
           <div className="song-view">
-            <button
+            <nav className="songbook-back-bar" aria-label="Song navigation"><button
               className="back-button"
               disabled={savingSong||readerSaving}
               onClick={() => {
@@ -838,7 +854,7 @@ function App({library}: {library: SharedLibrary}) {
               }}
             >
               {setlistId?'← Back to setlist':'← Back to songs'}
-            </button>
+            </button></nav>
 
             <div className="song-heading"><h2 tabIndex={-1} data-setlist-song-heading title={selectedSong.title}>{selectedSong.title}</h2>
             {!isEditing && !readingMode && !library.sharedSetlist && <button className="favorite-filter" disabled={favoriteBusy||library.offline} aria-pressed={favorites.includes(selectedSong.id)} onClick={()=>void toggleFavorite(selectedSong.id)}>{favorites.includes(selectedSong.id)?'★ Remove favorite':'☆ Add to my favorites'}</button>}

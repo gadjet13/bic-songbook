@@ -479,3 +479,30 @@ button.worship-primary:disabled { opacity: .55; }
 .new-song-fields, .chart-input-formats { border: 0; padding: 0; margin: 0; min-inline-size: 0; }
 .chart-input-formats label { display: inline-flex; flex-direction: row; align-items: center; gap: .4rem; margin: .25rem .9rem .25rem 0; }
 .chart-input-formats input { width: auto; }
+
+/* Keep library and detail back links above the scrolling chart. */
+.songbook-location {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  min-height: 64px;
+  background: var(--surface);
+  box-shadow: inset 0 -1px var(--border);
+}
+.songbook-location button { flex-shrink: 0; }
+body:not(.song-reading-mode, .full-set-reading) .songbook-location + .app {
+  --songbook-nav-height: 64px;
+}
+.songbook-back-bar {
+  position: sticky;
+  top: var(--songbook-nav-height, 0px);
+  z-index: 3;
+  background: var(--surface);
+}
+body:not(.song-reading-mode) .song-view .transpose {
+  top: calc(var(--songbook-nav-height, 0px) + 44px);
+}
+.song-reading-mode .songbook-back-bar { display: none; }
+@media print {
+  .songbook-location, .songbook-back-bar { display: none; }
+}
