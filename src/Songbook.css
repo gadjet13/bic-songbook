@@ -1,36 +1,39 @@
 /* Shared visual tokens. Chart layout and print rules live in App.css. */
 :root {
-  --page: #f7f7fa;
+  color-scheme: light;
+  --page: #f7f6f2;
   --surface: #fff;
-  --text: #211d2a;
-  --muted: #655f70;
-  --border: #e0dce7;
-  --control-border: #c7bfd2;
-  --accent: #624694;
+  --text: #25231f;
+  --muted: #625c53;
+  --border: #ded9cf;
+  --control-border: #958a7c;
+  --accent: #245c48;
   --on-accent: #fff;
-  --soft: #f0edf7;
-  --hover: #f5f2fa;
-  --song: #fcfbfd;
+  --soft: #ece9e0;
+  --hover: #f0eee7;
+  --song: #fcfbf8;
+  --chart-chord: #3a6051;
   --danger: #a5253a;
-  --focus: #6343a3;
+  --focus: var(--accent);
   --panel-radius: 12px;
   --page-gutter: clamp(16px, 4vw, 32px);
 }
 
 :root[data-theme='dark'] {
-  --page: #17151d;
-  --surface: #201d28;
-  --text: #f0ecf6;
-  --muted: #bdb4ca;
-  --border: #403849;
-  --control-border: #70627e;
-  --accent: #c5a9f8;
-  --on-accent: #241635;
-  --soft: #30263e;
-  --hover: #2b2435;
-  --song: #201d28;
+  color-scheme: dark;
+  --page: #191815;
+  --surface: #24221f;
+  --text: #f1eee8;
+  --muted: #c0b7a9;
+  --border: #474138;
+  --control-border: #877c6e;
+  --accent: #a6cdb6;
+  --on-accent: #192c23;
+  --soft: #32302a;
+  --hover: #2e2c26;
+  --song: #24221f;
+  --chart-chord: #a4bfae;
   --danger: #ff9cae;
-  --focus: #d2b8ff;
 }
 
 @media screen {
@@ -168,13 +171,18 @@
     border-top: 1px solid var(--border); margin-top: 14px; padding-block: 10px max(10px, env(safe-area-inset-bottom)); }
 
   .full-set-reader > h1 { margin: 0 0 12px; }
-  .full-set-toolbar { gap: 8px; align-items: center; padding: 8px; border: 1px solid var(--border); border-radius: var(--panel-radius); }
+  .full-set-toolbar { gap: 6px; align-items: center; padding: 5px; border: 1px solid var(--border); border-radius: var(--panel-radius); }
   .full-set-toolbar > label { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: center; gap: 6px; margin-left: auto; flex: 0 1 19rem; }
-  .full-set-navigation { gap: 6px; }
+  .full-set-navigation { gap: 4px; padding-inline: 2px; border-radius: 8px; background: var(--soft); }
+  .app .full-set-navigation button { border-color: transparent; background: transparent; font-weight: 650; }
+  .app .full-set-navigation button:enabled:hover { background: var(--surface); }
+  .app .full-set-toolbar .reader-exit { border-color: transparent; }
+  .reader-view-options > summary:hover, .reader-view-options[open] > summary { background: var(--hover); }
   .full-set-navigation span { min-width: 2.5em; text-align: center; color: var(--muted); }
   .reader-view-options { position: relative; }
   .reader-view-options > summary { white-space: nowrap; cursor: pointer; padding: .5rem .75rem;
-    border: 1px solid var(--control-border); border-radius: 8px; }
+    border: 1px solid transparent; border-radius: 8px; }
+  .app .full-set-toolbar > label select { border-color: var(--border); }
   .reader-option-controls { position: absolute; top: calc(100% + 6px); right: 0; display: grid; gap: 8px;
     min-width: 225px; padding: 10px; border: 1px solid var(--border); border-radius: var(--panel-radius);
     background: var(--surface); box-shadow: 0 8px 18px #17151d24; }
@@ -184,7 +192,11 @@
   .full-set-song { background: var(--surface); border: 1px solid var(--border); border-radius: var(--panel-radius);
     padding: clamp(14px, 3vw, 28px); margin-block: 12px; }
   .full-set-chart, .book-spread, .book-measure { font-family: Arial, sans-serif; }
-  .full-set-song h2 { margin: 0 0 4px; }
+  .full-set-song h2 { margin: 0 0 4px; font-size: clamp(1.3rem, 2.5vw, 1.7rem); }
+  .song-reading-mode .song-heading h2 { font-size: clamp(1.15rem, 2.4vw, 1.5rem); }
+  :is(.full-set-chart, .book-measure, .book-spread) .song-section { font-size: 1.08em; font-weight: 650; }
+  .full-set-chart .song-section { margin-block: .9em .2em; }
+  :is(.full-set-chart, .book-measure, .book-spread) .chord { color: var(--chart-chord); }
   .full-set-song-settings { align-items: center; color: var(--muted); font-size: .9rem; }
   .full-set-song-settings label { flex-direction: row; align-items: center; }
   .full-set-song-actions { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; margin-block: 4px; }

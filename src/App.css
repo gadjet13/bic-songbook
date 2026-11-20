@@ -51,19 +51,19 @@ label input,label textarea { width: 100%; padding: 10px 12px; border: 1px solid 
 
 .app { background: #f6f3fa; }
 header { border-bottom-color: #e4deef; }
-header h1 { color: #51408b; }
+header h1 { color: var(--accent); }
 button, .import-label { min-height: 44px; touch-action: manipulation; }
-button:focus-visible, input:focus-visible, textarea:focus-visible, .import-label:focus-within { outline: 3px solid #9874d0; outline-offset: 3px; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, .import-label:focus-within { outline: 3px solid var(--focus); outline-offset: 3px; }
 .library-tools { display: flex; gap: 10px; flex-wrap: wrap; }
-.library-tools button,.import-label,.song-actions button,.incoming button,.install-button { padding: 10px 14px; border: 1px solid #d9cfe9; border-radius: 8px; background: white; color: #51408b; cursor: pointer; }
+.library-tools button,.import-label,.song-actions button,.incoming button,.install-button { padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; background: white; color: var(--accent); cursor: pointer; }
 .import-label { margin: 0; display: inline-flex; justify-content: center; font-weight: normal; position: relative; overflow: hidden; }
 .import-label input { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: pointer; }
 .storage-note { color: #736981; font-size: 13px; }
-.notice,.incoming { padding: 16px; border-radius: 10px; background: #eae3f7; margin: 16px 0; }
+.notice,.incoming { padding: 16px; border-radius: 10px; background: var(--soft); margin: 16px 0; }
 .notice { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .notice button { background: transparent; border: 0; font-size: 22px; }
 .incoming button { margin-right: 8px; }
-.install-button { margin-top: 14px; background: #51408b; color: white; }
+.install-button { margin-top: 14px; background: var(--accent); color: var(--on-accent); }
 .install-help { max-width: 540px; margin: 14px auto; line-height: 1.6; }
 .song-actions { flex-wrap: wrap; }
 .transpose { position: sticky; top: 0; z-index: 1; padding: 12px 0; background: white; }
@@ -72,16 +72,14 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, .import-label
 
 [hidden] { display: none !important; }
 .auth-panel { max-width: 480px; background: white; padding: 24px; border-radius: 12px; }
-.auth-panel button,.account-bar button,.member-panel button { min-height: 44px; padding: 10px 14px; border: 1px solid #d9cfe9; border-radius: 8px; background: white; color: #51408b; cursor: pointer; margin: 4px; }
-.account-bar { padding: 12px 20px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; background: #eae3f7; }
+.auth-panel button,.account-bar button,.member-panel button { min-height: 44px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; background: white; color: var(--accent); cursor: pointer; margin: 4px; }
+.account-bar { padding: 12px 20px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; background: var(--soft); }
 .account-bar span { flex: 1; overflow-wrap: anywhere; }
 .member-panel { max-width: 860px; margin: 16px auto; padding: 16px; background: white; }
 .member-panel select { min-height: 44px; }
 button:disabled { opacity: .6; cursor: wait; }
 
 /* Appearance applies to the sign-in screen and every songbook view. */
-:root { color-scheme: light; --page: #f6f3fa; --surface: #fff; --text: #222; --muted: #736981; --border: #d9cfe9; --accent: #51408b; --soft: #eae3f7; --hover: #f0ebf6; --song: #fafafa; --danger: #b00020; }
-:root[data-theme='dark'] { color-scheme: dark; --page: #17141e; --surface: #24202e; --text: #f2eef8; --muted: #bcb2cc; --border: #51465f; --accent: #c7adff; --soft: #342a47; --hover: #3b324a; --song: #1c1825; --danger: #ff9cae; }
 :root, body, .app { background: var(--page); color: var(--text); }
 header, .song-view, .add-song-form, .auth-panel, .member-panel, .transpose { background: var(--surface); color: var(--text); border-color: var(--border); }
 header h1, a { color: var(--accent); }
@@ -96,13 +94,13 @@ button:hover, .song-item:hover, .edit-button:hover, .delete-button:hover, .cance
 .chord { color: var(--accent); }
 .notice, .incoming, .account-bar { background: var(--soft); color: var(--text); }
 .delete-button, .song-actions .delete-button { color: var(--danger); }
-.save-button, .install-button { background: var(--accent); color: var(--page); }
+.save-button, .install-button { background: var(--accent); color: var(--on-accent); }
 .save-button:hover, .install-button:hover { background: var(--accent); filter: brightness(.9); }
 input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .theme-toolbar { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 10px; padding: 10px 20px; background: var(--surface); border-bottom: 1px solid var(--border); }
 .theme-toolbar label { display: block; margin: 0; font-size: 14px; }
 .theme-toolbar select { min-height: 44px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font: inherit; }
-select:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
+select:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
 .reading-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 14px; color: var(--muted); }
 .reading-tools button { min-width: 44px; min-height: 44px; border: 1px solid var(--border); border-radius: 8px; padding: 8px; cursor: pointer; }
 .reading-tools output { min-width: 4ch; text-align: center; font-variant-numeric: tabular-nums; }
@@ -114,7 +112,7 @@ select:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
 .song-display .chord { height: 1.5em; }
 .song-display .song-line { min-height: 3em; }
 .song-display .song-section { font-size: 1em; }
-.song-display:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
+.song-display:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
 .song-reading-mode .theme-toolbar, .song-reading-mode .account-bar, .song-reading-mode .member-panel,
 .song-reading-mode header, .song-reading-mode .library-tools, .song-reading-mode .storage-note,
 .song-reading-mode .song-actions { display: none; }
@@ -254,7 +252,7 @@ select:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
 .song-item,.folder-card { min-width:0; overflow-wrap:anywhere; }
 .alphabet-filter { display:flex; flex-wrap:wrap; gap:4px; margin-block:12px; }
 .alphabet-filter button { padding:6px 9px; }
-.alphabet-filter [aria-pressed="true"],.folder-grid [aria-pressed="true"] { outline:2px solid var(--accent,#6574cf); }
+.alphabet-filter [aria-pressed="true"],.folder-grid [aria-pressed="true"] { outline:2px solid var(--accent); }
 .folder-card { border:1px solid var(--border,#888); border-radius:12px; padding:12px; }
 .folder-card>button { display:flex; flex-direction:column; width:100%; text-align:left; }
 .folder-card small { margin-top:6px; }
@@ -334,7 +332,7 @@ select:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
 .library-tabs, .song-search-toolbar, .setlist-tools { display: flex; gap: .75rem; align-items: center; }
 .library-tabs { margin-block: 1rem; border-bottom: 1px solid currentColor; }
 .library-tabs button { flex: 1; border: 0; background: transparent; color: inherit; }
-.library-tabs button[aria-pressed="true"] { border-bottom: 3px solid #8b63c3; font-weight: 700; }
+.library-tabs button[aria-pressed="true"] { border-bottom: 3px solid var(--accent); font-weight: 700; }
 .song-search-toolbar { margin-block: 1rem; }
 .song-search-toolbar input { flex: 1; min-width: 0; min-height: 44px; padding: .65rem .8rem; border: 1px solid currentColor; border-radius: .5rem; background: inherit; color: inherit; }
 .song-search-toolbar .add-song-button { margin: 0; white-space: nowrap; }
@@ -343,7 +341,7 @@ select:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
 .library-song-name small { font-size: .875rem; }
 .song-item .library-song-key { flex-shrink: 0; margin: 0; }
 .setlist-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: .8rem; }
-.library-setlist-card { display: grid; gap: .45rem; align-content: start; padding: .9rem; border: 1px solid #8b63c366; border-radius: .75rem; }
+.library-setlist-card { display: grid; gap: .45rem; align-content: start; padding: .9rem; border: 1px solid var(--border); border-radius: .75rem; }
 .library-setlist-card p { margin: 0; }
 .library-setlist-card .setlist-card-summary { display: grid; gap: .45rem; border: 0; padding: 0; margin: 0; text-align: left; background: transparent; color: inherit; overflow-wrap: anywhere; }
 .setlist-card-summary:hover:enabled strong { text-decoration: underline; }
@@ -390,7 +388,7 @@ select:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
 .chord-paste-chart .song-word { display: inline-block; vertical-align: top; }
 
 .worship-planner-entry { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
-button.worship-primary { background: #634691; border: 1px solid #634691; border-radius: .5rem; color: white; }
+button.worship-primary { background: var(--accent); border: 1px solid var(--accent); border-radius: .5rem; color: var(--on-accent); }
 button.worship-primary:disabled { opacity: .55; }
 .worship-set-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
 .worship-set-actions button, .worship-planner-entry button, .setlist-search-results button { min-height: 44px; }
@@ -415,7 +413,7 @@ button.worship-primary:disabled { opacity: .55; }
 .full-set-toolbar label { flex: 1 1 10rem; }
 .full-set-toolbar button, .full-set-toolbar select, .full-set-song-settings select { min-height: 44px; }
 .full-set-toolbar select { width: 100%; }
-.full-set-toolbar button[aria-pressed="true"] { background: #634691; color: #fff; }
+.full-set-toolbar button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
 .full-set-song { padding-block: 12px 24px; border-bottom: 1px solid var(--border); }
 .full-set-song h2 { scroll-margin-top: 10rem; overflow-wrap: anywhere; }
 .full-set-song-settings { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; }
