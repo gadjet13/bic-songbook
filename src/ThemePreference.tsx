@@ -32,8 +32,11 @@ export default function ThemePreference({ children }: { children: ReactNode }) {
     return () => media.removeEventListener('change', apply)
   }, [preference])
   return <>
+    <header className="site-header">
+    <div className="site-header-inner">
+    <div className="site-brand"><img src="/bic-logo.png" alt="" />BIC Songbook</div>
     <details className="settings-menu">
-    <summary>☰ Menu</summary>
+    <summary><span aria-hidden="true">☰</span> Menu</summary>
     <div id="songbook-menu-content">
     <div className="theme-toolbar">
       <label htmlFor="theme-preference">Appearance</label>
@@ -46,6 +49,8 @@ export default function ThemePreference({ children }: { children: ReactNode }) {
     <div className="menu-install"><InstallHelp /><p><a href="/start-guide.html" target="_blank" rel="noopener">Start here — illustrated guide</a></p><p><a href="/guide.html" target="_blank" rel="noopener">User guide / README</a></p><p><a href="/privacy.html">Privacy policy</a></p></div>
     </div>
     </details>
+    </div>
+    </header>
     {children}
   </>
 }

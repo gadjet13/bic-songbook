@@ -58,6 +58,7 @@ export default function FullSetlistReader({title,songs,controls,shareOptions}:{
   const available=entries.filter(row=>row.song)
   const order=available.map(row=>row.id).join(',')
   const toolbar=useRef<HTMLElement>(null)
+  const viewOptions=useRef<HTMLDetailsElement>(null)
   const reader=useRef<HTMLElement>(null)
   const [currentId,setCurrentId]=useState('')
   const commanded=useRef<{id:string;top:number}|null>(null)
@@ -77,6 +78,12 @@ export default function FullSetlistReader({title,songs,controls,shareOptions}:{
     window.scrollTo(0,0)
     heading.current?.focus({preventScroll:true})
     const close=(event:KeyboardEvent)=>{
+      if(event.key==='Escape'&&!event.defaultPrevented&&viewOptions.current?.open){
+        event.preventDefault()
+        viewOptions.current.open=false
+        viewOptions.current.querySelector('summary')?.focus()
+        return
+      }
       if(event.key==='Escape'&&!event.defaultPrevented&&!event.repeat&&
         !(event.target instanceof HTMLElement&&event.target.matches('input, textarea, select'))){
         event.preventDefault()
@@ -140,17 +147,22 @@ export default function FullSetlistReader({title,songs,controls,shareOptions}:{
         </span>
         <button type="button" disabled={currentIndex+1>=available.length} onClick={()=>jumpTo(available[currentIndex+1].id)}>Next song</button>
       </div>
-      <label>Jump to song<select value={available[currentIndex]?.id??''} disabled={!available.length} onChange={event=>jumpTo(event.target.value)}>
+      <label><span className="reader-jump-label">Jump to song</span><select value={available[currentIndex]?.id??''} disabled={!available.length} onChange={event=>jumpTo(event.target.value)}>
         <option value="" disabled>Choose a song</option>
         {entries.map(({song,index,id})=>song&&<option key={id} value={id}>{index+1}. {song.title}</option>)}
       </select></label>
-      <div role="group" aria-label="Reading content">
-        <button aria-pressed={content==='lyrics'} onClick={()=>changeContent('lyrics')}>Lyrics</button>
-        <button aria-pressed={content==='chords'} onClick={()=>changeContent('chords')}>Chords</button>
-      </div>
-      <ReadingColumns value={readerColumns} onChange={changeColumns}/>
-      <ReadingTextSize value={fontSize} onChange={changeFontSize}/>
-      <button onClick={exit}>Exit reader</button>
+      <details ref={viewOptions} className="reader-view-options">
+        <summary>View options</summary>
+        <div className="reader-option-controls">
+          <div role="group" aria-label="Reading content">
+            <button aria-pressed={content==='lyrics'} onClick={()=>changeContent('lyrics')}>Lyrics</button>
+            <button aria-pressed={content==='chords'} onClick={()=>changeContent('chords')}>Chords</button>
+          </div>
+          <ReadingColumns value={readerColumns} onChange={changeColumns}/>
+          <ReadingTextSize value={fontSize} onChange={changeFontSize}/>
+        </div>
+      </details>
+      <button className="reader-exit" onClick={exit}>Exit reader</button>
     </nav>
     <div className="full-set-actions">
       {localId&&<SetlistPrint title={title} songs={songs} userId={userId} listId={localId} legacyListId={legacyId??undefined} cues={cues}/>}
@@ -195,11 +207,13 @@ export default function FullSetlistReader({title,songs,controls,shareOptions}:{
           {preference?.pending&&<small role="status">Capo change waiting to sync.</small>}
         </div>
         {preference?.note&&<p className="full-set-note"><strong>My notes</strong> {preference.note}</p>}
-        {localId&&<SetlistSongNote userId={userId} listId={localId} songId={song.id}
-          note={preference?.note??''} offline={offline||!preferenceId} label={preference?.note?'Edit my notes':'My notes'}/>}
-        {cueControls&&!editing&&<UnplacedCues content={song.content} controls={cueControls}/>}
-        {controls.onEditRaw&&<button type="button" hidden={editing}
-          onClick={event=>controls.onEditRaw?.(song,id,event.currentTarget)}>Edit raw content</button>}
+        <div className="full-set-song-actions">
+          {localId&&<SetlistSongNote userId={userId} listId={localId} songId={song.id}
+            note={preference?.note??''} offline={offline||!preferenceId} label={preference?.note?'Edit my notes':'My notes'}/>}
+          {cueControls&&!editing&&<UnplacedCues content={song.content} controls={cueControls}/>}
+          {controls.onEditRaw&&<button type="button" hidden={editing}
+            onClick={event=>controls.onEditRaw?.(song,id,event.currentTarget)}>Edit raw content</button>}
+        </div>
         {editing&&controls.editor}
         <div hidden={editing} className="full-set-chart reader-chart" data-columns={readerColumns} style={{fontSize}}>
           {displaySong(chart.content,0,chart.key,true,content==='chords',(location,label)=>
