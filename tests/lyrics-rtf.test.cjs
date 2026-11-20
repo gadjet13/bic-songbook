@@ -29,7 +29,7 @@ test('lyrics RTF formats headings, preserves order and omits chart directions an
   const rtf = exportLyricsRtf([{ title: 'Song A', content: chart }, { title: 'Song B', content: 'Opening lyric' }])
   assert.match(rtf, /^\{\\rtf1/)
   assert.match(rtf, /\\fs40\\b Song A\\b0/)
-  assert.match(rtf, /\\fs28\\b Verse 1\\b0/)
+  assert.match(rtf, /\\fs32\\b Verse 1\\b0/)
   assert.match(rtf, /First lyric\\line Next lyric/)
   assert.match(rtf, /\\pagebb[^\n]*Song B/)
   assert.match(rtf, /Opening lyric/)
@@ -49,6 +49,6 @@ test('clipboard lyrics provide bold headings, escaped HTML and clean plain text'
     { title: 'Sing & Rejoice <together>', content: '# Intro\n(|D / |)\n# Verse1 [soft]\n{D}You’re here\nSecond line\nRepeat Verse 1' },
     { title: 'Another song', content: '[Chorus]\n{C}We sing' },
   ])
-  assert.equal(html, '<p><strong>Sing &amp; Rejoice &lt;together&gt;</strong></p><p><strong>Verse 1</strong><br>You’re here<br>Second line</p><p><strong>Another song</strong></p><p><strong>Chorus</strong><br>We sing</p>')
+  assert.equal(html, '<p><strong style="font-size:15pt">Sing &amp; Rejoice &lt;together&gt;</strong></p><p style="font-size:11pt"><strong style="font-size:13pt">Verse 1</strong><br>You’re here<br>Second line</p><p><strong style="font-size:15pt">Another song</strong></p><p style="font-size:11pt"><strong style="font-size:13pt">Chorus</strong><br>We sing</p>')
   assert.equal(text, 'Sing & Rejoice <together>\n\nVerse 1\nYou’re here\nSecond line\n\nAnother song\n\nChorus\nWe sing')
 })

@@ -42,10 +42,10 @@ export function lyricsClipboardContent(songs: readonly LyricsChart[]) {
     [section.title, section.lyrics].filter(Boolean).join('\n')
   )].join('\n\n')).join('\n\n')
   const html = document.map(song => [
-    `<p><strong>${escapeHtml(song.title)}</strong></p>`,
+    `<p><strong style="font-size:15pt">${escapeHtml(song.title)}</strong></p>`,
     ...song.sections.map(section => {
-      const heading = section.title ? `<strong>${escapeHtml(section.title)}</strong><br>` : ''
-      return `<p>${heading}${escapeHtml(section.lyrics).replace(/\n/g, '<br>')}</p>`
+      const heading = section.title ? `<strong style="font-size:13pt">${escapeHtml(section.title)}</strong><br>` : ''
+      return `<p style="font-size:11pt">${heading}${escapeHtml(section.lyrics).replace(/\n/g, '<br>')}</p>`
     }),
   ].join('')).join('')
   return { text, html }

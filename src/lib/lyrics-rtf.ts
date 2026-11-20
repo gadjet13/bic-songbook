@@ -19,7 +19,7 @@ export function exportLyricsRtf(songs: readonly LyricsChart[]) {
     rtf.push(String.raw`\pard${pageBreak}\keepn\sa240\f0\fs40\b ${rtfText(song.title)}\b0\par`)
     for (const section of song.sections) {
       if (section.title) {
-        rtf.push(String.raw`\pard\keepn\sb200\sa80\f0\fs28\b ${rtfText(section.title)}\b0\par`)
+        rtf.push(String.raw`\pard\keepn\sb200\sa80\f0\fs32\b ${rtfText(section.title)}\b0\par`)
       }
       rtf.push(String.raw`\pard\sa160\f0\fs28 ${rtfText(section.lyrics)}\par`)
     }
