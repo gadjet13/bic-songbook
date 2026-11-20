@@ -18,7 +18,7 @@ export function authReturnUrl() {
   const authorizationId = currentAuthorizationId()
   return isConnectorConsent() && authorizationId
     ? location.origin + connectorConsentPath + '?authorization_id=' + authorizationId
-    : location.origin
+    : new URL('/', location.origin).href
 }
 
 function returnToClient(value: string) {
