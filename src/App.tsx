@@ -1,3 +1,4 @@
+import { copyFormattedLyrics } from './lib/lyrics-document'
 import { downloadLyricsRtf } from './lib/lyrics-rtf'
 import { downloadChordPro } from './lib/chordpro'
 import { cloud } from './lib/cloud'
@@ -25,7 +26,7 @@ import { draftKey,readSongDrafts,writeSongDraft,removeSongDraft,canResumeSongDra
 import type { SongDraft } from './lib/song-drafts'
 import { loginPersistence } from './lib/login-storage'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { transposeSongContent, lyricsOnly } from './lib/chord/transpose'
+import { transposeSongContent } from './lib/chord/transpose'
 import './App.css'
 import { parseSongFile, downloadSongs, makeSongLink, readSongLink } from './lib/sharing'
 import { MenuSection } from './ThemePreference'
@@ -745,9 +746,14 @@ function App({library}: {library: SharedLibrary}) {
   async function copySong(withoutChords: boolean) {
     if (!selectedSong) return
     try {
-      const text = withoutChords ? lyricsOnly(selectedSong.content) : transposeSongContent(selectedSong.content, transpose, getCurrentKey(selectedSong.key, transpose).includes('b'))
+      if (withoutChords) {
+        const format = await copyFormattedLyrics([selectedSong])
+        setNotice(format === 'formatted' ? 'Formatted lyrics copied.' : 'Lyrics copied as plain text.')
+        return
+      }
+      const text = transposeSongContent(selectedSong.content, transpose, getCurrentKey(selectedSong.key, transpose).includes('b'))
       await navigator.clipboard.writeText(text)
-      setNotice(withoutChords ? 'Lyrics copied without chords.' : 'Song copied with chords in the displayed key.')
+      setNotice('Song copied with chords in the displayed key.')
     } catch {
       setNotice('Could not copy. Please allow clipboard access in your browser and try again.')
     }
