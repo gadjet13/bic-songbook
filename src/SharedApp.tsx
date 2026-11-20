@@ -1,3 +1,4 @@
+import { clearSetlistCueCache } from './lib/setlist-cues'
 import { clearSetlistPreferenceCache, flushSetlistCapos } from './lib/setlist-preferences'
 import { clearSetlistLink, pendingSetlistLink } from './lib/setlist-links'
 import ConnectorConsent, { authReturnUrl, isConnectorConsent } from './ConnectorConsent'
@@ -100,7 +101,7 @@ export default function SharedApp() {
     const {data:{subscription}}=cloud!.auth.onAuthStateChange((event,newSession)=>{
       if(!newSession&&!navigator.onLine&&event!=='SIGNED_OUT')return
       const id=newSession?.user.id ?? null
-      if(activeUser.current!==id) {generation.current++;setAccounts([]);setShowAccounts(false);setSharedLists([]);setSharedList(null);setPendingSong(undefined);setBook('home');setSongs([]);setRole(null);setOfflineBundle(null);setOfflineStatus('Not saved on this device yet.');setLoading(false);setNotice('');if(activeUser.current&&activeUser.current!==id){clearSetlistPreferenceCache(activeUser.current);void clearOffline(activeUser.current).catch(()=>{})};if(!id)forgetIdentity();activeUser.current=id}
+      if(activeUser.current!==id) {generation.current++;setAccounts([]);setShowAccounts(false);setSharedLists([]);setSharedList(null);setPendingSong(undefined);setBook('home');setSongs([]);setRole(null);setOfflineBundle(null);setOfflineStatus('Not saved on this device yet.');setLoading(false);setNotice('');if(activeUser.current&&activeUser.current!==id){clearSetlistPreferenceCache(activeUser.current);clearSetlistCueCache(activeUser.current);void clearOffline(activeUser.current).catch(()=>{})};if(!id)forgetIdentity();activeUser.current=id}
       setSession(newSession);setReady(true)
       if(event==='PASSWORD_RECOVERY') setRecovery(true)
     })
@@ -128,7 +129,7 @@ export default function SharedApp() {
       const next=data?.role??null
       setOffline(false)
       if(next&&next!=='owner')void flushSetlistCapos(session.user.id).catch(()=>{})
-      if(!next){clearSetlistPreferenceCache(session.user.id);await clearOffline(session.user.id);setOfflineBundle(null);setRole(null);setSongs([]);setSharedLists([]);setSharedList(null);setOfflineStatus('Access not approved.');return}
+      if(!next){clearSetlistPreferenceCache(session.user.id);clearSetlistCueCache(session.user.id);await clearOffline(session.user.id);setOfflineBundle(null);setRole(null);setSongs([]);setSharedLists([]);setSharedList(null);setOfflineStatus('Access not approved.');return}
       const [personal,church,folders,lists,favorites,shares]=await Promise.all([
         next==='owner'?Promise.resolve([]):loadSongs(session.user.id),loadSongs(null),
         next==='owner'?Promise.resolve({data:[],error:null}):cloud.from('songbook_folders').select('id,name,created_at,updated_at').eq('owner_id',session.user.id).order('name'),
@@ -141,6 +142,10 @@ export default function SharedApp() {
       const bundle:OfflineBundle={userId:session.user.id,role:next,savedAt:new Date().toISOString(),personal,church,folders:folders.data??[],setlists:lists.data??[],favorites:(favorites.data??[]).map(row=>row.song_id),shared:shares.data??[]}
       const openedShare=sharedListsRef.current.find(row=>row.id===history.state?.bicShared)
       if(openedShare&&!bundle.shared.some(row=>row.id===openedShare.id))setNotice('This shared setlist is no longer available.')
+      const visibleShares=new Set(bundle.shared.map(share=>share.id))
+      for(const share of sharedListsRef.current){
+        if(share.setlist_id&&!visibleShares.has(share.id))clearSetlistCueCache(session.user.id,share.setlist_id)
+      }
       setOfflineBundle(bundle);setRole(next);setSongs(book==='personal'?personal:book==='church'?church:[]);setSharedLists(bundle.shared);setSharedList(previous=>previous?bundle.shared.find(list=>list.id===previous.id)??null:null)
       try{await saveOffline(bundle);if(generation.current===current&&request===refreshSerial.current){rememberIdentity(session.user);setOfflineBundle(bundle);setOfflineStatus(`Saved ${new Date(bundle.savedAt).toLocaleString()}`)}else if(activeUser.current!==bundle.userId){await clearOffline(bundle.userId)}}catch{setOfflineStatus('Could not save offline data. Device storage may be full or blocked.')}
       if(next==='owner'&&book!=='church'){history.replaceState({bicBook:'church'},'',location.href);setBook('church')}

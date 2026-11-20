@@ -510,3 +510,16 @@ body:not(.song-reading-mode) .song-view .transpose {
 .new-song-preview summary { cursor: pointer; }
 .new-song-preview .chord-paste-chart { margin-top: 8px; }
 .new-song-preview .song-block:first-child > .song-section:first-child { margin-top: 0; }
+
+.full-set-navigation { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.full-set-navigation span { font-variant-numeric: tabular-nums; }
+.setlist-cue { margin: .35em 0; padding-inline-start: .6em; border-inline-start: 2px solid currentColor;
+  white-space: pre-wrap; overflow-wrap: anywhere; }
+.reader-chart .setlist-cue { grid-column: 1 / -1; }
+.setlist-cue-editor { margin-block: .5rem; }
+.setlist-cue-editor form { max-width: 32rem; }
+.setlist-cue-editor textarea { resize: vertical; }
+@media print {
+  .setlist-cue[data-visibility="private"], .setlist-cue-editor { display: none !important; }
+  .setlist-print-output .setlist-cue { break-inside: avoid; }
+}

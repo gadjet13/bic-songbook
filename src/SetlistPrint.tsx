@@ -1,3 +1,6 @@
+import { CueText } from './SetlistCues'
+import { songCueLocation } from './lib/cue-locations'
+import type { SetlistCue } from './lib/setlist-cues'
 import { cachedPreference } from './lib/setlist-preferences'
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -7,12 +10,13 @@ import { arrangedSong, setlistSoundingKey, songKey } from './lib/setlist-arrange
 
 type PrintMode = 'lyrics' | 'chords'
 
-export default function SetlistPrint({title,songs,userId,listId,legacyListId=listId}:{
+export default function SetlistPrint({title,songs,userId,listId,legacyListId=listId,cues=[]}:{
   title:string
   songs:(Song|undefined)[]
   userId:string
   listId:string
   legacyListId?:string
+  cues?:SetlistCue[]
 }) {
   const [mode,setMode]=useState<PrintMode>('chords')
   const [useCapo,setUseCapo]=useState(false)
@@ -56,10 +60,12 @@ export default function SetlistPrint({title,songs,userId,listId,legacyListId=lis
         const fret=mode==='chords'&&useCapo&&songKey(song.key)?cachedPreference(userId,listId,song.id,legacyListId).capo:0
         const chart=arrangedSong(song,fret)
         const sounding=setlistSoundingKey(song.key,song.setlist_key)
+        const teamCues=cues.filter(cue=>cue.song_id===song.id&&cue.scope==='team')
         return <section className="setlist-print-song" key={index}>
           <h2>{index+1}. {song.title}</h2>
           <p>Sounding key: {sounding||'Not set'}{fret>0&&<> · Capo {fret} · Chord shapes: {chart.key}</>}</p>
-          {displaySong(chart.content,0,chart.key,true,mode==='chords')}
+          <CueText cues={teamCues} location={songCueLocation}/>
+          {displaySong(chart.content,0,chart.key,true,mode==='chords',location=><CueText cues={teamCues} location={location}/>)}
         </section>
       })}
     </article>,document.body)}
