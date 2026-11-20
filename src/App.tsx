@@ -160,6 +160,7 @@ function App({library}: {library: SharedLibrary}) {
   const [readingMode, setReadingMode] = useState(false)
   const [fullSetReading,setFullSetReading]=useState(()=>!!history.state?.bicFullSet)
   const [readerEdit,setReaderEdit]=useState<ReaderEdit|null>(null)
+  const [fullChartEdit,setFullChartEdit]=useState(false)
   const [readerSaving,setReaderSaving]=useState(false)
   const [readerError,setReaderError]=useState('')
   const readerSavePending=useRef(false)
@@ -271,6 +272,7 @@ function App({library}: {library: SharedLibrary}) {
   useEffect(()=>{
     const back=(event:PopStateEvent)=>{
       setReaderEdit(null)
+      setFullChartEdit(false)
       setlistReturnFocus.current=null
       activeSetlistSongEditor.current=null
       setSetlistSongEditor(null)
@@ -333,7 +335,7 @@ function App({library}: {library: SharedLibrary}) {
     useState('')
 
 
-  useEffect(()=>{setReadingChoice(false)},[selectedSong?.id,isEditing])
+  useEffect(()=>{setReadingChoice(false);setFullChartEdit(false)},[selectedSong?.id,isEditing])
 
   const [isAddingSong, setIsAddingSong] =
     useState(false)
@@ -759,7 +761,8 @@ function App({library}: {library: SharedLibrary}) {
   const canEditInReader=!!library.ownerId&&library.canEdit&&!library.offline&&!library.sharedSetlist
   const readerEditor=readerEdit?<ReaderChartEditor key={readerEdit.occurrence} content={readerEdit.content}
     onChange={content=>setReaderEdit({...readerEdit,content})}
-    baseKey={readerEdit.song.key} songTitle={fullSetReading?readerEdit.song.title:undefined} busy={readerSaving} canSave={!readerDirty||canEditInReader}
+    baseKey={readerEdit.song.key} songTitle={fullSetReading?readerEdit.song.title:undefined}
+    fullWindow={fullSetReading?'setlist':undefined} busy={readerSaving} canSave={!readerDirty||canEditInReader}
     error={readerError||(!canEditInReader?'Reconnect to save your chart.':'')} dirty={readerDirty}
     onSave={()=>void saveReaderEdit()} onCancel={cancelReaderEdit}/>:null
   const fullReader:FullReaderControls|null=fullSetReading?{
@@ -937,6 +940,12 @@ function App({library}: {library: SharedLibrary}) {
                 </label>
 
                 <ChordSheetPaste title={editedTitle} songKey={editedKey} raw={editedRaw} onRawChange={setEditedRaw} key={selectedSong.id} onApply={(content,title,key)=>{setEditedContent(content);if(title)setEditedTitle(title);if(key)setEditedKey(key)}}/>
+                <button type="button" onClick={()=>{setNotice('');setFullChartEdit(true)}}>Open editor in full window</button>
+                {fullChartEdit&&<ReaderChartEditor content={editedContent} onChange={setEditedContent}
+                  songTitle={editedTitle.trim()||selectedSong.title} fullWindow="song"
+                  baseKey={editedKey} busy={savingSong} canSave={library.canEdit&&!library.offline}
+                  error={notice||(!library.canEdit?'Reconnect to save your chart.':'')} dirty={dirtySong}
+                  onSave={()=>void saveSong()} onCancel={()=>setFullChartEdit(false)}/>}
                 <label>
                   Song Content
                   <textarea
