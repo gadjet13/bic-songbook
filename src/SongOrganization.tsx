@@ -175,12 +175,11 @@ export default function SongOrganization({songs,canEdit,ownerId,offlineLists,chu
  const sharingId=canEdit&&!offlineLists?readingSet?.id??null:null
  const link=useSetlistLink(sharingId)
  if(fullReader&&readingSet)return <FullSetlistReader title={readingSet.title} songs={slots(readingSet)} controls={fullReader}
-  shareLink={sharingId&&link.token&&<ReaderShareLink key={link.token} token={link.token}/>}
-  shareOptions={sharingId&&(link.token||link.notice)&&<details className="setlist-sharing"><summary>Share options</summary>
+  shareLink={sharingId&&<ReaderShareLink key={sharingId} token={link.token} busy={link.busy} notice={link.notice} enableLink={link.enableLink}/>}
+  shareOptions={sharingId&&link.token&&<details className="setlist-sharing"><summary>Share options</summary>
    {link.token&&<button type="button" disabled={link.busy} onClick={()=>void link.disableLink().then(disabled=>{
     if(disabled)setCardLink(current=>current?.id===sharingId?null:current)
    })}>Turn off link</button>}
-   {link.notice&&<p role="status">{link.notice}</p>}
   </details>}/>
  if(fullReader)return <section className="setlist-page"><button type="button" onClick={fullReader.exit}>Back to setlists</button>
   <p>{loaded?'This setlist is no longer available.':'Loading setlist…'}</p></section>
