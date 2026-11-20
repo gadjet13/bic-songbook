@@ -46,6 +46,37 @@ export default function useChartScrollSync(chart: string, enabled: boolean) {
   const mirror = useRef<HTMLDivElement>(null)
   const positions = useRef({raw: [] as number[], rendered: [] as number[], sourceLines: [] as number[]})
   const expected = useRef(new WeakMap<HTMLElement, number>())
+  const pendingJump = useRef<number | null>(null)
+
+  function setScroll(element: HTMLElement, top: number) {
+    const clamped = Math.max(0, Math.min(top, element.scrollHeight - element.clientHeight))
+    if (Math.abs(clamped - element.scrollTop) < 1) return
+    element.scrollTop = clamped
+    // Ignore the scroll event caused by moving a pane programmatically.
+    expected.current.set(element, element.scrollTop)
+  }
+
+  function showSectionInPreview(line: number, pane: HTMLDivElement) {
+    const { sourceLines, rendered } = positions.current
+    const index = rowAtOrBefore(sourceLines, line)
+    if (sourceLines[index] === line) setScroll(pane, rendered[index])
+  }
+
+  function jumpToLine(line: number) {
+    const input = editor.current
+    if (!input || !mirror.current) return
+    const caret = input.value.split('\n', line).reduce((offset, text) => offset + text.length + 1, 0)
+    input.focus({preventScroll: true})
+    input.setSelectionRange(caret, caret)
+    const offsets = editorLineOffsets(input, mirror.current, input.value)
+    setScroll(input, offsets[line] ?? 0)
+    expected.current.set(input, input.scrollTop)
+
+    if (preview.current) {
+      if (input.value === chart.replace(/\r\n/g, '\n')) showSectionInPreview(line, preview.current)
+      else pendingJump.current = line
+    }
+  }
 
   function scroll(from: HTMLElement, to: HTMLElement | null) {
     const position = expected.current.get(from)
@@ -67,11 +98,7 @@ export default function useChartScrollSync(chart: string, enabled: boolean) {
       next = raw[sourceLines[index]] ?? 0
     }
 
-    const clamped = Math.max(0, Math.min(next, to.scrollHeight - to.clientHeight))
-    if (Math.abs(clamped - to.scrollTop) < 1) return
-    to.scrollTop = clamped
-    // Ignore the scroll event caused by updating the other pane.
-    expected.current.set(to, to.scrollTop)
+    setScroll(to, next)
   }
 
   useLayoutEffect(() => {
@@ -91,8 +118,15 @@ export default function useChartScrollSync(chart: string, enabled: boolean) {
         rendered: rows.map(row => row.getBoundingClientRect().top - top + pane.scrollTop),
         sourceLines: rows.map(row => Number(row.dataset.sourceLine)),
       }
-      expected.current.delete(input)
-      scroll(input, pane)
+      if (pendingJump.current !== null) {
+        if (input.value === chart.replace(/\r\n/g, '\n')) {
+          showSectionInPreview(pendingJump.current, pane)
+          pendingJump.current = null
+        }
+      } else {
+        expected.current.delete(input)
+        scroll(input, pane)
+      }
     }
 
     measure()
@@ -103,7 +137,7 @@ export default function useChartScrollSync(chart: string, enabled: boolean) {
   }, [chart, enabled])
 
   return {
-    editor, preview, mirror,
+    editor, preview, mirror, jumpToLine,
     scrollEditor: (element: HTMLTextAreaElement) => scroll(element, preview.current),
     scrollPreview: (element: HTMLDivElement) => scroll(element, editor.current),
   }
