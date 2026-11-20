@@ -1,4 +1,5 @@
-import SetlistLinkSharing, { copySetlistLink, createSetlistLink, useSetlistLink } from './SetlistLinkSharing'
+import { setlistLink } from './lib/setlist-links'
+import { copySetlistLink, createSetlistLink, useSetlistLink } from './SetlistLinkSharing'
 import FullSetlistReader from './FullSetlistReader'
 import type { FullReaderControls } from './FullSetlistReader'
 import { setlistEntries, setlistSoundingKey, songKey, soundingTonics } from './lib/setlist-arrangement'
@@ -6,19 +7,14 @@ import type { SetlistEntry, SetlistOrder } from './lib/setlist-arrangement'
 import LibrarySortControl from './LibrarySortControl'
 import {sortLibraryItems} from './lib/library-sort'
 import type {LibrarySort,LibraryDates} from './lib/library-sort'
-import OfflineSetlistStatus from './OfflineSetlistStatus'
-import type {OfflineSnapshot} from './lib/offline-readiness'
 import {readSetlistDrafts,saveSetlistDraft,removeSetlistDraft,canResumeSetlistDraft,setlistDraftKey} from './lib/setlist-drafts'
 import type {SetlistDraft} from './lib/setlist-drafts'
 import {loginPersistence} from './lib/login-storage'
-import SetlistKeyOverview from './SetlistKeyOverview'
 import { useEffect, useRef, useState } from 'react'
 import { loadSongs, cloud } from './lib/cloud'
 import type { Song } from './App'
 import type { OfflineList } from './lib/offline'
 import SetlistLimitPanel from './SetlistLimitPanel'
-import SetlistCopy from './SetlistCopy'
-import SetlistPrint from './SetlistPrint'
 import { setlistSearch } from './lib/setlist-search'
 import useUnsavedChanges from './useUnsavedChanges'
 import { allowNavigation } from './lib/unsaved'
@@ -33,7 +29,7 @@ export function useFavorites(userId: string, offlineFavorites?:number[]) {
  async function toggle(id:number){if(busy)return;setBusy(true);setError('');try{const exists=favorites.includes(id);const result=exists?await cloud!.from('songbook_favorites').delete().eq('user_id',userId).eq('song_id',id):await cloud!.from('songbook_favorites').insert({user_id:userId,song_id:id});if(result.error)throw result.error;setFavorites(current=>exists?current.filter(value=>value!==id):[...current,id])}catch(error){setError(message(error))}finally{setBusy(false)}}
  return {favorites,toggle,error,busy}
 }
-export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLists,churchSongs,onSongsChanged,personalName,activeId,onNavigate,onBack,offlineSnapshot,refreshing,onSongEditor,fullReader,onReadFull}: {offlineSnapshot?:OfflineSnapshot;refreshing?:boolean;activeId:string|null;onNavigate:(id:string,saved?:boolean)=>void;onBack:()=>void;personalName:string;churchSongs:Song[];onSongsChanged:()=>Promise<void>;offlineLists?:OfflineList[];songs:Song[];canEdit:boolean;ownerId:string|null;onOpen:(songs:Song[],listId?:string,index?:number,missing?:number)=>void;onSongEditor:(song:Song|null,onSaved:(song:Song)=>void,returnFocus:HTMLElement)=>void;fullReader:FullReaderControls|null;onReadFull:(id?:string)=>void}) {
+export default function SongOrganization({songs,canEdit,ownerId,offlineLists,churchSongs,onSongsChanged,activeId,onNavigate,onBack,onSongEditor,fullReader,onReadFull}: {activeId:string|null;onNavigate:(id:string)=>void;onBack:()=>void;churchSongs:Song[];onSongsChanged:()=>Promise<void>;offlineLists?:OfflineList[];songs:Song[];canEdit:boolean;ownerId:string|null;onSongEditor:(song:Song|null,onSaved:(song:Song)=>void,returnFocus:HTMLElement)=>void;fullReader:FullReaderControls|null;onReadFull:(id?:string)=>void}) {
  const [listSort,setListSort]=useState<LibrarySort>('added-newest')
  const [church,setChurch]=useState(churchSongs),[churchError,setChurchError]=useState('')
  useEffect(()=>{let active=true;if(offlineLists){setChurch(churchSongs);return}setChurch(churchSongs);void loadSongs(null).then(rows=>{if(active){setChurch(rows);setChurchError('')}}).catch(error=>{if(active)setChurchError(message(error))});return()=>{active=false}},[ownerId,churchSongs,offlineLists])
@@ -42,8 +38,8 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLi
  const [lists,setLists]=useState<Setlist[]>([]),[selected,setSelected]=useState<Setlist|null>(null)
  const [title,setTitle]=useState(''),[entries,setEntries]=useState<SetlistEntry[]>([]),[search,setSearch]=useState('')
  const [editing,setEditing]=useState(false),[limit,setLimit]=useState(false),[busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[loaded,setLoaded]=useState(false)
- const [createdLink,setCreatedLink]=useState<{id:string;request:Promise<string|null>}|null>(null)
- const [cardLink,setCardLink]=useState<{id:string;fallback:string|null}|null>(null)
+ const [returnAfterSave,setReturnAfterSave]=useState(false)
+ const [cardLink,setCardLink]=useState<{id:string;fallback:string|null;created?:boolean}|null>(null)
  const [pickerOpen,setPickerOpen]=useState(false)
  const searchInput=useRef<HTMLInputElement>(null)
  const actionPending=useRef(false)
@@ -72,7 +68,7 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLi
  useEffect(()=>{const restored=()=>{setSelected(null);void refresh().catch(error=>setNotice(message(error)))};window.addEventListener('songbook-restored',restored);return()=>window.removeEventListener('songbook-restored',restored)},[ownerId])
  function choose(list:Setlist,edit=false){if(pendingDraft.current?.listId===list.id){applyDraft(pendingDraft.current,list);return}setSelected(list);setTitle(list.title);setEntries(setlistEntries(list));setEditing(edit);setSearch('');setNotice('');if(!offlineLists)void cloud!.rpc('recover_setlist_songs',{list_id:list.id}).then(async({data,error})=>{if(error){setNotice(error.message);return}if(data?.length){setPersonal(rows=>[...rows.filter(row=>!data.some((song:Song)=>song.id===row.id)),...data]);await onSongsChanged();setNotice('Missing setlist songs restored to your personal songbook.')}})}
  function editSetlist(list:Setlist){
-  if(!canEdit||offlineLists){onNavigate(list.id);return}
+  if(!canEdit||offlineLists){onReadFull(list.id);return}
   const draft=drafts.find(row=>row.listId===list.id)
   if(draft){void recoverDraft(draft);return}
   if(!allowNavigation())return
@@ -80,7 +76,7 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLi
   else{setTitle(list.title);setEntries(setlistEntries(list));setEditing(true)}
  }
  useEffect(()=>{
-  setLimit(false);setPickerOpen(false);setSearch('');setNotice('');setCardLink(null)
+  setLimit(false);setPickerOpen(false);setSearch('');setNotice('')
   if(activeId==='new'){
    const draft=pendingDraft.current??(ownerId?readSetlistDrafts(ownerId).find(row=>row.id==='new'):undefined)
    if(draft)applyDraft(draft,null)
@@ -88,7 +84,7 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLi
   }else if(!activeId){setSelected(null);setEditing(false)}
  },[activeId,ownerId])
  useEffect(()=>{if(pickerOpen)searchInput.current?.focus()},[pickerOpen])
- useEffect(()=>{if(activeId&&activeId!=='new'&&selected?.id!==activeId){const list=lists.find(row=>row.id===activeId);if(list)choose(list)}},[activeId,lists,selected?.id])
+ useEffect(()=>{if(activeId&&activeId!=='new'&&selected?.id!==activeId){const list=lists.find(row=>row.id===activeId);if(list)choose(list,!fullReader)}},[activeId,lists,selected?.id,!!fullReader])
  useEffect(()=>{
   if(!ownerId||!canEdit||!activeId||!editing)return
   if((activeId==='new'&&selected)||(activeId!=='new'&&selected?.id!==activeId))return
@@ -118,8 +114,7 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLi
    if(!data?.length)throw new Error('Setlist changed. Refresh before deleting.')
    setLists(rows=>rows.filter(row=>row.id!==list.id))
    setCardLink(current=>current?.id===list.id?null:current)
-   if(activeId===list.id)onBack()
-   else setNotice(`Deleted “${list.title}”.`)
+   setNotice(`Deleted “${list.title}”.`)
    void onSongsChanged().catch(error=>setNotice('Setlist deleted, but refreshing failed: '+message(error)))
   })
  }
@@ -142,10 +137,13 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLi
   })
  }
  function showSavedSet(list:Setlist,created:boolean){
-  if(created)setCreatedLink({id:list.id,request:createSetlistLink(list.id)})
+  if(created)void createSetlistLink(list.id).then(token=>{
+   if(!token)throw new Error('No link returned.')
+   setCardLink({id:list.id,fallback:setlistLink(token),created:true})
+  }).catch(()=>setNotice('Setlist saved. Use Copy setlist link to retry creating its link.'))
   clearDraft(created?'new':list.id)
   setLists(rows=>[...rows.filter(row=>row.id!==list.id),list])
-  choose(list);onNavigate(list.id,true);setNotice('Setlist saved.')
+  setEditing(false);setReturnAfterSave(true)
   void onSongsChanged().catch(error=>setNotice('Setlist saved, but refreshing failed: '+message(error)))
  }
  async function save(){
@@ -166,14 +164,23 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLi
   return song ? {...song,setlist_key:entry.key_override} : undefined
  })
  const queue=(list:Setlist)=>slots(list).filter(song=>song!==undefined)
- const sharingId=selected&&!editing&&!offlineLists&&canEdit&&selected.id===activeId?selected.id:null
- const initialLink=sharingId===createdLink?.id?createdLink.request:null
- const link=useSetlistLink(sharingId,initialLink)
  useEffect(()=>{
-  if(createdLink&&(createdLink.id!==activeId||editing||offlineLists))setCreatedLink(null)
- },[activeId,createdLink,editing,offlineLists])
- const readingSet=fullReader?(selected?.id===activeId?selected:lists.find(list=>list.id===activeId)):null
- if(fullReader&&readingSet)return <FullSetlistReader title={readingSet.title} songs={slots(readingSet)} controls={fullReader}/>
+  if(!returnAfterSave)return
+  setReturnAfterSave(false)
+  onBack()
+ },[returnAfterSave])
+ const readingSet=fullReader?lists.find(list=>list.id===activeId):null
+ const sharingId=canEdit&&!offlineLists?readingSet?.id??null:null
+ const link=useSetlistLink(sharingId)
+ if(fullReader&&readingSet)return <FullSetlistReader title={readingSet.title} songs={slots(readingSet)} controls={fullReader}
+  shareOptions={sharingId&&(link.token||link.notice)&&<details className="setlist-sharing"><summary>Share options</summary>
+   {link.token&&<button type="button" disabled={link.busy} onClick={()=>void link.disableLink().then(disabled=>{
+    if(disabled)setCardLink(current=>current?.id===sharingId?null:current)
+   })}>Turn off link</button>}
+   {link.notice&&<p role="status">{link.notice}</p>}
+  </details>}/>
+ if(fullReader)return <section className="setlist-page"><button type="button" onClick={fullReader.exit}>Back to setlists</button>
+  <p>{loaded?'This setlist is no longer available.':'Loading setlist…'}</p></section>
  if(!activeId)return <section className="setlist-panel setlist-index" aria-label="My setlists">{!!drafts.length&&<section className="draft-recovery" aria-label="Recover unsaved setlists"><h3>Unsaved setlist drafts</h3><p>Stored in this browser only. Recovering does not change a saved setlist.</p>{drafts.map(draft=><div className="draft-row" key={draft.id}><span>{draft.title||'Untitled setlist'} · {draft.songIds.length} songs · {new Date(draft.updatedAt).toLocaleString()}</span><button disabled={busy||!canEdit||!loaded} onClick={()=>void recoverDraft(draft)}>Recover setlist draft</button><button disabled={busy} onClick={()=>{if(window.confirm('Permanently discard this setlist draft?'))clearDraft(draft.id)}}>Discard setlist draft</button></div>)}</section>}<div className="setlist-tools"><button disabled={busy} onClick={()=>void action(async()=>{await refresh()})}>Refresh setlists</button>{canEdit&&<button disabled={busy} onClick={startNew}>New setlist</button>}</div><LibrarySortControl label="Setlists" value={listSort} onChange={setListSort}/><div className="setlist-cards">{sortLibraryItems(lists,listSort).map(list=>{
   const playable=queue(list)
   return <article className="library-setlist-card" key={list.id} aria-label={list.title}>
@@ -181,7 +188,6 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLi
     disabled={busy} onClick={()=>editSetlist(list)}>
     <strong>{list.title}</strong>
     <span>{list.song_ids.length} {list.song_ids.length===1?'song':'songs'}</span>
-    <OfflineSetlistStatus compact snapshot={offlineSnapshot} userId={ownerId??''} list={list} songs={songs}/>
     {!playable.length&&<small>{list.song_ids.length?'No available songs':'Add a song to start this setlist'}</small>}
    </button>
    <div className="setlist-card-actions">
@@ -203,7 +209,7 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLi
     </>}
    </div>
    {canEdit&&!offlineLists&&cardLink?.id===list.id&&<>
-    <p role="status">{cardLink.fallback?'Select and copy the setlist link.':'Setlist link copied.'}</p>
+    <p role="status">{cardLink.created?'Setlist saved. Your share link is ready.':cardLink.fallback?'Select and copy the setlist link.':'Setlist link copied.'}</p>
     {cardLink.fallback&&<input className="setlist-card-link" type="text" aria-label="Setlist link" readOnly
      value={cardLink.fallback} autoFocus onFocus={event=>event.currentTarget.select()}/>}
    </>}
@@ -252,18 +258,7 @@ export default function SongOrganization({songs,canEdit,onOpen,ownerId,offlineLi
   })}</ol>
   <div className="worship-set-actions">
    <button type="button" className="worship-primary" onClick={()=>void action(save)}>Save setlist</button>
-   <button type="button" onClick={()=>{if(!allowNavigation())return;clearDraft(selected?.id??'new');setEditing(false);if(selected)choose(selected);else onBack()}}>Cancel</button>
+   <button type="button" onClick={()=>{if(!allowNavigation())return;clearDraft(selected?.id??'new');setEditing(false);onBack()}}>Cancel</button>
   </div>
- </fieldset>:selected&&<>
- <div className="setlist-primary-actions"><button data-read-full-set="" onClick={()=>onReadFull()}>Read full set</button><button disabled={!queue(selected).length} onClick={()=>{const playable=queue(selected);onOpen(playable,selected.id,0,selected.song_ids.length-playable.length)}}>Read song by song</button>{canEdit&&<button disabled={busy} onClick={()=>editSetlist(selected)}>Edit setlist</button>}</div>
- {sharingId&&<SetlistLinkSharing link={link}/>}
- <OfflineSetlistStatus snapshot={offlineSnapshot} userId={ownerId??''} list={selected} songs={songs} offline={!!offlineLists} onSave={onSongsChanged} disabled={refreshing||busy}/>
- <SetlistKeyOverview songs={slots(selected)} onOpen={index=>{const playable=queue(selected);onOpen(playable,selected.id,slots(selected).slice(0,index).filter(Boolean).length,selected.song_ids.length-playable.length)}}/>
- <div className="setlist-copy-row"><SetlistCopy songs={queue(selected)}/></div>
- {ownerId&&<SetlistPrint title={selected.title} songs={slots(selected)} userId={ownerId} listId={selected.id}/>}
- {sharingId&&link.token&&<details className="setlist-sharing"><summary>Manage share link</summary>
-  <button type="button" disabled={link.busy} onClick={()=>void link.disableLink()}>Turn off link</button>
- </details>}
- {canEdit&&<details className="setlist-delete"><summary>Delete setlist</summary><button disabled={busy} onClick={()=>deleteSetlist(selected)}>Delete this setlist</button></details>}
- </>}<p role="status">{notice}</p></section>
+ </fieldset>:null}<p role="status">{notice}</p></section>
 }

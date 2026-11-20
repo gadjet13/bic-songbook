@@ -277,8 +277,6 @@ select:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
 .library-toggle>summary,.setlist-sharing>summary {font-weight:700;cursor:pointer;padding:10px 0;}
 .setlist-page {padding-block:12px;min-height:60vh;}
 .setlist-primary-actions {display:flex;flex-wrap:wrap;gap:10px;margin:16px 0 8px;}
-.setlist-copy-row {margin:0 0 18px;}
-.setlist-sharing,.setlist-delete {margin-block:18px;}
 .add-to-folder {margin:10px 0;}
 .active-filters {overflow-wrap:anywhere;}
 .book-measure .song-word,.book-spread .song-word {display:inline-block;white-space:nowrap;vertical-align:top;}
@@ -305,10 +303,6 @@ select:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
 .position-target:disabled {opacity:1;cursor:default;}
 .position-target:hover:not(:disabled),.position-target[data-target] {background:var(--soft);border-bottom-color:var(--accent);}
 
-.offline-setlist-badge {display:block;font-size:13px;font-weight:600;}
-.offline-setlist-badge.offline-ready {color:var(--accent);}
-.offline-setlist-status {border:1px solid var(--border);border-radius:10px;padding:14px;margin:14px 0;}
-.offline-setlist-status.offline-ready {background:var(--soft);}
 
 .song-sort {display:block;margin:12px 0;}
 .song-sort select {display:block;width:100%;min-width:0;margin-top:6px;box-sizing:border-box;}
@@ -390,14 +384,6 @@ select:focus-visible { outline: 3px solid #9874d0; outline-offset: 3px; }
   .song-search-toolbar input, .song-search-toolbar .add-song-button { flex: 1 1 100%; }
 }
 
-.stage-controls { margin-block: .65rem; }
-.stage-progress, .stage-actions { display: flex; flex-wrap: wrap; gap: .6rem; align-items: end; }
-.stage-progress { justify-content: space-between; align-items: start; font-size: .875rem; }
-.stage-progress span { overflow-wrap: anywhere; }
-.stage-actions label { margin: 0; flex: 1 1 12rem; min-width: 0; }
-.stage-actions select { width: 100%; min-height: 44px; }
-.stage-actions button { min-height: 44px; }
-.stage-actions button[aria-pressed="true"] { color: white; background: #634691; }
 .book-navigation button { min-height: 48px; }
 
 .setlist-print .print-capo { flex-direction: row; align-items: center; }
@@ -446,6 +432,8 @@ button.worship-primary:disabled { opacity: .55; }
 .full-set-reading .shared-set-actions { display: none; }
 .full-set-toolbar { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: end;
   gap: 8px; padding: 8px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.full-set-actions { display: flex; flex-wrap: wrap; align-items: start; gap: 8px 16px; margin-block: 8px; }
+.full-set-actions details { margin-block: 0; }
 .full-set-toolbar label, .full-set-song-settings label { margin: 0; min-width: 0; }
 .full-set-toolbar label { flex: 1 1 10rem; }
 .full-set-toolbar button, .full-set-toolbar select, .full-set-song-settings select { min-height: 44px; }

@@ -64,7 +64,7 @@ Open a folder card to see its songs. Use the **My Songbook** breadcrumb to retur
 1. In **My songbook → My Setlists**, choose **New setlist** and enter a name.
 1. Search by song title or artist. Personal results show your name; church results show **BIC**. Your personal version takes priority when the song is in both places.
 1. Select songs in service order. Selecting a BIC-only song automatically adds a personal copy to your songbook.
-1. Use **↑ / ↓** to reorder, then **Save setlist**. Reopen it from its card on a dedicated setlist page. Use **Back to setlists** to return. Copying sits below the Start setlist / Edit setlist row; Sharing opens and closes separately. **Saved key overview** shows every song and its base key together, without temporary reading-mode transpositions.
+1. Use **↑ / ↓** to reorder, then **Save setlist**. You return to the cards. Select the title to edit or the green play button to read and print.
 
 You can also open a personal song → **Add to setlist**, then choose an existing list or **Create setlist with this song**. Each account can keep 25 personal setlists. At the limit, you can replace the oldest, choose another to replace, or cancel. Deleting a setlist keeps the songs but ends its outgoing shares.
 
@@ -74,7 +74,7 @@ Unsaved setlist names and song order are saved in this browser. After returning,
 
 1. Choose **Copy setlist link** after saving, or use the chain icon on its card.
 1. Send the link to your team. Each person opens it with an approved songbook account and can find it later under **Shared with me**.
-1. To close the link, open **Manage share link → Turn off link** in the setlist details.
+1. To close the link, open **Share options → Turn off link** in the reader.
 
 Recipients can read the live set and keep their own notes and capo settings. Your saved changes update what they see.
 
@@ -86,10 +86,10 @@ Recipients can read the live set and keep their own notes and capo settings. You
 
 *Workflow illustration, not an app screenshot; layouts vary by device.*
 
-1. Open the saved setlist and choose **Start setlist → Reading mode**, then choose **Lyrics only** or **Lyrics + chords**.
-1. Text starts at 16px by default. Reading mode checks the current size, then decreases it 1px at a time only if needed. It stops as soon as lines fit, with a 12px automatic minimum. Use **A− / A+** for text size afterward. If a line must wrap, it breaks at spaces; chord markers inside a word stay with that word. Use page arrows or swipe. At the last page, Next continues to the next song; at the first page, Previous returns to the previous song’s last page when available.
+1. Select the green play button to open the full set. Choose **Lyrics** or **Chords** in the reader.
+1. Text starts at 16px by default. Reading mode checks the current size, then decreases it 1px at a time only if needed. It stops as soon as lines fit, with a 12px automatic minimum. Use **A− / A+** for text size afterward. If a line must wrap, it breaks at spaces; chord markers inside a word stay with that word. Use page arrows or swipe. In the setlist reader, scroll or use Jump to song.
 1. Transpose changes the displayed key. To make it permanent in your editable personal song, choose **Save in X as base key**. Transpose then resets to zero.
-1. Before leaving Wi-Fi, open **Menu → Offline use → Save latest for offline**. Wait for the saved timestamp. Check the status on each setlist card, or open it for details. **Ready offline** verifies the stored order, song versions, saved sign-in and app files on this device. If it says **Save for offline**, save again online; if app files cannot be verified, refresh online and recheck. A received list checks its own shared versions.
+1. Open the setlist while online so the app saves the latest copy on this device.
 1. Stay signed in. Test airplane mode and reopen the setlist on that device before the service.
 
 Offline mode supports reading, transposing and page turning. Editing, sharing and new login need internet. Received lists use their last saved version. A ready label confirms the current saved copy, not future changes on the server. Browser storage can still be cleared, so test airplane mode before each service. Check the screen-awake status in reading mode; device settings may still release it.
@@ -161,7 +161,7 @@ Database changes for folder dates and the manager-only account-ID listing are al
 
 Personal setlist cards now default to **Date added — newest first**. You can still choose any other sort. Folder cards keep their existing **Name A–Z** default. Neither setting changes the order of songs inside a setlist.
 
-When opening **Reading mode**, choose **Lyrics only** or **Lyrics + chords**, or cancel. Lyrics only keeps the lyrics and section labels and removes chord spacing from the page layout. **Reading content** also lets you switch while reading; pages are recalculated for the chosen layout. The choice stays active across next/previous songs in a setlist. It affects display only, including saved offline reading, and never edits stored arrangements or transpositions. No database change is needed.
+When opening **Reading mode**, choose **Lyrics only** or **Lyrics + chords**, or cancel. Lyrics only keeps the lyrics and section labels and removes chord spacing from the page layout. **Reading content** also lets you switch while reading; pages are recalculated for the chosen layout. The choice applies to the whole setlist. It affects display only, including saved offline reading, and never edits stored arrangements or transpositions. No database change is needed.
 
 
 ## Horizontal song flow and linked sections (November 3)

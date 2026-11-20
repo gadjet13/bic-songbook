@@ -27,7 +27,7 @@ function splitLongLine(node: ReactNode, element: HTMLElement, size: number) {
       index !== row.nodes.length - 1 || typeof part !== 'string' || part.trim())),
   }))
 }
-export default function SongPages({ children, fontSize, onFitFontSize, onNextSong, onPreviousSong, startOnLastPage=false, columnPreference }: { children: ReactNode; fontSize: number; onFitFontSize?:(size:number)=>void; onNextSong?: () => void; onPreviousSong?: () => void; startOnLastPage?: boolean; columnPreference:ReaderColumns }) {
+export default function SongPages({ children, fontSize, onFitFontSize, columnPreference }: { children: ReactNode; fontSize: number; onFitFontSize?:(size:number)=>void; columnPreference:ReaderColumns }) {
   const viewport = useRef<HTMLDivElement>(null)
   const measure = useRef<HTMLDivElement>(null)
   const navigation = useRef<HTMLElement>(null)
@@ -110,7 +110,6 @@ export default function SongPages({ children, fontSize, onFitFontSize, onNextSon
       measuredPages.current = pages
       setLayout({height,count,size,pages})
       setPage(current => {
-        if (startOnLastPage) return pages.length - 1
         if (previousPages.length === pages.length &&
           previousPages[current]?.[0]?.line === pages[current]?.[0]?.line) return current
         const firstLine = previousPages[current]?.[0]?.line ?? 0
@@ -128,11 +127,9 @@ export default function SongPages({ children, fontSize, onFitFontSize, onNextSon
     document.fonts.ready.then(rebuild)
     return () => { active = false; observer.disconnect(); window.removeEventListener('resize',rebuild) }
   // The signature tracks actual song content without depending on fresh React element objects.
-  }, [signature, fontSize, startOnLastPage, columnPreference])
+  }, [signature, fontSize, columnPreference])
   const pages = layout.pages.length
   const turn = (direction:number) => {
-    if(direction<0 && page===0 && onPreviousSong) return onPreviousSong()
-    if(direction>0 && page===pages-1 && onNextSong) return onNextSong()
     setPage(current=>Math.max(0,Math.min(pages-1,current+direction)))
   }
   return <section className="song-book" aria-label="Paged song reader">
@@ -151,8 +148,8 @@ export default function SongPages({ children, fontSize, onFitFontSize, onNextSon
       </div>
     </div>
     <nav ref={navigation} className="book-navigation" aria-label="Song pages">
-      <button disabled={page===0&&!onPreviousSong} onClick={()=>turn(-1)}>{page===0&&onPreviousSong?'← Previous song':'← Previous'}</button>
-      <button disabled={page===pages-1&&!onNextSong} onClick={()=>turn(1)}>{page===pages-1&&onNextSong?'Next song →':'Next →'}</button>
+      <button disabled={page===0} onClick={()=>turn(-1)}>← Previous</button>
+      <button disabled={page===pages-1} onClick={()=>turn(1)}>Next →</button>
       <span aria-live="polite">Page {page+1} of {pages}</span>
     </nav>
   </section>
