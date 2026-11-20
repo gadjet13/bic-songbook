@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
 import { chartCueLocations } from './lib/cue-locations'
+import { parseSongFlow, resolveSectionRepeats } from './lib/song-flow'
 import { readingWords } from './lib/reader-lines'
-import { barChordParts, storedChartLines, lyricsOnly, sectionHeading, transposeChord } from './lib/chord/transpose'
+import { barChordParts, storedChartLines, lyricsOnly, transposeChord } from './lib/chord/transpose'
 
 export function displaySong(
   content: string,
@@ -16,19 +17,27 @@ export function displaySong(
     ? storedChartLines(content)
     : lyricsOnly(content).split('\n').map((text, sourceLine) => ({text, sourceLine}))
   const useFlats = currentKey.includes('b')
-  const cueIds = renderSection
-    ? new Map(chartCueLocations(lines.map(({text}) => text).join('\n')).map(section => [section.lineIndex, section.id]))
-    : null
+  const headings = new Map(chartCueLocations(content).map(section => [section.lineIndex, section]))
 
   const groups: { heading?: string; sourceLine?: number; cueId?: string; lines: typeof lines }[] = []
-  for (const [lineIndex, line] of lines.entries()) {
-    const heading = sectionHeading(line.text)
-    if (heading !== undefined) groups.push({ heading, sourceLine: line.sourceLine, cueId: cueIds?.get(lineIndex), lines: [] })
+  for (const line of lines) {
+    const section = headings.get(line.sourceLine)
+    if (section) groups.push({ heading: section.heading, sourceLine: line.sourceLine, cueId: section.id, lines: [] })
     else {
       if (!groups.length) groups.push({ lines: [] })
       groups[groups.length - 1].lines.push(line)
     }
   }
+  const sections = groups.filter(group => group.heading)
+  const repeats = resolveSectionRepeats(parseSongFlow(content).sections)
+  sections.forEach((section, index) => {
+    const repeat = repeats[index]
+    section.heading = repeat.label
+    if (repeat.bodyIndex !== index) {
+      // Repeated rows point back to their own heading in the raw editor.
+      section.lines = sections[repeat.bodyIndex].lines.map(line => ({...line, sourceLine: section.sourceLine!}))
+    }
+  })
   return groups.map((group, index) => <div className={showChords?'song-block':'song-block lyrics-only-block'} key={index}>
     {group.heading && (group.cueId && renderSection
       ? renderSection(group.cueId, group.heading)
