@@ -7,7 +7,7 @@ export function CueText({ cues, location }: { cues: SetlistCue[]; location: stri
   return <>
     {cues.filter(cue => cue.location === location).sort((a,b) => b.scope.localeCompare(a.scope)).map(cue =>
       <p className="setlist-cue" data-visibility={cue.scope} key={cue.scope}>
-        <strong>{cue.scope === 'team' ? 'Team cue' : 'My cue · Private'}</strong> {cue.cue}
+        <span className="setlist-cue-visibility">{cue.scope === 'team' ? 'Team cue. ' : 'Private cue. '}</span>{cue.cue}
       </p>
     )}
   </>

@@ -513,14 +513,20 @@ body:not(.song-reading-mode) .song-view .transpose {
 
 .full-set-navigation { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
 .full-set-navigation span { font-variant-numeric: tabular-nums; }
-.setlist-cue { margin: .35em 0; padding-inline-start: .6em; border-inline-start: 2px solid currentColor;
-  white-space: pre-wrap; overflow-wrap: anywhere; }
+.setlist-cue { width: fit-content; max-width: 100%; margin: .35em 0; padding: .35em .65em;
+  border: 1px solid; border-radius: .5em; white-space: pre-wrap; overflow-wrap: anywhere; }
+.setlist-cue[data-visibility="team"] { color: #173e5c; background: #e7f3fc; border-color: #6496bb; }
+.setlist-cue[data-visibility="private"] { color: #593806; background: #fff2d4; border-color: #b18740; }
+:root[data-theme="dark"] .setlist-cue[data-visibility="team"] { color: #d7edff; background: #20394e; border-color: #7ca6ca; }
+:root[data-theme="dark"] .setlist-cue[data-visibility="private"] { color: #ffe5af; background: #453416; border-color: #c5a263; }
+.setlist-cue-visibility { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .reader-chart .setlist-cue { grid-column: 1 / -1; }
 .setlist-cue-editor { margin-block: .5rem; max-width: 32rem; }
 .setlist-cue-editor textarea { resize: vertical; }
 @media print {
   .setlist-cue[data-visibility="private"], .setlist-cue-editor { display: none !important; }
-  .setlist-print-output .setlist-cue { break-inside: avoid; }
+  .setlist-cue[data-visibility="team"] { color: #000 !important; background: #fff !important; border-color: #555 !important; break-inside: avoid; }
 }
 
 .cue-heading-button { display: inline-flex; align-items: baseline; gap: .35em; padding: 0;
