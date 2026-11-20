@@ -10,6 +10,7 @@ export default function ReaderChartEditor({content,onChange,baseKey,busy,canSave
  return <fieldset className="reader-chart-editor" disabled={busy}>
   <legend tabIndex={-1} data-reader-edit-heading>Edit raw chart</legend>
   <p>Chords are in the saved key {baseKey||'(unspecified)'}. Saving updates your personal chart wherever it’s used.</p>
+  <p>Start section headings with <code># </code>, for example <code># Verse 1 [slight soft]</code>.</p>
   <label>Raw chart content<textarea className="reader-raw-chart" spellCheck={false} value={content.replace(/\r\n/g,'\n')}
     onChange={event=>{
      const input=event.currentTarget

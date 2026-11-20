@@ -1,3 +1,4 @@
+import { normalizeSectionHeadings } from './chord/transpose'
 import { createClient } from '@supabase/supabase-js'
 import { loginPersistence } from './login-storage'
 import type { Song } from '../App'
@@ -6,7 +7,10 @@ const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
 export const cloud = url && key ? createClient(url, key, {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:loginPersistence.storage}}) : null
 export type CloudSong = Song & { revision?: number }
 function client() { if (!cloud) throw new Error('Database connection is not configured.'); return cloud }
-function fields(song: Song) { return {title:song.title,artist:song.artist,key:song.key,category:song.category,content:song.content,folder_id:song.folder_id??null} }
+function fields(song: Song) {
+  const canonical = normalizeSectionHeadings(song.content)
+  const content = canonical.length <= 200000 || Array.from(canonical).length <= 200000 ? canonical : song.content
+  return {title:song.title,artist:song.artist,key:song.key,category:song.category,content,folder_id:song.folder_id??null} }
 export async function loadSongs(ownerId: string | null): Promise<CloudSong[]> {
   let query=client().from('shared_songs').select('*').order('title')
   query=ownerId ? query.eq('owner_id',ownerId) : query.is('owner_id',null)

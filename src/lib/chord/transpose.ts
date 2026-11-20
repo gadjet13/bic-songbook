@@ -13,6 +13,36 @@ export function chordRowPositions(line: string) {
 
 export function isChordToken(token: string) { return chordPattern.test(token) }
 
+const trimSection = (text: string) => text.replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, '')
+const sectionName = '(?:intro|verse|pre[ -]?chorus|chorus|post[ -]?chorus|bridge|refrain|tag|instrumental|interlude|solo|breakdown|vamp|turnaround|outro|ending)[ \\t]*[0-9]*'
+const sectionNotes = '(\\[[^\\[\\]\\r\\n]+\\](?:[ \\t]+\\[[^\\[\\]\\r\\n]+\\])*)'
+const bareAnnotated = new RegExp('^(' + sectionName + ')[ \\t]+' + sectionNotes + '$', 'i')
+const separateAnnotated = new RegExp('^\\[(' + sectionName + ')\\][ \\t]+' + sectionNotes + '$', 'i')
+const nestedAnnotated = new RegExp('^\\[(' + sectionName + ')[ \\t]+' + sectionNotes + '\\]$', 'i')
+
+export function sectionHeading(line: string): string | undefined {
+  const text = trimSection(line)
+  if (text.startsWith('# ')) return trimSection(text.slice(2)) || undefined
+  const standalone = /^\[([^\[\]\r\n]+)\]$/.exec(text)
+  if (standalone) {
+    const label = trimSection(standalone[1])
+    return label && !isChordToken(label) ? label : undefined
+  }
+  const annotated = bareAnnotated.exec(text) ?? separateAnnotated.exec(text) ?? nestedAnnotated.exec(text)
+  if (!annotated) return undefined
+  const notes = [...annotated[2].matchAll(/\[([^\]]+)\]/g)]
+  if (notes.some(note => !trimSection(note[1]) || isChordToken(trimSection(note[1])))) return undefined
+  return trimSection(annotated[1]) + ' ' + annotated[2]
+}
+
+export function normalizeSectionHeadings(content: string): string {
+  return content.split('\n').map(line => {
+    if (/^[ \t]*# /.test(line)) return line
+    const label = sectionHeading(line)
+    return label ? line.replace(/^([ \t]*).*?([ \t]*\r?)$/, (_, indent, ending) => indent + '# ' + label + ending) : line
+  }).join('\n')
+}
+
 function storedChordRow(line: string) {
   const row = chordRowPositions(line)
   // A lyric consisting of just “A” (or another note name) is still a lyric.
@@ -36,7 +66,7 @@ export function formatStoredChordRows(content: string) {
     const row = storedChordRow(lines[index])
     const next = lines[index + 1]
     if (!row) output.push(lines[index])
-    else if (!next?.trim() || /[{}\[\]]/.test(next) || next.trimStart().startsWith('# ') ||
+    else if (!next?.trim() || /[{}\[\]]/.test(next) || sectionHeading(next) ||
              storedChordRow(next) || barChordParts(next)) {
       output.push(row.map(({chord}) => `{${chord}}`).join(' ') + (lines[index].endsWith('\r') ? '\r' : ''))
     } else {
@@ -80,7 +110,7 @@ export function transposeChord(chord: string, semitones: number, useFlats = fals
 /** Bake a displayed transposition into song text without changing section labels or lyrics. */
 export function transposeSongContent(content: string, semitones: number, useFlats = false): string {
   return formatStoredChordRows(content).split('\n').map(line => {
-    if (line.trim().startsWith('# ')) return line
+    if (sectionHeading(line)) return line
     const barParts = barChordParts(line)
     if (barParts) {
       return barParts.map(({text, chord}) => chord ? transposeChord(text, semitones, useFlats) : text).join('')
@@ -98,7 +128,7 @@ export function transposeSongContent(content: string, semitones: number, useFlat
 /** Remove chord tokens while preserving section labels, lyric spacing and line endings. */
 export function lyricsOnly(content: string): string {
   return content.split('\n').map(line => {
-    if (line.trim().startsWith('# ')) return line
+    if (sectionHeading(line)) return line
     if (barChordParts(line) || storedChordRow(line)) return line.endsWith('\r') ? '\r' : ''
     return line.replace(/\[([^\]\r\n]+)\]|\{([^}\r\n]+)\}/g, (token, legacy: string | undefined, modern: string | undefined) => {
       const chord = legacy ?? modern!

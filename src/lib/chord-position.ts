@@ -1,14 +1,13 @@
-const chord=/^[A-G](?:#|b)?(?:(?:maj|min|dim|aug|sus|add|omit|no|m|M)|\d|[#b()+-])*(?:\/[A-G](?:#|b)?)?\/*$/
+import { isChordToken, sectionHeading } from './chord/transpose'
 export type PositionedChord={token:string;label:string;position:number;index:number}
 export type ChordLine={lyrics:string;chords:PositionedChord[];ending:string;heading:boolean}
 export function parseChordPositions(line:string):ChordLine{
- const ending=line.endsWith('\r')?'\r':'',body=ending?line.slice(0,-1):line,trimmed=body.trim()
- const bracket=trimmed.match(/^\[([^\]]+)\]$/)
- const heading=trimmed.startsWith('# ')||!!(bracket&&!chord.test(bracket[1]))
+ const ending=line.endsWith('\r')?'\r':'',body=ending?line.slice(0,-1):line
+ const heading=sectionHeading(body)!==undefined
  if(heading)return{lyrics:body,chords:[],ending,heading:true}
  const chords:PositionedChord[]=[];let lyrics='',cursor=0
  for(const match of body.matchAll(/\{([^}\r\n]+)\}|\[([^\]\r\n]+)\]/g)){
-  const label=match[1]??match[2];if(!chord.test(label))continue
+  const label=match[1]??match[2];if(!isChordToken(label))continue
   lyrics+=body.slice(cursor,match.index);chords.push({token:match[0],label,position:lyrics.length,index:chords.length});cursor=match.index!+match[0].length
  }
  lyrics+=body.slice(cursor);return{lyrics,chords,ending,heading:false}

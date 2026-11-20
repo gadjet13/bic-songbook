@@ -871,10 +871,10 @@ function App({library}: {library: SharedLibrary}) {
 
                 <textarea
                   className="song-editor"
-                  placeholder={`[Verse 1]
+                  placeholder={`# Verse 1
 {G}Amazing grace, {D}how sweet the sound
 
-[Chorus]
+# Chorus
 {C}Amazing grace`}
                   value={newSongContent}
                   onChange={(event) =>
@@ -883,7 +883,7 @@ function App({library}: {library: SharedLibrary}) {
                 />
 
                 <small className="editor-help">
-                  Use <strong>[Verse 1]</strong>, <strong>[Chorus]</strong> or <strong>[Tag]</strong> for sections. Use <strong>{'{C}'}</strong> and <strong>{'{G/B}'}</strong> for chords. Existing # headings and [C] chords still work.
+                  Use <strong># Verse 1</strong>, <strong># Chorus</strong> or <strong># Tag</strong> for sections. Use <strong>{'{C}'}</strong> and <strong>{'{G/B}'}</strong> for chords. Existing # headings and [C] chords still work.
                 </small>
               </label>
 
@@ -1060,7 +1060,7 @@ function App({library}: {library: SharedLibrary}) {
                   />
 
                   <small className="editor-help">
-                    Use <strong>[Verse 1]</strong>, <strong>[Chorus]</strong> or <strong>[Tag]</strong> for sections. Use <strong>{'{C}'}</strong> and <strong>{'{G/B}'}</strong> for chords. Existing # headings and [C] chords still work.
+                    Use <strong># Verse 1</strong>, <strong># Chorus</strong> or <strong># Tag</strong> for sections. Use <strong>{'{C}'}</strong> and <strong>{'{G/B}'}</strong> for chords. Existing # headings and [C] chords still work.
                   </small>
                 </label>
 
