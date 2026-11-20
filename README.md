@@ -60,19 +60,19 @@ The app saves the transposed chords, changes the song's base key, and resets tra
 
 ## Writing lyrics and chords
 
-Put section headings on their own lines using square brackets. Put chords in curly braces where they belong in the lyrics:
+Start a section heading on its own line with `# `. Put chords in curly braces where they belong in the lyrics.
 
 ```text
-[Verse 1]
+# Verse 1
 {G}Amazing grace, {D}how sweet the sound
 
-[Chorus]
+# Chorus
 {C}Amazing {G/B}grace
 ```
 
 Chords display above the lyrics. Chords can appear inside a word, such as `re{C}ward`, without adding a space to that word. Slash chords such as `{D/F#}` are supported.
 
-Older `# Verse 1` headings and `[G]` chord markers remain supported. A chord-only line such as `[C]` is interpreted as a legacy chord, not a section heading.
+Legacy `[Verse 1]` headings still render. Saves use `# Verse 1`. A standalone `[C]` remains a C chord.
 
 ## Folders and setlists
 
@@ -359,3 +359,13 @@ Repeated section names with matching text are **linked**. Editing their lyrics/c
 Existing sections with the same name but different lyrics/chords are highlighted and stay unchanged. Resolve them before saving: **Keep variations as separate sections** gives distinct numbered labels while keeping every version, or **Use selected version for all ... sections** explicitly replaces the differing versions in the draft. Renaming individual occurrences also works. Equal labels are compared without case differences and repeated spaces; differing final blank lines alone do not create conflicts.
 
 Flow edits are included in browser-local song draft recovery. Saving retains the complete expanded song text, so existing reading, lyrics-only mode, transposition, copying, history, backups and live setlist sharing continue to use the arrangement. No database migration or new backup format is needed. This combined patch also includes the earlier November 3 newest-setlist default and lyrics/chords reading choices; folders remain A–Z by default.
+
+### Deploy canonical section headings
+
+Use the Supabase project administrator for the library conversion. The scope includes the church library and all saved personal charts.
+
+1. Apply `database/canonical-section-headings.sql` to install the write normalizer and the admin-only batch function.
+2. Run `database/chart-heading-audit.sql` and record the church and personal totals. Review flagged rows separately through approved access. The audit returns IDs and line numbers for ambiguous candidates.
+3. Run `select songbook_private.convert_chart_heading_batch(100);` in successive transactions until it returns zero. Each batch keeps the previous content and uses the normal revision, history, and live-sharing triggers.
+4. Rerun the audit to confirm that both chart counts match and no convertible rows remain. Review any over-limit charts separately. Spot-check the saved source and reader for **A Thousand Hallelujahs** and verify a live shared set.
+5. If rollback is needed, run `database/rollback-chart-heading-conversion.sql` with the same admin access. It restores pre-conversion text only when the current revision matches the converted revision. Retain the protected backup until the rollout is verified.

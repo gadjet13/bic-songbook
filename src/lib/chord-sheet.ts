@@ -1,4 +1,4 @@
-import { alignChordRow, barChordParts, chordRowPositions, isChordToken } from './chord/transpose'
+import { alignChordRow, barChordParts, chordRowPositions, isChordToken, normalizeSectionHeadings, sectionHeading } from './chord/transpose'
 
 const repeatPattern = /^x[1-9]\d*$/i
 const pageMarker = /^Page\s+\d+\s*\/\s*\d+$/i
@@ -9,10 +9,6 @@ function chordRow(line: string) {
   const repeatMatch = /\s+(x[1-9]\d*)\s*$/i.exec(line)
   const chords = chordRowPositions(repeatMatch ? line.slice(0, repeatMatch.index) : line)
   return chords ? { chords, repeat: repeatMatch?.[1] } : null
-}
-
-function isSection(line: string) {
-  return /^\[.+\]$/.test(line.trim()) || line.trim().startsWith('# ')
 }
 
 function looksLikeChordRow(line: string) {
@@ -32,7 +28,7 @@ export function convertChordSheet(raw: string): { title: string; content: string
     const candidate = lines[first].text.trim()
     const next = lines.slice(first + 1).find(({ text }) => !!text.trim())?.text
     if (/^\*\*.+\*\*$/.test(candidate)) title = candidate.slice(2, -2)
-    else if (next && (chordRow(next) || barChordParts(next) || isSection(next)) && candidate.length <= 100 &&
+    else if (next && (chordRow(next) || barChordParts(next) || sectionHeading(next)) && candidate.length <= 100 &&
       !/[{}\[\]#]/.test(candidate) && !chordRow(candidate) && !barChordParts(candidate) && !looksLikeChordRow(candidate)) title = candidate
     if (title) lines.splice(first, 1)
   }
@@ -48,7 +44,7 @@ export function convertChordSheet(raw: string): { title: string; content: string
       continue
     }
     const next = lines[index + 1]?.text
-    if (row.repeat || !next?.trim() || isSection(next) || chordRow(next) || barChordParts(next) || looksLikeChordRow(next)) {
+    if (row.repeat || !next?.trim() || sectionHeading(next) || /^\[[^\]]+\]$/.test(next.trim()) || chordRow(next) || barChordParts(next) || looksLikeChordRow(next)) {
       const chords = row.chords.map(({chord}) => `{${chord}}`).join(' ')
       output.push(row.repeat ? `${chords}  ${row.repeat}` : chords)
       continue
@@ -59,5 +55,5 @@ export function convertChordSheet(raw: string): { title: string; content: string
     output.push(alignChordRow(row.chords, next))
     index++
   }
-  return { title, content: output.join('\n').trim(), warnings }
+  return { title, content: normalizeSectionHeadings(output.join('\n').trim()), warnings }
 }

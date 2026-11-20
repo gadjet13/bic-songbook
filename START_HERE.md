@@ -39,13 +39,13 @@ A new personal song’s first saved version is also added to the church collecti
 ```text
 **Morning Song**
 
-[Verse 1]
+# Verse 1
 G             D
 A new day is here
 ```
 
 
-In the editor, chords use braces, such as `{G}A new day is {D}here`. Sections use square brackets: `[Verse 1]`, `[Chorus]`.
+In the editor, chords use braces, such as `{G}A new day is {D}here`. Start a section line with `# ` followed by its title, for example `# Verse 1`, `# Chorus`.
 
 If a duplicate warning appears above Save, open the existing song first. Overwrite replaces an existing editable version; review carefully before confirming.
 

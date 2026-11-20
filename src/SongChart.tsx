@@ -1,5 +1,5 @@
 import { readingWords } from './lib/reader-lines'
-import { barChordParts, formatStoredChordRows, lyricsOnly, transposeChord } from './lib/chord/transpose'
+import { barChordParts, formatStoredChordRows, lyricsOnly, sectionHeading, transposeChord } from './lib/chord/transpose'
 
 export function displaySong(
   content: string,
@@ -13,11 +13,7 @@ export function displaySong(
 
   const groups: { heading?: string; lines: string[] }[] = []
   for (const line of content.split('\n')) {
-    const trimmed = line.trim()
-    // A chord-only line such as [C] must remain a legacy chord, not a section.
-    const bracket = trimmed.match(/^\[([^\]]+)\]$/)
-    const legacyChord = bracket && /^[A-G](?:#|b)?(?:m|maj|min|dim|aug|sus|add|\d|#|b|[-+()])*(?:\/[A-G](?:#|b)?)?\/*$/.test(bracket[1])
-    const heading = trimmed.startsWith('# ') ? trimmed.slice(2) : bracket && !legacyChord ? bracket[1] : undefined
+    const heading = sectionHeading(line)
     if (heading !== undefined) groups.push({ heading, lines: [] })
     else {
       if (!groups.length) groups.push({ lines: [] })

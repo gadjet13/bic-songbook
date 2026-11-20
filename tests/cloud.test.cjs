@@ -2,7 +2,8 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=requir
 function setup(result) {
  const calls=[];const query={};for(const name of ['select','order','insert','update','delete','is','eq','maybeSingle'])query[name]=(...args)=>{calls.push([name,...args]);return query};query.then=(ok,bad)=>Promise.resolve(result).then(ok,bad);
  const client={from:name=>{calls.push(['from',name]);return query}};const exports={};const source=fs.readFileSync('src/lib/cloud.ts','utf8').replace(/import\.meta\.env\.VITE_SUPABASE_URL/g,"'https://test.supabase.co'").replace(/import\.meta\.env\.VITE_SUPABASE_PUBLISHABLE_KEY/g,"'public'");
- vm.runInNewContext(ts.transpile(source,{module:ts.ModuleKind.CommonJS}),{exports,require:()=>({createClient:()=>client,loginPersistence:{storage:{}}}),Error});return {api:exports,calls};
+ const chord={};vm.runInNewContext(ts.transpile(fs.readFileSync('src/lib/chord/transpose.ts','utf8'),{module:ts.ModuleKind.CommonJS}),{exports:chord});
+ vm.runInNewContext(ts.transpile(source,{module:ts.ModuleKind.CommonJS}),{exports,require:name=>name==='./chord/transpose'?chord:({createClient:()=>client,loginPersistence:{storage:{}}}),Error});return {api:exports,calls};
 }
 test('stale update does not silently succeed and checks server revision',async()=>{
  const {api,calls}=setup({data:null,error:null});await assert.rejects(api.updateSong({id:4,revision:2,title:'T',artist:'',key:'G',category:'',content:'[G]Hi'}),/changed/);assert(calls.some(c=>c[0]==='eq'&&c[1]==='revision'&&c[2]===2));
