@@ -189,6 +189,10 @@
   .reader-option-controls [role='group'] { display: flex; gap: 4px; }
   .reader-option-controls button[aria-pressed='true'] { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
   .full-set-actions { gap: 8px; margin-block: 12px; }
+  .reader-share-link { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; margin-block: 12px; }
+  .reader-share-link label { flex: 1 1 12rem; min-width: 0; margin: 0; }
+  .reader-share-link label input { font-size: .9rem; }
+  .reader-share-link p { flex-basis: 100%; margin: 0; color: var(--muted); font-size: .875rem; }
   .full-set-song { background: var(--surface); border: 1px solid var(--border); border-radius: var(--panel-radius);
     padding: clamp(14px, 3vw, 28px); margin-block: 12px; }
   .full-set-chart, .book-spread, .book-measure { font-family: Arial, sans-serif; }
@@ -291,4 +295,9 @@
     padding: 8px 0;
     background: var(--page);
   }
+}
+
+
+@media print {
+  .reader-share-link { display: none; }
 }

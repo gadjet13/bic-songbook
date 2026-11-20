@@ -55,3 +55,25 @@ export function useSetlistLink(listId:string|null){
 export function createSetlistLink(listId:string){
   return manage(listId,'enable')
 }
+
+
+export function ReaderShareLink({ token }: { token: string }) {
+  const field = useRef<HTMLInputElement>(null)
+  const [notice, setNotice] = useState('')
+
+  async function copy() {
+    if (await copySetlistLink(token)) {
+      field.current?.focus()
+      field.current?.select()
+      setNotice('Link selected. Copy it to share.')
+    } else {
+      setNotice('Setlist link copied.')
+    }
+  }
+
+  return <div className="reader-share-link">
+    <label>Setlist link<input ref={field} readOnly value={setlistLink(token)} /></label>
+    <button type="button" onClick={() => void copy()}>Copy setlist link</button>
+    {notice && <p role="status">{notice}</p>}
+  </div>
+}
