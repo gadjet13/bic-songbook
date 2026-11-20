@@ -13,8 +13,6 @@ import type { ReaderColumns } from './lib/reader-lines'
 import FullSetlistReader from './FullSetlistReader'
 import type { FullReaderControls } from './FullSetlistReader'
 import { flushSetlistCapos, loadSetlistPreferences, preferencesChanged, queueSetlistCapo } from './lib/setlist-preferences'
-import SongFlowEditor from './SongFlowEditor'
-import {hasFlowConflicts,mapFlowCursor,syncLinkedSections} from './lib/song-flow'
 import {songSortLabels,sortSongsByDate,songVersionDetails} from './lib/song-dates'
 import type {SongDateSort} from './lib/song-dates'
 import ChordPositionEditor from './ChordPositionEditor'
@@ -408,7 +406,7 @@ function App({library}: {library: SharedLibrary}) {
   async function saveReaderEdit(){
     if(!readerEdit||readerSavePending.current)return
     if(!readerDirty){clearDraft('song:'+readerEdit.song.id);lockReader();return}
-    if(!canEditInReader||hasFlowConflicts(readerEdit.content))return
+    if(!canEditInReader)return
     readerSavePending.current=true;setReaderSaving(true);setReaderError('')
     try{
       const saved=await library.update({...readerEdit.song,content:readerEdit.content})
@@ -609,7 +607,6 @@ function App({library}: {library: SharedLibrary}) {
     else {setIsAddingSong(false);selectSong(song,true)}
   }
   async function overwriteDuplicate(song:Song,draft:{title:string;artist:string;key:string;content:string}){
-    if(hasFlowConflicts(draft.content))throw new Error('Resolve the different section versions in Song flow before overwriting.')
     const target=duplicateTarget(song)
     if(!target||!library.canEdit)throw new Error('You can only overwrite an existing song in your own editable songbook.')
     if(!draft.title.trim())throw new Error('Enter a title first.')
@@ -627,14 +624,8 @@ function App({library}: {library: SharedLibrary}) {
     const song=freshestSong(selectedSong,songList)
     setSelectedSong(song);setEditedTitle(song.title);setEditedArtist(song.artist);setEditedKey(song.key);setEditedContent(song.content);setIsEditing(true)
   }
-  function editLinkedText(element:HTMLTextAreaElement,current:string,setContent:(value:string)=>void){
-    const next=element.value,start=element.selectionStart,end=element.selectionEnd,value=syncLinkedSections(current,next)
-    setContent(value)
-    if(value!==next)requestAnimationFrame(()=>{if(element.isConnected&&element.value===value)element.setSelectionRange(mapFlowCursor(next,value,start),mapFlowCursor(next,value,end))})
-  }
   const saveSong = async () => {
     if(songSaveInProgress.current)return
-    if(hasFlowConflicts(editedContent)){setNotice('Resolve the different section versions in Song flow before saving.');return}
     if (!editedTitle.trim()) { setNotice('Please enter a song title.'); return }
     if (!selectedSong) {
       return
@@ -681,10 +672,6 @@ function App({library}: {library: SharedLibrary}) {
     if(!newChart.title){setNewSongError('Enter a song title.');return}
     if(!songKey(newChart.key)){setNewSongError('Enter a key such as D or F#m.');return}
     if(!newChart.content.trim()){setNewSongError('Paste a chart with lyrics or chords.');return}
-    if(hasFlowConflicts(newChart.content)){
-      setNewSongError('Give repeated sections with different lyrics or chords distinct names, such as Chorus 1 and Chorus 2.')
-      return
-    }
     if(!library.ownerId&&newSongMatches.length)return
     await finishNewSong(async()=>{
       const [saved]=await library.add([{
@@ -885,7 +872,7 @@ function App({library}: {library: SharedLibrary}) {
             {isEditing ? (
               <fieldset className="song-form" disabled={savingSong}>
                 {setlistSongEditor&&<p>Saving changes updates your personal chart in every set that uses it, including live shared sets.</p>}
-                <SongFlowEditor key={'flow-'+selectedSong.id} content={editedContent} onChange={setEditedContent} disabled={savingSong||library.offline}/>
+
                 <label>
                   Song Title
 
@@ -934,9 +921,7 @@ function App({library}: {library: SharedLibrary}) {
                   <textarea
                     className="song-editor"
                     value={editedContent}
-                    onChange={(event) =>
-                      editLinkedText(event.currentTarget,editedContent,setEditedContent)
-                    }
+                    onChange={event => setEditedContent(event.currentTarget.value)}
                   />
 
                   <small className="editor-help">
@@ -944,12 +929,12 @@ function App({library}: {library: SharedLibrary}) {
                   </small>
                 </label>
 
-                <ChordPositionEditor content={editedContent} onChange={value=>setEditedContent(current=>syncLinkedSections(current,value))} disabled={savingSong||library.offline}/>
+                <ChordPositionEditor content={editedContent} onChange={setEditedContent} disabled={savingSong||library.offline}/>
                 <DuplicateSongNotice onOpen={setlistSongEditor?undefined:openDuplicate} canOverwrite={song=>!!library.canEdit&&!!duplicateTarget(song)} onOverwrite={setlistSongEditor?undefined:song=>overwriteDuplicate(song,{title:editedTitle,artist:editedArtist,key:editedKey,content:editedContent})} title={editedTitle} personal={!!library.ownerId} excludeId={library.ownerId?undefined:selectedSong.id} onUseExisting={song=>{setEditedTitle(song.title);setEditedArtist(song.artist);setEditedKey(song.key);setEditedContent(song.content)}}/>
                 <div className="edit-buttons">
                   <button
                     className="save-button"
-                    disabled={savingSong||library.offline||hasFlowConflicts(editedContent)} title={hasFlowConflicts(editedContent)?'Resolve section variations in Song flow first':undefined} onClick={saveSong}
+                    disabled={savingSong||library.offline} onClick={saveSong}
                   >
                     {setlistSongEditor?'Save arrangement':'Save Changes'}
                   </button>

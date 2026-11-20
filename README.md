@@ -358,17 +358,9 @@ Personal setlist cards now default to **Date added — newest first**. You can s
 When opening **Reading mode**, choose **Lyrics only** or **Lyrics + chords**, or cancel. Lyrics only keeps the lyrics and section labels and removes chord spacing from the page layout. **Reading content** also lets you switch while reading; pages are recalculated for the chosen layout. The choice applies to the whole setlist. It affects display only, including saved offline reading, and never edits stored arrangements or transpositions. No database change is needed.
 
 
-## Horizontal song flow and linked sections (November 3)
+## Edit song sections
 
-Add/Edit Song now has a **Song flow** panel above the main editing fields. Sections are compact horizontal items that wrap on small screens. Existing [Verse 1] / [Chorus] headings and legacy # headings are recognized; chord-only lines remain chords. Opening text without a heading is kept at the start, with an option to name it and include it in the movable flow.
-
-Drag a handle, or select a section and use the move arrows. The + insertion markers choose exactly where to add a new section or repeat an existing one. Select a section for its lyrics/chords, name, insert-after and remove controls. Removing one occurrence keeps the others. **Undo last flow change** reverses the latest flow edit while its result is still current; later edits in another editor disable that stale undo. All changes remain a draft until Save.
-
-Repeated section names with matching text are **linked**. Editing their lyrics/chords through the section editor, regular text editor or visual chord-position editor updates matching occurrences. Rename a particular occurrence, for example **Chorus 2**, before giving it a different arrangement. Copying/importing a complete chord sheet preserves its separate versions for review rather than silently forcing them to match.
-
-Existing sections with the same name but different lyrics/chords are highlighted and stay unchanged. Resolve them before saving: **Keep variations as separate sections** gives distinct numbered labels while keeping every version, or **Use selected version for all ... sections** explicitly replaces the differing versions in the draft. Renaming individual occurrences also works. Equal labels are compared without case differences and repeated spaces; differing final blank lines alone do not create conflicts.
-
-Flow edits are included in browser-local song draft recovery. Saving retains the complete expanded song text, so existing reading, lyrics-only mode, transposition, copying, history, backups and live setlist sharing continue to use the arrangement. No database migration or new backup format is needed. This combined patch also includes the earlier November 3 newest-setlist default and lyrics/chords reading choices; folders remain A–Z by default.
+Copy or move section blocks directly in the raw chart, including each section heading, lyrics, and chords. Each occurrence can have its own lyrics and chords, even when headings match.
 
 ### Deploy canonical section headings
 
