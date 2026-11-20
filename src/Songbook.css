@@ -133,10 +133,12 @@
     border-radius: 8px; padding: .5rem .75rem; cursor: pointer; }
   .song-filters > summary { width: fit-content; }
   .song-list { display: block; border: 1px solid var(--border); border-radius: var(--panel-radius); margin-block: 14px; }
-  .song-list .song-item { margin: 0; border: 0; border-radius: 0; padding: 9px 14px; min-height: 52px; }
-  .song-list .song-item + .song-item { border-top: 1px solid var(--border); }
-  .song-list .song-item:first-child { border-start-start-radius: var(--panel-radius); border-start-end-radius: var(--panel-radius); }
-  .song-list .song-item:last-child { border-end-start-radius: var(--panel-radius); border-end-end-radius: var(--panel-radius); }
+  .library-song-row { display: flex; align-items: center; padding-inline-end: 8px; background: var(--surface); }
+  .library-song-row + .library-song-row { border-top: 1px solid var(--border); }
+  .library-song-row:first-child { border-start-start-radius: var(--panel-radius); border-start-end-radius: var(--panel-radius); }
+  .library-song-row:last-child { border-end-start-radius: var(--panel-radius); border-end-end-radius: var(--panel-radius); }
+  .song-list .song-item { flex: 1; margin: 0; border: 0; border-radius: inherit; padding: 9px 12px; min-height: 52px; }
+  .song-card-actions { flex-shrink: 0; flex-wrap: nowrap; gap: 4px; }
   .song-list .song-item:focus-visible { position: relative; z-index: 1; }
   .song-list .library-song-name small { color: var(--muted); }
   .key-badge { background: var(--soft); border: 0; color: var(--accent); font-size: .85em; font-weight: 650; }

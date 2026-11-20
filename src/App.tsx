@@ -594,6 +594,15 @@ function App({library}: {library: SharedLibrary}) {
     setIsEditing(false)
   }
 
+  function openListedSong(song: Song, mode?: 'reading' | 'editing') {
+    if (!allowNavigation()) return
+    history.replaceState({...history.state, bicLibraryScroll: window.scrollY}, '', location.href)
+    selectSong(song, true)
+    if (mode === 'reading') setReadingMode(true)
+    if (mode === 'editing') beginEditing(song)
+    requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-setlist-song-heading]')?.focus())
+  }
+
   const initialOpened=useRef<number|undefined>(undefined)
   useEffect(()=>{
     if(initialOpened.current===library.initialSongId||!library.initialSongId)return
@@ -617,11 +626,11 @@ function App({library}: {library: SharedLibrary}) {
     clearDraft(isAddingSong?'new':'song:'+startedSong);setEditedRaw('');
     setIsAddingSong(false);selectSong(saved,true);setNotice('Existing version overwritten. The previous version is in song history.')
   }
-  function beginEditing(){
-    if(!selectedSong)return
-    const draft=songDrafts.find(row=>row.id==='song:'+selectedSong.id);if(draft){recoverDraft(draft);return}
+  function beginEditing(target=selectedSong){
+    if(!target)return
+    const draft=songDrafts.find(row=>row.id==='song:'+target.id);if(draft){recoverDraft(draft);return}
     setEditedRaw('')
-    const song=freshestSong(selectedSong,songList)
+    const song=freshestSong(target,songList)
     setSelectedSong(song);setEditedTitle(song.title);setEditedArtist(song.artist);setEditedKey(song.key);setEditedContent(song.content);setIsEditing(true)
   }
   const saveSong = async () => {
@@ -814,23 +823,36 @@ function App({library}: {library: SharedLibrary}) {
               {!library.sharedSetlist&&(letter!=='All'||artistFilter!=='all'||favoritesOnly||dateSort!=='title')&&<p className="active-filters">Filters: {letter!=='All'&&`Title ${letter} · `}{artistFilter!=='all'&&`Artist: ${artistFilter==='__none'?'Not listed':artists.find(([value])=>value===artistFilter)?.[1]??artistFilter} · `}{favoritesOnly&&'Favorites '}{dateSort!=='title'&&`Sort: ${songSortLabels[dateSort]} `}<button onClick={()=>{setLetter('All');setArtistFilter('all');setFavoritesOnly(false);resetSongSort()}}>Clear song filters</button></p>}
               {folder!=='all'&&<p>Folder: {folderNames.find(item=>item.id===folder)?.name??'Selected folder'} <button onClick={()=>selectFolder('all')}>Show all songs</button></p>}
               <div className="song-list">
-                {filteredSongs.map((song) => (
-                  <button
-                    key={song.id}
-                    className="song-item"
-                    onClick={()=>{
-                      history.replaceState({...history.state,bicLibraryScroll:window.scrollY},'',location.href)
-                      selectSong(song)
-                    }}
-                  >
-                    <span className="library-song-name"><strong>{song.title}</strong>
-                      {(songsByTitle.get(normalizeTitle(song.title))?.length??0)>1
-                        ?<small>{songVersionDetails(song,songsByTitle.get(normalizeTitle(song.title))!)}</small>
-                        :song.artist&&<small>{song.artist}</small>}</span>
-                    <span className="library-song-key">{favorites.includes(song.id)&&<span aria-label="Favorite">★ </span>}
-                      <strong className="key-badge" aria-label={song.key?'Key '+song.key:'Key not set'}>{song.key||'—'}</strong>
-                    </span>
-                  </button>
+                {filteredSongs.map(song => (
+                  <article className="library-song-row" key={song.id} aria-label={song.title}>
+                    <button type="button" className="song-item" onClick={()=>openListedSong(song)}>
+                      <span className="library-song-name"><strong>{song.title}</strong>
+                        {(songsByTitle.get(normalizeTitle(song.title))?.length??0)>1
+                          ?<small>{songVersionDetails(song,songsByTitle.get(normalizeTitle(song.title))!)}</small>
+                          :song.artist&&<small>{song.artist}</small>}</span>
+                      <span className="library-song-key">{favorites.includes(song.id)&&<span aria-label="Favorite">★ </span>}
+                        <strong className="key-badge" aria-label={song.key?'Key '+song.key:'Key not set'}>{song.key||'—'}</strong>
+                      </span>
+                    </button>
+                    <div className="song-card-actions">
+                      <button type="button" className="song-card-start" aria-label="Read song" title="Read song"
+                        onClick={()=>openListedSong(song,'reading')}>
+                        <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M8 4.7a.8.8 0 0 0-1.2.7v13.2a.8.8 0 0 0 1.2.7l10.8-6.6a.8.8 0 0 0 0-1.4Z"/></svg>
+                      </button>
+                      <button type="button" aria-label="Share song" title="Share song" disabled={library.offline}
+                        onClick={()=>void shareSong(song)}>
+                        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                          <path d="M10 13a4 4 0 0 0 6 .4l4-4a4 4 0 0 0-5.7-5.7l-2.3 2.3m2 3a4 4 0 0 0-6-.4l-4 4a4 4 0 0 0 5.7 5.7l2.3-2.3"/>
+                        </svg>
+                      </button>
+                      {library.canEdit&&<button type="button" aria-label="Edit song" title="Edit song"
+                        onClick={()=>openListedSong(song,'editing')}>
+                        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="m14 6 4 4M4 20l4.5-1L20 7.5 16.5 4 5 15.5 4 20Z"/>
+                        </svg>
+                      </button>}
+                    </div>
+                  </article>
                 ))}
               </div>
             </>
@@ -960,7 +982,7 @@ function App({library}: {library: SharedLibrary}) {
                 <button
                   hidden={!library.canEdit}
                   className="edit-button"
-                  onClick={beginEditing}
+                  onClick={()=>beginEditing()}
                 >
                   Edit Song
                 </button>
