@@ -154,7 +154,7 @@ export default function FullSetlistReader({title,songs,controls,shareOptions}:{
     </nav>
     <div className="full-set-actions">
       {localId&&<SetlistPrint title={title} songs={songs} userId={userId} listId={localId} legacyListId={legacyId??undefined} cues={cues}/>}
-      <SetlistCopy songs={songs.filter(song=>song!==undefined)}/>
+      <SetlistCopy title={title} songs={songs.filter(song=>song!==undefined)}/>
       {shareOptions}
     </div>
     {offline&&<p>Offline · Reading a saved copy</p>}

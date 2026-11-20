@@ -1,3 +1,4 @@
+import { downloadLyricsRtf } from './lib/lyrics-rtf'
 import { downloadChordPro } from './lib/chordpro'
 import { cloud } from './lib/cloud'
 import AddSongForm from './AddSongForm'
@@ -964,6 +965,7 @@ function App({library}: {library: SharedLibrary}) {
                 <details className="copy-options"><summary>Copy</summary>
                   <button onClick={()=>void copySong(false)}>Copy with chords</button>
                   <button onClick={()=>void copySong(true)}>Copy lyrics</button>
+                  <button onClick={()=>downloadLyricsRtf([selectedSong],selectedSong.title)}>Download lyrics (RTF)</button>
                   <button onClick={()=>downloadChordPro(selectedSong)}>Export ChordPro</button>
                 </details>
                 <button
