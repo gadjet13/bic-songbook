@@ -13,7 +13,6 @@ import type { Song } from './App'
 import { CueAnchor, UnplacedCues } from './SetlistCues'
 import { songCueLocation } from './lib/cue-locations'
 import { useSetlistCues } from './lib/setlist-cues'
-import SetlistSongNote from './SetlistSongNote'
 import { displaySong } from './SongChart'
 import { arrangedSong, setlistSoundingKey, songKey } from './lib/setlist-arrangement'
 import { cachedPreference, initializeSetlistCapo, legacyCapo } from './lib/setlist-preferences'
@@ -264,10 +263,7 @@ export default function FullSetlistReader({title,songs,controls,shareToken,share
           {!!capo&&content==='chords'&&<span>Chord shapes: {chart.key}</span>}
           {preference?.pending&&<small role="status">Capo change waiting to sync.</small>}
         </div>
-        {preference?.note&&<p className="full-set-note"><strong>My notes</strong> {preference.note}</p>}
         <div className="full-set-song-actions">
-          {localId&&<SetlistSongNote userId={userId} listId={localId} songId={song.id}
-            note={preference?.note??''} offline={offline||!preferenceId} label={preference?.note?'Edit my notes':'My notes'}/>}
           {cueControls&&<UnplacedCues content={song.content} controls={cueControls}/>}
           {controls.onEditRaw&&<button type="button" data-raw-occurrence={id}
             onClick={event=>controls.onEditRaw?.(song,id,event.currentTarget)}>Edit raw content</button>}
@@ -288,7 +284,7 @@ export default function FullSetlistReader({title,songs,controls,shareToken,share
         const capo=preference?.capo??0
         const {content,key}=arrangedSong(item,capo)
         return {id,title:item.title,content,key,capo,
-          soundingKey:setlistSoundingKey(item.key,item.setlist_key),note:preference?.note,
+          soundingKey:setlistSoundingKey(item.key,item.setlist_key),
           cues:cues.filter(cue=>cue.song_id===item.id)}
       })}/>}
   </section>

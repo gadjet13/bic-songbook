@@ -1,11 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Children, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { displaySong } from './SongChart'
-import ReadingColumns from './ReadingColumns'
 import { CueText } from './SetlistCues'
 import { songCueLocation } from './lib/cue-locations'
 import type { SetlistCue } from './lib/setlist-cues'
-import { readerColumnCount, type ReaderColumns } from './lib/reader-lines'
+import { fitStageColumns, type StageColumn } from './lib/stage-layout'
 import { stageView } from './lib/stage-url'
 import { allowNavigation } from './lib/unsaved'
 import './StageReader.css'
@@ -19,7 +18,6 @@ export type StageChart = {
   transpose?: number
   capo?: number
   cues?: SetlistCue[]
-  note?: string
 }
 
 export function useStageView(enabled: boolean) {
@@ -55,66 +53,93 @@ export function useStageView(enabled: boolean) {
   return { view: enabled ? view : null, open, close }
 }
 
+const columnOptions = ['auto', 'one', 'two', 'three', 'four', 'five', 'six'] as const
+type StageColumns = typeof columnOptions[number]
+type Orientation = 'portrait' | 'landscape'
+type StageLayout = { size: number; scale: number; gap: number; columns: StageColumn[] }
+
 function FittedChart({chart, columns, paper = false, includePrivate = true, onSize}: {
-  chart: StageChart; columns: number; paper?: boolean; includePrivate?: boolean; onSize?: (size: number) => void
+  chart: StageChart; columns: StageColumns; paper?: boolean; includePrivate?: boolean; onSize?: (size: number) => void
 }) {
   const frame = useRef<HTMLDivElement>(null)
-  const flow = useRef<HTMLDivElement>(null)
-  const { title, content, key, soundingKey, transpose = 0, capo, note } = chart
+  const measure = useRef<HTMLDivElement>(null)
+  const [layout, setLayout] = useState<StageLayout>()
+  const { title, content, key, soundingKey, transpose = 0, capo } = chart
   const cues = (chart.cues ?? []).filter(cue => includePrivate || cue.scope === 'team')
   const cueSignature = JSON.stringify(cues)
+  const units: ReactNode[] = [
+    <div className="stage-chart-heading">
+      <h2>{title}</h2>
+      {soundingKey && <p>Key: {soundingKey}{!!capo && <> · Capo {capo} · Shapes: {key}</>}</p>}
+      <CueText cues={cues} location={songCueLocation}/>
+    </div>,
+  ]
+  const sectionBlocks = displaySong(content, transpose, key, true, true, (location, heading) => <>
+    <div className="song-section">{heading}</div>
+    <CueText cues={cues} location={location}/>
+  </>, false, true)
+  for (const block of sectionBlocks) {
+    const [heading, lines] = block.props.children
+    const rows = Children.toArray(lines)
+    if (heading) units.push(<>{heading}{rows.shift()}</>)
+    units.push(...rows)
+  }
+
   useLayoutEffect(() => {
     const viewport = frame.current!
-    const layout = flow.current!
+    const measuring = measure.current!
     let active = true
+    const count = columns === 'auto' ? 'auto' : columnOptions.indexOf(columns)
     function fit() {
       if (!active || !viewport.clientWidth || !viewport.clientHeight) return
-      layout.style.transform = ''
-      layout.style.width = ''
-      layout.style.height = ''
-      let low = 1
-      let high = paper ? 18 : 32
-      const fits = (size: number) => {
-        layout.style.fontSize = size + 'px'
-        return layout.scrollWidth <= layout.clientWidth + 1 && layout.scrollHeight <= layout.clientHeight + 1
+      function at(size: number, scale = 1): StageLayout | null {
+        measuring.style.fontSize = size + 'px'
+        const rows = Array.from(measuring.children, row => {
+          const box = row.getBoundingClientRect()
+          return { width: Math.ceil(box.width), height: Math.ceil(box.height) }
+        })
+        const gap = Math.max(8, Math.ceil(size * .75))
+        const columns = fitStageColumns(rows, viewport.clientWidth / scale, viewport.clientHeight / scale, gap, count)
+        return columns ? { size, scale, gap, columns } : null
       }
-      while (low < high) {
-        const candidate = Math.ceil((low + high) / 2)
-        if (fits(candidate)) low = candidate
-        else high = candidate - 1
+
+      let fitted = at(paper ? 18 : 32)
+      if (!fitted) {
+        let low = 1
+        let high = paper ? 17 : 31
+        while (low <= high) {
+          const candidate = Math.floor((low + high) / 2)
+          const result = at(candidate)
+          if (result) {
+            fitted = result
+            low = candidate + 1
+          } else high = candidate - 1
+        }
       }
-      if (!fits(low)) {
-        // Exceptionally large charts can still fit by scaling a larger layout.
-        let factor = 1
-        do {
-          factor *= 2
-          layout.style.width = viewport.clientWidth * factor + 'px'
-          layout.style.height = viewport.clientHeight * factor + 'px'
-        } while (!fits(low))
-        layout.style.transform = `scale(${1 / factor})`
-      }
-      onSize?.(low)
+      // Scale exceptionally large charts uniformly without wrapping any rows.
+      for (let scale = .5; !fitted; scale /= 2) fitted = at(1, scale)
+      setLayout(fitted)
+      onSize?.(fitted.size * fitted.scale)
     }
     fit()
     const observer = new ResizeObserver(fit)
     observer.observe(viewport)
     document.fonts.ready.then(fit)
     return () => { active = false; observer.disconnect() }
-  }, [title, content, key, soundingKey, transpose, capo, note, cueSignature, columns, paper, includePrivate, onSize])
+  }, [title, content, key, soundingKey, transpose, capo, cueSignature, columns, paper, onSize])
 
   return <div className="stage-chart-frame" ref={frame}>
-    <div className="stage-chart" ref={flow} style={{columnCount: columns}}>
-      <div className="stage-chart-heading">
-        <h2>{title}</h2>
-        {soundingKey && <p>Key: {soundingKey}{!!capo && <> · Capo {capo} · Shapes: {key}</>}</p>}
-      </div>
-      <CueText cues={cues} location={songCueLocation}/>
-      {includePrivate && note && <p className="stage-note"><strong>My notes</strong> {note}</p>}
-      {displaySong(content, transpose, key, true, true, (location, heading) => <>
-        <div className="song-section">{heading}</div>
-        <CueText cues={cues} location={location}/>
-      </>, false, true)}
+    <div className="stage-chart stage-measure" ref={measure} aria-hidden="true">
+      {units.map((unit, i) => <div className="stage-unit" key={i}>{unit}</div>)}
     </div>
+    {layout && <div className="stage-chart stage-columns" style={{
+      fontSize: layout.size, gap: layout.gap, transform: `scale(${layout.scale})`,
+      gridTemplateColumns: layout.columns.map(column => `${column.width}px`).join(' '),
+    }}>
+      {layout.columns.map(({start, end}) => <div className="stage-column" key={start}>
+        {units.slice(start, end).map((unit, i) => <div className="stage-unit" key={start + i}>{unit}</div>)}
+      </div>)}
+    </div>}
   </div>
 }
 
@@ -123,26 +148,24 @@ export default function StageReader({charts, index, select, exit, setlist = fals
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const options = useRef<HTMLDetailsElement>(null)
-  const [columns, setColumns] = useState<ReaderColumns>(() => {
+  const [columns, setColumns] = useState<StageColumns>(() => {
     try {
       const saved = localStorage.getItem('bic-stage-columns')
-      if (saved === 'one' || saved === 'two') return saved
+      const choice = columnOptions.find(option => option === saved)
+      if (choice) return choice
     } catch { /* Storage is optional. */ }
     return 'auto'
   })
-  const [width, setWidth] = useState(() => window.innerWidth)
   const [fittedSize, setFittedSize] = useState(32)
   const [includePrivate, setIncludePrivate] = useState(true)
-  const [print, setPrint] = useState<{charts: StageChart[]; columns: number; includePrivate: boolean} | null>(null)
-  const columnCount = readerColumnCount(columns, width)
+  const [orientation, setOrientation] = useState<Orientation>('portrait')
+  const [print, setPrint] = useState<{charts: StageChart[]; columns: StageColumns; includePrivate: boolean; orientation: Orientation} | null>(null)
   const current = charts[index]
 
   useLayoutEffect(() => {
     const element = dialog.current!
     element.showModal()
-    const resize = () => setWidth(window.innerWidth)
-    window.addEventListener('resize', resize)
-    return () => { window.removeEventListener('resize', resize); element.close() }
+    return () => element.close()
   }, [])
 
   useEffect(() => {
@@ -193,7 +216,7 @@ export default function StageReader({charts, index, select, exit, setlist = fals
   }, [print])
 
   function printCharts(rows: StageChart[]) {
-    setPrint({charts: rows, columns: columnCount, includePrivate})
+    setPrint({charts: rows, columns, includePrivate, orientation})
   }
 
   return createPortal(<>
@@ -206,23 +229,33 @@ export default function StageReader({charts, index, select, exit, setlist = fals
             <span aria-live="polite">{current ? `${index + 1} / ${charts.length}` : 'No songs'}</span>
             <button disabled={index + 1 >= charts.length} onClick={() => select?.(index + 1)}>Next</button>
           </nav>}
-          <ReadingColumns value={columns} onChange={setColumns}/>
+          <label className="reading-columns">Columns
+            <select value={columns} onChange={event => setColumns(event.target.value as StageColumns)}>
+              {columnOptions.map((option, count) => <option key={option} value={option}>{count || 'Auto'}</option>)}
+            </select>
+          </label>
           <details ref={options} className="stage-print">
             <summary>Print</summary>
             <div>
-              {setlist && <label><input type="checkbox" checked={includePrivate} onChange={event => setIncludePrivate(event.target.checked)}/> Include my private cues and notes</label>}
+              <label>Page orientation
+                <select value={orientation} onChange={event => setOrientation(event.target.value as Orientation)}>
+                  <option value="portrait">Portrait</option>
+                  <option value="landscape">Landscape</option>
+                </select>
+              </label>
+              {setlist && <label><input type="checkbox" checked={includePrivate} onChange={event => setIncludePrivate(event.target.checked)}/> Include my private cues</label>}
               <button disabled={!current || !!print} onClick={() => current && printCharts([current])}>Print this song</button>
               {setlist && <button disabled={!charts.length || !!print} onClick={() => printCharts(charts)}>Print full set</button>}
             </div>
           </details>
           <button onClick={exit}>Exit one-page view</button>
         </div>
-        {current ? <FittedChart chart={current} columns={columnCount} onSize={setFittedSize}/>
+        {current ? <FittedChart chart={current} columns={columns} onSize={setFittedSize}/>
           : <p>No songs available.</p>}
         {current && fittedSize < 12 && <p className="stage-fit-note" role="status">Small text in this chart. <button onClick={exit}>Open standard reader</button></p>}
       </div>
     </dialog>
-    {print && <div className="stage-print-output" aria-hidden="true">
+    {print && <div className="stage-print-output" data-orientation={print.orientation} aria-hidden="true">
       {print.charts.map(chart => <section key={chart.id} className="stage-print-page">
         <FittedChart chart={chart} columns={print.columns} paper includePrivate={print.includePrivate}/>
       </section>)}
