@@ -65,6 +65,7 @@
 .stage-chart-heading :is(h2, p), .stage-fit-note { margin: 0; }
 .stage-chart-heading h2 { font-size: 1.25em; line-height: 1.12; overflow-wrap: anywhere; }
 .stage-chart .song-line { min-height: 0; white-space: pre; overflow: visible; }
+.stage-chart .song-line.song-bar-row { white-space: pre; }
 .stage-chart .song-word { display: inline-block; vertical-align: top; }
 .stage-chart .song-segment { display: inline-block; position: relative; vertical-align: top; padding-top: 1.1em; margin: 0; }
 .stage-chart .chord { height: auto; color: var(--chart-chord); }
