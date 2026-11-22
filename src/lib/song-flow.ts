@@ -48,6 +48,17 @@ export function resolveSectionRepeats(sections: readonly FlowSection[]): Section
   })
 }
 
+export function compactSectionRepeats(sections: readonly FlowSection[]) {
+  const seen = new Set<string>()
+  return resolveSectionRepeats(sections).map(({ label, bodyIndex }, index) => {
+    const body = sectionBodyKey(sections[bodyIndex].body)
+    const key = JSON.stringify([sectionKey(label), body])
+    const showBody = bodyIndex === index && !!body.trim() && !seen.has(key)
+    if (showBody) seen.add(key)
+    return { label, bodyIndex: showBody ? index : null }
+  })
+}
+
 export function hasFlowConflicts(content: string) {
   const { sections } = parseSongFlow(content)
   return resolveSectionRepeats(sections).some(({ label }, index) => label !== sections[index].label)

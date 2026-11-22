@@ -22,3 +22,10 @@ test('identical repeated sections and unresolved headings keep their names',()=>
  assert.deepEqual(repeats.map(section=>section.bodyIndex),[0,0,2,3])
  assert.equal(api.namePastedSectionVariants(chart),chart)
 })
+
+test('compact repeats keep every heading and one body per distinct section', () => {
+  const chart = '# Chorus\n\n# Chorus\n{G}First\n# Chorus\n{G}First\n# Chorus\n{D}Second\n# Chorus\n\n# Intro'
+  const sections = Array.from(api.compactSectionRepeats(api.parseSongFlow(chart).sections))
+  assert.deepEqual(sections.map(section => section.label), ['Chorus 1', 'Chorus 1', 'Chorus 1', 'Chorus 2', 'Chorus 2', 'Intro'])
+  assert.deepEqual(sections.map(section => section.bodyIndex), [null, 1, null, 3, null, null])
+})
