@@ -79,6 +79,30 @@ test('keeps ordinary preambles when importing a chart',()=>{
  assert.match(prepareNewSong({...emptyNewSong,text:raw}).content,/These words must stay/)
 })
 
+test('strips the copied Capo label while keeping chord shapes, repeats and lines split by a page marker',()=>{
+ const pasted=[
+  'X','Mercy Chords by Elevation Worship','Difficulty: beginner','Tuning: E A D G B E',
+  'Capo: 2nd fret','Key: Ab','Chords','A','E','F#m','F#7','Bm','Dadd9','D','Capo 2',
+  '[Verse 1]','A   E      F#m F#7','I’m living proof','',
+  '[Chorus]','D','A chorus line','Page 1/3',
+  '[Inst]','A E F#m F#7 D A E','',
+  '[Chorus]','D','A chorus line','',
+  '[Bridge 1]','        E      A','Page 2/3','By the mercy of God',
+  'Capo 2','Page 3/3',
+ ].join('\n')
+ const result=prepareNewSong({...emptyNewSong,text:pasted})
+ assert.equal(result.title,'Mercy')
+ assert.equal(result.artist,'Elevation Worship')
+ assert.equal(result.key,'Ab')
+ assert.equal(result.content,[
+  '# Verse 1','{A}I’m {E}living {F#m}proo{F#7}f',
+  '# Chorus','{D}A chorus line',
+  '# Inst','{A} {E} {F#m} {F#7} {D} {A} {E}',
+  '# Chorus','{D}A chorus line',
+  '# Bridge 1','By the m{E}ercy of{A} God','Capo 2',
+ ].join('\n'))
+})
+
 test('numbers distinct sections in formatted source and keeps heading-only repeats',()=>{
  const formatted='# Chorus\r\n{D}Same words  \r\n# Chorus\r\n\r\n# Chorus\r\n{G}Same words  \r\n# Chorus'
  const result=prepareNewSong({...emptyNewSong,mode:'formatted',text:formatted})
