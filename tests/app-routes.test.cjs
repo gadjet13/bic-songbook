@@ -3,10 +3,15 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const vm = require('node:vm')
 const ts = require('typescript')
-const exportsObject = {}
-vm.runInNewContext(ts.transpile(fs.readFileSync('src/lib/app-routes.ts', 'utf8'), {
-  module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022,
-}), { exports: exportsObject })
+function load(file, require) {
+  const exports = {}
+  vm.runInNewContext(ts.transpile(fs.readFileSync(file, 'utf8'), {
+    module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022,
+  }), { exports, require, URLSearchParams })
+  return exports
+}
+const stage = load('src/lib/stage-url.ts')
+const exportsObject = load('src/lib/app-routes.ts', () => stage)
 const { appPath, parseAppPath } = exportsObject
 const id = '84ec8ca0-7f90-4622-9b16-bcdf193d0d23'
 
@@ -26,4 +31,10 @@ test('malformed addresses and shared link capabilities are kept out of ordinary 
     '/church/setlists/new', `/members/${id}/songs/42/edit`, `/setlists/${id}`, '/oauth/consent']) {
     assert.equal(parseAppPath(path), null, path)
   }
+})
+
+test('stage reader query accepts only chart occurrence keys', () => {
+  assert.equal(stage.stageView('?view=stage&song=42-2').song, '42-2')
+  assert.equal(stage.stageView('?view=stage&song=42').song, null)
+  assert.equal(stage.stageSearch('?view=reader'), '')
 })

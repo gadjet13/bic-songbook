@@ -75,7 +75,7 @@ Unsaved setlist names and song order are saved in this browser. After returning,
 1. Send the link to your team. Each person opens it with an approved songbook account and can find it later under **Shared with me**.
 1. To close the link, open **Share options → Turn off link** in the reader.
 
-Recipients can read the live set and keep their own notes and capo settings. Your saved changes update what they see.
+Recipients can read the live set and keep their own private cues and capo settings. Your saved changes update what they see.
 
 **Want your own arrangement?** On a received list, choose **Save to my setlists** and keep or change its name. This makes an independent copy. Your edits will not change the sender’s list, and their later changes will not update your personal copy. The original received list stays live separately.
 

@@ -1,3 +1,5 @@
+import { stageSearch } from './stage-url.ts'
+
 export type AppRoute = {
   bicBook: 'home' | 'personal' | 'church'
   bicMemberBooks?: boolean
@@ -132,10 +134,15 @@ function parent(route: AppRoute): AppRoute | null {
 
 export function initializeAppRoute() {
   let pathname = location.pathname
+  let search = stageSearch()
   try {
     const pending = sessionStorage.getItem(authKey)
     sessionStorage.removeItem(authKey)
-    if (pathname === '/' && pending) pathname = pending
+    if (pathname === '/' && pending) {
+      const address = new URL(pending, location.origin)
+      pathname = address.pathname
+      search = stageSearch(address.search)
+    }
   } catch { /* The page URL still works without session storage. */ }
   const route = parseAppPath(pathname)
   if (!route || pathname === '/') return false
@@ -147,10 +154,11 @@ export function initializeAppRoute() {
     if (index === 0) history.replaceState(entry, '', appPath(entry))
     else history.pushState(entry, '', appPath(entry) + (index === chain.length - 1 ? incomingSong : ''))
   }
+  if (search) history.replaceState(history.state, '', location.pathname + search + location.hash)
   return true
 }
 
 export function rememberAppRoute() {
   if (location.pathname === '/' || !parseAppPath(location.pathname)) return
-  try { sessionStorage.setItem(authKey, location.pathname) } catch { /* Password sign-in can stay on the current page. */ }
+  try { sessionStorage.setItem(authKey, location.pathname + stageSearch()) } catch { /* Password sign-in can stay on the current page. */ }
 }

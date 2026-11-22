@@ -395,9 +395,6 @@ button.worship-primary:disabled { opacity: .55; }
 .worship-set-editor, .song-form { border: 0; padding: 0; margin: 0; min-inline-size: 0; }
 .setlist-search-results button { text-align: start; }
 
-.stage-notes { margin-block: .5rem; }
-.stage-notes summary { cursor: pointer; font-weight: 600; }
-.stage-notes textarea { min-height: 4em; resize: vertical; }
 
 .setlist-quick-share { margin-block: 12px; }
 .setlist-quick-share label { margin: 8px 0; }
@@ -417,7 +414,6 @@ button.worship-primary:disabled { opacity: .55; }
 .full-set-song { padding-block: 12px 24px; border-bottom: 1px solid var(--border); }
 .full-set-song h2 { scroll-margin-top: 10rem; overflow-wrap: anywhere; }
 .full-set-song-settings { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; }
-.full-set-note { white-space: pre-wrap; overflow-wrap: anywhere; }
 .full-set-chart { overflow-x: auto; }
 .full-set-chart .song-line { min-height: 0; white-space: pre-wrap; overflow-x: auto; }
 .full-set-chart .song-word { display: inline-block; vertical-align: top; }
@@ -500,7 +496,7 @@ body:not(.song-reading-mode) .song-view .transpose {
 .setlist-cue-editor { margin-block: .5rem; max-width: 32rem; }
 .setlist-cue-editor textarea { resize: vertical; }
 @media print {
-  .setlist-cue[data-visibility="private"], .setlist-cue-editor { display: none !important; }
+  .setlist-cue[data-visibility="private"]:not(.stage-print-output .setlist-cue), .setlist-cue-editor { display: none !important; }
   .setlist-cue[data-visibility="team"] { color: #000 !important; background: #fff !important; border-color: #555 !important; break-inside: avoid; }
 }
 

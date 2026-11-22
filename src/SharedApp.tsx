@@ -1,3 +1,4 @@
+import { stageSearch, rememberSharedStageSearch, takeSharedStageSearch } from './lib/stage-url'
 import { appPath, initializeAppRoute, rememberAppRoute, writeAppRoute } from './lib/app-routes'
 import { clearSetlistCueCache } from './lib/setlist-cues'
 import { clearSetlistPreferenceCache, flushSetlistCapos } from './lib/setlist-preferences'
@@ -260,11 +261,13 @@ export default function SharedApp() {
         const current=history.state
         const reuse=current?.bicFullSet&&current.bicReaderUser===userId&&
           (ownedId?current.bicSetlist===ownedId:current.bicShared===shared!.id)
-        if(reuse)history.replaceState(reader,'',setlistLink(pendingLink!))
+        const rememberedStage=takeSharedStageSearch()
+        const address=setlistLink(pendingLink!)+(stageSearch()||rememberedStage)
+        if(reuse)history.replaceState({...reader,bicStageEntry:current.bicStageEntry},'',address)
         else{
           if(setlistTokenFromPath())history.replaceState(parent,'',appPath(parent as Parameters<typeof appPath>[0]))
           else history.pushState(parent,'',appPath(parent as Parameters<typeof appPath>[0]))
-          history.pushState(reader,'',setlistLink(pendingLink!))
+          history.pushState(reader,'',address)
         }
         setPendingSong(undefined)
         setMemberBooksOpen(false)
@@ -305,7 +308,7 @@ export default function SharedApp() {
     {!recovery&&<><label className="remember-login"><input type="checkbox" checked={rememberMe} disabled={busy} onChange={event=>{setRememberMe(event.target.checked);loginPersistence.setRememberMe(event.target.checked)}}/> Remember me on this device</label><p className="storage-note">{rememberMe?'Stay signed in when you return using this browser.':'Keep this login only for this tab session.'} Use Sign out on shared devices.</p>{rememberMe&&!loginPersistence.canRemember()&&<p role="status">This browser is blocking saved login. Allow site storage to stay signed in after closing the browser.</p>}</>}
     <button className="auth-submit" disabled={busy}>{busy ? 'Please wait…' : recovery ? 'Save password' : signup ? 'Create account' : 'Sign in'}</button>
     </form>
-    {!recovery && <><button disabled={busy} onClick={()=>void action(async()=>{loginPersistence.setRememberMe(rememberMe);rememberAppRoute();const {error}=await cloud!.auth.signInWithOAuth({provider:'google',options:{redirectTo:authReturnUrl()}});if(error)throw error})}>Continue with Google</button><button disabled={busy} onClick={()=>{setSignup(!signup);setNotice('')}}>{signup ? 'Already have an account? Sign in' : 'Create an account'}</button>
+    {!recovery && <><button disabled={busy} onClick={()=>void action(async()=>{loginPersistence.setRememberMe(rememberMe);rememberAppRoute();if(isSetlistPath())rememberSharedStageSearch();const {error}=await cloud!.auth.signInWithOAuth({provider:'google',options:{redirectTo:authReturnUrl()}});if(error)throw error})}>Continue with Google</button><button disabled={busy} onClick={()=>{setSignup(!signup);setNotice('')}}>{signup ? 'Already have an account? Sign in' : 'Create an account'}</button>
     <button disabled={busy || !email} onClick={()=>void action(async()=>{const {error}=await cloud!.auth.resetPasswordForEmail(email,{redirectTo:new URL('/',location.origin).href});if(error)throw error;setNotice('If this account exists, you will receive a password reset email.')})}>Forgot password</button></>}
     <p role="status">{notice}</p><p>New accounts need the owner’s approval before viewing the library.</p>
   </main>

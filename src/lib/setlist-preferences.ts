@@ -1,7 +1,7 @@
 import { cloud } from './cloud'
 import { capoStorageKey } from './setlist-arrangement'
 
-type Preference = { song_id: number; note: string; capo: number | null }
+type Preference = { song_id: number; capo: number | null }
 type PendingCapo = { listId: string; songId: number; capo: number; change: string; fromLegacyShare?: boolean }
 export const preferencesChanged = 'songbook-setlist-preferences-changed'
 const memory = new Map<string, string>()
@@ -22,11 +22,11 @@ function write<T>(key: string, value: T) {
   window.dispatchEvent(new Event(preferencesChanged))
 }
 
-function updateCache(userId: string, listId: string, value: Preference, field: 'note' | 'capo') {
+function updateCache(userId: string, listId: string, value: Preference) {
   const key = cacheKey(userId, listId)
   writes.set(key, (writes.get(key) ?? 0) + 1)
   const cached = read<Record<number, Preference>>(key, {})
-  cached[value.song_id] = { ...(cached[value.song_id] ?? value), [field]: value[field] }
+  cached[value.song_id] = { song_id: value.song_id, capo: value.capo }
   write(key, cached)
 }
 
@@ -34,7 +34,7 @@ export async function loadSetlistPreferences(userId: string, listId: string) {
   const key = cacheKey(userId, listId)
   const revision = writes.get(key) ?? 0
   const {data,error} = await cloud!.from('songbook_setlist_preferences')
-    .select('song_id,note,capo').eq('setlist_id', listId).eq('user_id', userId)
+    .select('song_id,capo').eq('setlist_id', listId).eq('user_id', userId)
   if (error) throw error
   const {data:{session}}=await cloud!.auth.getSession()
   if (session?.user.id===userId && (writes.get(key) ?? 0) === revision) {
@@ -55,27 +55,21 @@ export function cachedPreference(userId: string, listId: string, songId: number,
   const pending = queue[`${listId}:${songId}`] ?? queue[`${oldListId}:${songId}`]
   const saved = read<Record<number, Preference>>(cacheKey(userId,listId), {})[songId]
   return {
-    note: saved?.note ?? '',
     capo: pending?.capo ?? saved?.capo ?? legacyCapo(userId,oldListId,songId) ?? 0,
     savedCapo: saved?.capo ?? null,
     pending: !!pending,
   }
 }
 
-async function save(userId: string, listId: string, songId: number, patch: {note_value?: string; capo_value?: number; initialize_capo?: boolean}) {
+async function save(userId: string, listId: string, songId: number, patch: {capo_value: number; initialize_capo?: boolean}) {
   const {data,error} = await cloud!.rpc('save_setlist_preference', {target:listId, song:songId, expected_user:userId, ...patch})
   if (error) throw error
   return data as Preference
 }
 
-export async function saveSetlistNote(userId: string, listId: string, songId: number, note: string) {
-  const saved = await save(userId,listId,songId,{note_value:note})
-  updateCache(userId,listId,saved,'note')
-}
-
 export async function initializeSetlistCapo(userId: string, listId: string, songId: number, capo: number) {
   const saved = await save(userId,listId,songId,{capo_value:capo,initialize_capo:true})
-  updateCache(userId,listId,saved,'capo')
+  updateCache(userId,listId,saved)
 }
 
 export function queueSetlistCapo(userId: string, listId: string, songId: number, capo: number, fromLegacyShare = false) {
@@ -107,7 +101,7 @@ export function flushSetlistCapos(userId: string): Promise<void> {
           target=share.setlist_id
         }
         const saved=await save(userId,target,pending.songId,{capo_value:pending.capo})
-        updateCache(userId,target,saved,'capo')
+        updateCache(userId,target,saved)
       } catch(error) {
         if ((error as {message?:string}).message!=='Setlist song unavailable') throw error
       }

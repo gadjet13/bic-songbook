@@ -109,7 +109,7 @@ Apply `database/setlist-cues.sql` after `database/setlist-links-and-preferences.
 Apply `database/member-songbooks.sql` before deploying Member songbooks. The migration makes existing member charts browsable to approved accounts through a chart-only API. Copies go to the reader’s personal songbook.
 
 
-In the setlist reader, **My notes** and **My capo** are private account preferences for that song in this set. Repeated songs use the same personal preferences and can have different sounding keys. Notes are omitted from printouts. Saved notes can be read offline, and capo changes made offline sync when you reconnect.
+In the setlist reader, **My capo** is a private preference for that song in this set. Repeated songs share the capo preference and can have different sounding keys. Capo changes made offline sync when you reconnect. Use song and section cues for team or private reminders.
 
 Choose **Copy entire setlist → Copy with chords / Copy lyrics** to copy all included songs in setlist order, with song titles. Chord copying uses each song’s saved base key. Missing/deleted songs are skipped.
 

@@ -1,3 +1,4 @@
+import StageReader, { useStageView } from './StageReader'
 import { writeAppRoute } from './lib/app-routes'
 import { copyFormattedLyrics } from './lib/lyrics-document'
 import { downloadLyricsRtf } from './lib/lyrics-rtf'
@@ -165,6 +166,7 @@ function App({library}: {library: SharedLibrary}) {
   const [readingMode, setReadingMode] = useState(false)
   const [fullSetReading,setFullSetReading]=useState(()=>!!history.state?.bicFullSet)
   const [readerEdit,setReaderEdit]=useState<ReaderEdit|null>(null)
+  const stage=useStageView(readingMode&&!fullSetReading&&!readerEdit)
   const [fullChartEdit,setFullChartEdit]=useState(false)
   const [readerSaving,setReaderSaving]=useState(false)
   const [readerError,setReaderError]=useState('')
@@ -296,7 +298,8 @@ function App({library}: {library: SharedLibrary}) {
       if(event.state?.bicSong){
         const song=library.songs.find(item=>item.id===event.state.bicSong)
         if(song){
-          if(historySongRef.current?.id!==song.id||!historyEditingRef.current||event.state.bicMode!=='editing')selectSong(song)
+          if(historySongRef.current?.id!==song.id||
+              (event.state.bicMode!=='reading'&&(!historyEditingRef.current||event.state.bicMode!=='editing')))selectSong(song)
           setReadingMode(event.state.bicMode==='reading')
           setIsEditing(event.state.bicMode==='editing')
         }
@@ -1105,11 +1108,16 @@ function App({library}: {library: SharedLibrary}) {
                 <label className="reader-content-choice">Reading content<select aria-label="Reading content" value={readingContent} onChange={event=>setReadingContent(event.target.value as 'lyrics'|'chords')}><option value="lyrics">Lyrics only</option><option value="chords">Lyrics + chords</option></select></label>
                 <ReadingColumns value={readerColumns} onChange={setReaderColumns}/>
                 <ReadingTextSize value={fontSize} onChange={setFontSize}/>
+                {!readerEdit&&<button type="button" onClick={()=>stage.open()}>One-page view</button>}
               </div>}
               {readingMode&&<small role="status">{wakeStatus}</small>}
               {readingMode&&canEditInReader&&<button type="button" hidden={!!readerEdit}
                 data-single-raw-edit onClick={event=>openRawEditor(selectedSong,String(selectedSong.id),event.currentTarget)}>Edit raw content</button>}
               {readingMode&&readerEditor}
+              {stage.view&&<StageReader charts={[{
+                id:String(selectedSong.id),title:selectedSong.title,content:selectedSong.content,transpose,
+                key:getCurrentKey(selectedSong.key,transpose),soundingKey:getCurrentKey(selectedSong.key,transpose),
+              }]} index={0} exit={stage.close}/>}
               {readingMode ? <div hidden={!!readerEdit}><SongPages key={selectedSong.id+'-'+readingContent} columnPreference={readerColumns} fontSize={fontSize} onFitFontSize={setFontSize}>{displaySong(selectedSong.content,transpose,getCurrentKey(selectedSong.key,transpose),true,readingContent==='chords')}</SongPages></div> : <div className="song-display" style={{fontSize: `${fontSize}px`}} tabIndex={0} aria-label="Song lyrics and chords">
                 {displaySong(
                   selectedSong.content,

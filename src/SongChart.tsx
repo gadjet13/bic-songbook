@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { chartCueLocations } from './lib/cue-locations'
-import { parseSongFlow, resolveSectionRepeats } from './lib/song-flow'
+import { compactSectionRepeats, parseSongFlow, resolveSectionRepeats } from './lib/song-flow'
 import { readingWords } from './lib/reader-lines'
 import { barChordParts, storedChartLines, lyricsOnly, transposeChord } from './lib/chord/transpose'
 
@@ -12,6 +12,7 @@ export function displaySong(
   showChords=true,
   renderSection?: (location: string, heading: string) => ReactNode,
   includeSourceLines=false,
+  compactRepeats=false,
 ) {
   const lines = showChords
     ? storedChartLines(content)
@@ -29,11 +30,14 @@ export function displaySong(
     }
   }
   const sections = groups.filter(group => group.heading)
-  const repeats = resolveSectionRepeats(parseSongFlow(content).sections)
+  const flow = parseSongFlow(content).sections
+  const repeats = compactRepeats ? compactSectionRepeats(flow) : resolveSectionRepeats(flow)
   sections.forEach((section, index) => {
     const repeat = repeats[index]
     section.heading = repeat.label
-    if (repeat.bodyIndex !== index) {
+    if (compactRepeats) {
+      section.lines = repeat.bodyIndex === null ? [] : section.lines.filter(line => line.text.trim())
+    } else if (repeat.bodyIndex !== null && repeat.bodyIndex !== index) {
       // Repeated rows point back to their own heading in the raw editor.
       section.lines = sections[repeat.bodyIndex].lines.map(line => ({...line, sourceLine: section.sourceLine!}))
     }

@@ -1,3 +1,5 @@
+import StageReader, { useStageView } from './StageReader'
+import { stageSearch } from './lib/stage-url'
 import { appPath } from './lib/app-routes'
 import { isSetlistPath, setlistLink } from './lib/setlist-links'
 import SetlistPrint from './SetlistPrint'
@@ -11,7 +13,6 @@ import type { Song } from './App'
 import { CueAnchor, UnplacedCues } from './SetlistCues'
 import { songCueLocation } from './lib/cue-locations'
 import { useSetlistCues } from './lib/setlist-cues'
-import SetlistSongNote from './SetlistSongNote'
 import { displaySong } from './SongChart'
 import { arrangedSong, setlistSoundingKey, songKey } from './lib/setlist-arrangement'
 import { cachedPreference, initializeSetlistCapo, legacyCapo } from './lib/setlist-preferences'
@@ -69,6 +70,18 @@ export default function FullSetlistReader({title,songs,controls,shareToken,share
   const commanded=useRef<{id:string;top:number}|null>(null)
   const returnToSong=useRef<FullReaderControls['editing']>(undefined)
   const currentIndex=Math.max(0,available.findIndex(row=>row.id===currentId))
+  const stage=useStageView(!controls.editor)
+  const stageIndex=Math.max(0,available.findIndex(row=>row.id===stage.view?.song))
+  const stageSong=stage.view && available[stageIndex]?.id
+  const lastStageSong=useRef<string | null>(null)
+  useEffect(()=>{
+    if(stageSong)lastStageSong.current=stageSong
+    else if(lastStageSong.current){
+      jumpTo(lastStageSong.current)
+      lastStageSong.current=null
+    }
+  },[stageSong])
+
 
   useEffect(() => {
     const entry = history.state
@@ -76,7 +89,7 @@ export default function FullSetlistReader({title,songs,controls,shareToken,share
         (entry.bicShared ? entry.bicShared !== legacyId : entry.bicSetlist !== preferenceId)) return
     if (shareToken || isSetlistPath()) {
       const address = shareToken ? setlistLink(shareToken) : appPath(entry)
-      history.replaceState({ ...entry, bicReaderUser: userId }, '', address)
+      history.replaceState({ ...entry, bicReaderUser: userId }, '', address + stageSearch())
     }
   }, [shareToken, offline, userId, legacyId, preferenceId, controls.routeVersion])
 
@@ -102,7 +115,7 @@ export default function FullSetlistReader({title,songs,controls,shareToken,share
     window.scrollTo(0,0)
     heading.current?.focus({preventScroll:true})
     const close=(event:KeyboardEvent)=>{
-      if(latestControls.current.editor)return
+      if(latestControls.current.editor||stageSearch())return
       if(event.key==='Escape'&&!event.defaultPrevented&&viewOptions.current?.open){
         event.preventDefault()
         viewOptions.current.open=false
@@ -208,6 +221,7 @@ export default function FullSetlistReader({title,songs,controls,shareToken,share
           <ReadingTextSize value={fontSize} onChange={changeFontSize}/>
         </div>
       </details>
+      <button type="button" disabled={!!controls.editor||!available.length} onClick={()=>stage.open(available[currentIndex]?.id)}>One-page view</button>
       <button className="reader-exit" onClick={exit}>Exit reader</button>
     </nav>
     {shareLink}
@@ -249,10 +263,7 @@ export default function FullSetlistReader({title,songs,controls,shareToken,share
           {!!capo&&content==='chords'&&<span>Chord shapes: {chart.key}</span>}
           {preference?.pending&&<small role="status">Capo change waiting to sync.</small>}
         </div>
-        {preference?.note&&<p className="full-set-note"><strong>My notes</strong> {preference.note}</p>}
         <div className="full-set-song-actions">
-          {localId&&<SetlistSongNote userId={userId} listId={localId} songId={song.id}
-            note={preference?.note??''} offline={offline||!preferenceId} label={preference?.note?'Edit my notes':'My notes'}/>}
           {cueControls&&<UnplacedCues content={song.content} controls={cueControls}/>}
           {controls.onEditRaw&&<button type="button" data-raw-occurrence={id}
             onClick={event=>controls.onEditRaw?.(song,id,event.currentTarget)}>Edit raw content</button>}
@@ -265,5 +276,16 @@ export default function FullSetlistReader({title,songs,controls,shareToken,share
       </article>
     })}
     {controls.editor}
+    {stage.view&&<StageReader setlist index={stageIndex} exit={stage.close}
+      select={index=>stage.open(available[index]?.id)}
+      charts={available.map(({song,id})=>{
+        const item=song!
+        const preference=localId?cachedPreference(userId,localId,item.id,legacyId??localId):null
+        const capo=preference?.capo??0
+        const {content,key}=arrangedSong(item,capo)
+        return {id,title:item.title,content,key,capo,
+          soundingKey:setlistSoundingKey(item.key,item.setlist_key),
+          cues:cues.filter(cue=>cue.song_id===item.id)}
+      })}/>}
   </section>
 }
