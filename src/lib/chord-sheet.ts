@@ -2,6 +2,7 @@ import { alignChordRow, barChordParts, chordRowPositions, isChordToken, normaliz
 
 const repeatPattern = /^x[1-9]\d*$/i
 const pageMarker = /^Page\s+\d+\s*\/\s*\d+$/i
+const copiedCapoLabel = /^Capo\s+\d+(?:st|nd|rd|th)?(?:\s+fret)?$/i
 
 type ChordSheetWarning = { line: number; kind: 'past-lyrics' | 'unrecognized-row' }
 type SourceLine = { text: string; number: number }
@@ -18,7 +19,8 @@ function copiedChartHeader(lines: SourceLine[]) {
   const header = lines.slice(titleIndex + 1, sectionIndex).map(({text}) => text.trim())
   const metadata = /^(?:Difficulty|Tuning|Key|Capo)\s*:/i
   if (!header.some(line => metadata.test(line) || /^Strumming pattern$/i.test(line))) return null
-  if (!header.every(line => !line || metadata.test(line) || /^(?:Chords|Strumming pattern|\d+\s*bpm|[1-9]\d*|&|\+)$/i.test(line)
+  if (!header.every(line => !line || metadata.test(line) || copiedCapoLabel.test(line)
+    || /^(?:Chords|Strumming pattern|\d+\s*bpm|[1-9]\d*|&|\+)$/i.test(line)
     || !!chordRow(line))) return null
   return { title: heading[1], artist: heading[2], sectionIndex }
 }
