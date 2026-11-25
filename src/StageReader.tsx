@@ -1,10 +1,10 @@
-import { Children, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { Children, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { displaySong } from './SongChart'
 import { CueText } from './SetlistCues'
 import { songCueLocation } from './lib/cue-locations'
 import type { SetlistCue } from './lib/setlist-cues'
-import { fitStageColumns, type StageColumn } from './lib/stage-layout'
+import { balanceStageColumns, fitStageColumns, type StageColumn, type StageRow } from './lib/stage-layout'
 import { stageView } from './lib/stage-url'
 import { allowNavigation } from './lib/unsaved'
 import './StageReader.css'
@@ -58,12 +58,14 @@ type StageColumns = typeof columnOptions[number]
 type Orientation = 'portrait' | 'landscape'
 type StageLayout = { size: number; scale: number; gap: number; columns: StageColumn[] }
 
-function FittedChart({chart, columns, paper = false, includePrivate = true, onSize}: {
-  chart: StageChart; columns: StageColumns; paper?: boolean; includePrivate?: boolean; onSize?: (size: number) => void
+function FittedChart({chart, columns, paper = false, includePrivate = true, onSize, onSwipe}: {
+  chart: StageChart; columns: StageColumns; paper?: boolean; includePrivate?: boolean
+  onSize?: (size: number) => void; onSwipe?: (direction: -1 | 1) => void
 }) {
   const frame = useRef<HTMLDivElement>(null)
   const measure = useRef<HTMLDivElement>(null)
-  const [layout, setLayout] = useState<StageLayout>()
+  const touchStart = useRef<{id: number; x: number; y: number} | null>(null)
+  const [layout, setLayout] = useState<StageLayout | null>(null)
   const { title, content, key, soundingKey, transpose = 0, capo } = chart
   const cues = (chart.cues ?? []).filter(cue => includePrivate || cue.scope === 'team')
   const cueSignature = JSON.stringify(cues)
@@ -92,15 +94,19 @@ function FittedChart({chart, columns, paper = false, includePrivate = true, onSi
     const count = columns === 'auto' ? 'auto' : columnOptions.indexOf(columns)
     function fit() {
       if (!active || !viewport.clientWidth || !viewport.clientHeight) return
-      function at(size: number, scale = 1): StageLayout | null {
+      const lineCounts = Array.from(measuring.children, unit =>
+        unit.querySelectorAll('.stage-chart-heading, .song-section, .song-line, .setlist-cue').length || 1)
+      function at(size: number, scale = 1, columnCount: number | 'auto' = count): (StageLayout & {rows: StageRow[]}) | null {
         measuring.style.fontSize = size + 'px'
-        const rows = Array.from(measuring.children, row => {
+        const rows = Array.from(measuring.children, (row, index) => {
           const box = row.getBoundingClientRect()
-          return { width: Math.ceil(box.width), height: Math.ceil(box.height) }
+          return { width: Math.ceil(box.width), height: Math.ceil(box.height), lines: lineCounts[index] }
         })
         const gap = Math.max(8, Math.ceil(size * .75))
-        const columns = fitStageColumns(rows, viewport.clientWidth / scale, viewport.clientHeight / scale, gap, count)
-        return columns ? { size, scale, gap, columns } : null
+        const width = viewport.clientWidth / scale
+        const height = viewport.clientHeight / scale
+        const columns = fitStageColumns(rows, width, height, gap, columnCount)
+        return columns ? { size, scale, gap, columns, rows } : null
       }
 
       let fitted = at(paper ? 18 : 32)
@@ -118,8 +124,29 @@ function FittedChart({chart, columns, paper = false, includePrivate = true, onSi
       }
       // Scale exceptionally large charts uniformly without wrapping any rows.
       for (let scale = .5; !fitted; scale /= 2) fitted = at(1, scale)
-      setLayout(fitted)
-      onSize?.(fitted.size * fitted.scale)
+      const totals = [0]
+      for (const lines of lineCounts) totals.push(totals[totals.length - 1] + lines)
+      const spread = (columns: StageColumn[]) => {
+        const counts = columns.map(({start, end}) => totals[end] - totals[start])
+        return Math.max(...counts) - Math.min(...counts)
+      }
+      function balance({rows, size, scale, gap, columns}: StageLayout & {rows: StageRow[]}): StageLayout {
+        return {
+          size, scale, gap, columns: balanceStageColumns(rows, viewport.clientWidth / scale, viewport.clientHeight / scale, gap, columns),
+        }
+      }
+
+      let best = balance(fitted)
+      // A small reduction in text size can give wide rows enough room to share a column.
+      const smallest = Math.max(12, fitted.size - 3, Math.floor(fitted.size * .85))
+      for (let size = fitted.size - 1; size >= smallest && spread(best.columns) > 2; size--) {
+        const candidate = at(size, fitted.scale, fitted.columns.length)
+        if (!candidate) continue
+        const balanced = balance(candidate)
+        if (spread(balanced.columns) < spread(best.columns)) best = balanced
+      }
+      setLayout(best)
+      onSize?.(best.size * best.scale)
     }
     fit()
     const observer = new ResizeObserver(fit)
@@ -128,14 +155,30 @@ function FittedChart({chart, columns, paper = false, includePrivate = true, onSi
     return () => { active = false; observer.disconnect() }
   }, [title, content, key, soundingKey, transpose, capo, cueSignature, columns, paper, onSize])
 
-  return <div className="stage-chart-frame" ref={frame}>
+  return <div className="stage-chart-frame" ref={frame} data-swipe={!!onSwipe || undefined}
+    onTouchStart={onSwipe && (event => {
+      const touch = event.touches[0]
+      touchStart.current = event.touches.length === 1
+        ? {id: touch.identifier, x: touch.clientX, y: touch.clientY} : null
+    })}
+    onTouchCancel={() => { touchStart.current = null }}
+    onTouchEnd={onSwipe && (event => {
+      const start = touchStart.current
+      touchStart.current = null
+      if (!start || event.touches.length) return
+      const touch = Array.from(event.changedTouches).find(point => point.identifier === start.id)
+      if (!touch) return
+      const x = touch.clientX - start.x
+      const y = touch.clientY - start.y
+      if (Math.abs(x) >= 50 && Math.abs(x) > Math.abs(y) * 1.5) onSwipe(x < 0 ? 1 : -1)
+    })}>
     <div className="stage-chart stage-measure" ref={measure} aria-hidden="true">
       {units.map((unit, i) => <div className="stage-unit" key={i}>{unit}</div>)}
     </div>
     {layout && <div className="stage-chart stage-columns" style={{
-      fontSize: layout.size, gap: layout.gap, transform: `scale(${layout.scale})`,
+      fontSize: layout.size, '--stage-column-gap': `${layout.gap}px`, transform: `scale(${layout.scale})`,
       gridTemplateColumns: layout.columns.map(column => `${column.width}px`).join(' '),
-    }}>
+    } as CSSProperties}>
       {layout.columns.map(({start, end}) => <div className="stage-column" key={start}>
         {units.slice(start, end).map((unit, i) => <div className="stage-unit" key={start + i}>{unit}</div>)}
       </div>)}
@@ -186,7 +229,7 @@ export default function StageReader({charts, index, select, exit, setlist = fals
       if (event.defaultPrevented || event.repeat || event.ctrlKey || event.altKey || event.metaKey ||
           event.shiftKey || print || options.current?.open ||
           (event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable]'))) return
-      const direction = event.key === 'j' ? 1 : event.key === 'k' ? -1 : 0
+      const direction = event.key === 'j' ? -1 : event.key === 'k' ? 1 : 0
       if (select && direction && charts[index + direction]) {
         event.preventDefault()
         select(index + direction)
@@ -225,9 +268,9 @@ export default function StageReader({charts, index, select, exit, setlist = fals
       <div className="stage-reader-layout">
         <div className="stage-toolbar">
           {setlist && <nav aria-label="Stage song navigation">
-            <button disabled={index <= 0} onClick={() => select?.(index - 1)}>Previous</button>
+            <button disabled={index <= 0} aria-keyshortcuts="j" onClick={() => select?.(index - 1)}>Previous (j)</button>
             <span aria-live="polite">{current ? `${index + 1} / ${charts.length}` : 'No songs'}</span>
-            <button disabled={index + 1 >= charts.length} onClick={() => select?.(index + 1)}>Next</button>
+            <button disabled={index + 1 >= charts.length} aria-keyshortcuts="k" onClick={() => select?.(index + 1)}>Next (k)</button>
           </nav>}
           <label className="reading-columns">Columns
             <select value={columns} onChange={event => setColumns(event.target.value as StageColumns)}>
@@ -250,7 +293,10 @@ export default function StageReader({charts, index, select, exit, setlist = fals
           </details>
           <button onClick={exit}>Exit one-page view</button>
         </div>
-        {current ? <FittedChart chart={current} columns={columns} onSize={setFittedSize}/>
+        {current ? <FittedChart chart={current} columns={columns} onSize={setFittedSize}
+          onSwipe={setlist && select && !print ? direction => {
+            if (!options.current?.open && charts[index + direction]) select(index + direction)
+          } : undefined}/>
           : <p>No songs available.</p>}
         {current && fittedSize < 12 && <p className="stage-fit-note" role="status">Small text in this chart. <button onClick={exit}>Open standard reader</button></p>}
       </div>
