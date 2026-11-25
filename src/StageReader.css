@@ -55,7 +55,16 @@
 .stage-chart { line-height: 1.18; transform-origin: top left; }
 .stage-measure { position: absolute; visibility: hidden; pointer-events: none; inset: 0 auto auto 0; }
 .stage-measure .stage-unit { width: max-content; }
-.stage-columns { display: grid; width: max-content; align-items: start; }
+.stage-columns { display: grid; width: max-content; gap: var(--stage-column-gap); }
+.stage-column { position: relative; }
+.stage-column + .stage-column::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: calc(var(--stage-column-gap) / -2);
+  border-inline-start: 1px solid var(--control-border);
+  pointer-events: none;
+}
 .stage-unit { display: flow-root; }
 .stage-chart-heading, .stage-chart .setlist-cue { max-width: 28em; overflow-wrap: anywhere; }
 .stage-chart .song-section {
@@ -104,6 +113,7 @@
   .stage-print-page { page: stage-portrait; break-inside: avoid; }
   .stage-print-output[data-orientation="landscape"] .stage-print-page { page: stage-landscape; }
   .stage-print-page + .stage-print-page { break-before: page; }
+  .stage-print-output .stage-column + .stage-column::before { border-color: #888; }
   .stage-print-output :is(.chord, .setlist-cue) { color: #000; }
   .stage-print-output .setlist-cue[data-visibility="private"] { color: #000 !important; }
   .stage-print-output .setlist-cue { border: 1px solid #777; background: transparent; }

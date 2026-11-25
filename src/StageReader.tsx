@@ -1,10 +1,10 @@
-import { Children, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { Children, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { displaySong } from './SongChart'
 import { CueText } from './SetlistCues'
 import { songCueLocation } from './lib/cue-locations'
 import type { SetlistCue } from './lib/setlist-cues'
-import { fitStageColumns, type StageColumn } from './lib/stage-layout'
+import { balanceStageColumns, fitStageColumns, type StageColumn, type StageRow } from './lib/stage-layout'
 import { stageView } from './lib/stage-url'
 import { allowNavigation } from './lib/unsaved'
 import './StageReader.css'
@@ -63,7 +63,7 @@ function FittedChart({chart, columns, paper = false, includePrivate = true, onSi
 }) {
   const frame = useRef<HTMLDivElement>(null)
   const measure = useRef<HTMLDivElement>(null)
-  const [layout, setLayout] = useState<StageLayout>()
+  const [layout, setLayout] = useState<StageLayout | null>(null)
   const { title, content, key, soundingKey, transpose = 0, capo } = chart
   const cues = (chart.cues ?? []).filter(cue => includePrivate || cue.scope === 'team')
   const cueSignature = JSON.stringify(cues)
@@ -92,15 +92,19 @@ function FittedChart({chart, columns, paper = false, includePrivate = true, onSi
     const count = columns === 'auto' ? 'auto' : columnOptions.indexOf(columns)
     function fit() {
       if (!active || !viewport.clientWidth || !viewport.clientHeight) return
-      function at(size: number, scale = 1): StageLayout | null {
+      const lineCounts = Array.from(measuring.children, unit =>
+        unit.querySelectorAll('.stage-chart-heading, .song-section, .song-line, .setlist-cue').length || 1)
+      function at(size: number, scale = 1): (StageLayout & {rows: StageRow[]}) | null {
         measuring.style.fontSize = size + 'px'
-        const rows = Array.from(measuring.children, row => {
+        const rows = Array.from(measuring.children, (row, index) => {
           const box = row.getBoundingClientRect()
-          return { width: Math.ceil(box.width), height: Math.ceil(box.height) }
+          return { width: Math.ceil(box.width), height: Math.ceil(box.height), lines: lineCounts[index] }
         })
         const gap = Math.max(8, Math.ceil(size * .75))
-        const columns = fitStageColumns(rows, viewport.clientWidth / scale, viewport.clientHeight / scale, gap, count)
-        return columns ? { size, scale, gap, columns } : null
+        const width = viewport.clientWidth / scale
+        const height = viewport.clientHeight / scale
+        const columns = fitStageColumns(rows, width, height, gap, count)
+        return columns ? { size, scale, gap, columns, rows } : null
       }
 
       let fitted = at(paper ? 18 : 32)
@@ -118,8 +122,10 @@ function FittedChart({chart, columns, paper = false, includePrivate = true, onSi
       }
       // Scale exceptionally large charts uniformly without wrapping any rows.
       for (let scale = .5; !fitted; scale /= 2) fitted = at(1, scale)
-      setLayout(fitted)
-      onSize?.(fitted.size * fitted.scale)
+      const { rows, size, scale, gap } = fitted
+      const balanced = balanceStageColumns(rows, viewport.clientWidth / scale, viewport.clientHeight / scale, gap, fitted.columns)
+      setLayout({ size, scale, gap, columns: balanced })
+      onSize?.(size * scale)
     }
     fit()
     const observer = new ResizeObserver(fit)
@@ -133,9 +139,9 @@ function FittedChart({chart, columns, paper = false, includePrivate = true, onSi
       {units.map((unit, i) => <div className="stage-unit" key={i}>{unit}</div>)}
     </div>
     {layout && <div className="stage-chart stage-columns" style={{
-      fontSize: layout.size, gap: layout.gap, transform: `scale(${layout.scale})`,
+      fontSize: layout.size, '--stage-column-gap': `${layout.gap}px`, transform: `scale(${layout.scale})`,
       gridTemplateColumns: layout.columns.map(column => `${column.width}px`).join(' '),
-    }}>
+    } as CSSProperties}>
       {layout.columns.map(({start, end}) => <div className="stage-column" key={start}>
         {units.slice(start, end).map((unit, i) => <div className="stage-unit" key={start + i}>{unit}</div>)}
       </div>)}

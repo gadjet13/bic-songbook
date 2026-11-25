@@ -1,4 +1,5 @@
-type Row = { width: number; height: number }
+export type StageRow = { width: number; height: number; lines?: number }
+type LineBounds = { totals: number[]; minimum: number; maximum: number }
 export type StageColumn = { start: number; end: number; width: number }
 
 // Each possible column start has a cost equal to the previous columns' width
@@ -35,14 +36,25 @@ function columnCosts(length: number) {
     index[node] = index[child]
   }
 
+  // Starts before this boundary are tall enough to meet the minimum line count.
+  function bestBefore(end: number, node = 1, left = 0, right = size): {width: number; start: number} {
+    if (right <= end) return { width: min[node], start: index[node] }
+    if (left >= end) return { width: Infinity, start: left }
+    const middle = (left + right) / 2
+    const earlier = bestBefore(end, node * 2, left, middle)
+    const later = bestBefore(end, node * 2 + 1, middle, right)
+    const best = earlier.width <= later.width ? earlier : later
+    return { width: best.width + offset[node], start: best.start }
+  }
+
   return {
     add: (start: number, end: number, value: number) => update(start, end, value),
     set: (i: number, value: number) => update(i, i + 1, value, true),
-    best: () => ({ width: min[1], start: index[1] }),
+    best: (end = size) => bestBefore(end),
   }
 }
 
-export function fitStageColumns(rows: readonly Row[], width: number, height: number, gap: number, count: number | 'auto'): StageColumn[] | null {
+export function fitStageColumns(rows: readonly StageRow[], width: number, height: number, gap: number, count: number | 'auto', bounds?: LineBounds): StageColumn[] | null {
   if (!rows.length) return []
   const limit = Math.min(rows.length, count === 'auto' ? 6 : count)
   if (rows.some(row => row.height > height || row.width > width) ||
@@ -58,6 +70,7 @@ export function fitStageColumns(rows: readonly Row[], width: number, height: num
     const from = new Int32Array(rows.length + 1)
     const stack: { start: number; width: number }[] = []
     let first = 0
+    let last = 0
     let columnHeight = 0
     for (const [end, row] of rows.entries()) {
       let start = end
@@ -69,11 +82,15 @@ export function fitStageColumns(rows: readonly Row[], width: number, height: num
       stack.push({ start, width: row.width })
       costs.set(end, previous[end] + row.width)
       columnHeight += row.height
-      while (columnHeight > height) {
+      const totalLines = bounds?.totals[end + 1] ?? 0
+      while (columnHeight > height || (bounds && totalLines - bounds.totals[first] > bounds.maximum)) {
         costs.set(first, Infinity)
         columnHeight -= rows[first++].height
       }
-      const best = costs.best()
+      if (bounds) {
+        while (last <= end && totalLines - bounds.totals[last] >= bounds.minimum) last++
+      }
+      const best = costs.best(bounds ? last : undefined)
       current[end + 1] = best.width
       from[end + 1] = best.start
     }
@@ -92,4 +109,35 @@ export function fitStageColumns(rows: readonly Row[], width: number, height: num
     previous = current
   }
   return null
+}
+
+export function balanceStageColumns(rows: readonly StageRow[], width: number, height: number, gap: number, fitted: StageColumn[]): StageColumn[] {
+  if (fitted.length < 2) return fitted
+
+  const totals = [0]
+  for (const row of rows) totals.push(totals[totals.length - 1] + (row.lines ?? 1))
+  const target = totals[rows.length] / fitted.length
+  const minimum = Math.floor(target)
+  const maximum = Math.ceil(target)
+  const ideal = fitStageColumns(rows, width, height, gap, fitted.length, {totals, minimum, maximum})
+  if (ideal) return ideal
+
+  // Find the smallest deviation from an even split that fits the same page.
+  let balanced = fitted
+  let low = 1
+  let high = Math.max(...fitted.map(({start, end}) => {
+    const lines = totals[end] - totals[start]
+    return Math.max(minimum - lines, lines - maximum)
+  })) - 1
+  while (low <= high) {
+    const deviation = Math.floor((low + high) / 2)
+    const candidate = fitStageColumns(rows, width, height, gap, fitted.length, {
+      totals, minimum: Math.max(1, minimum - deviation), maximum: maximum + deviation,
+    })
+    if (candidate) {
+      balanced = candidate
+      high = deviation - 1
+    } else low = deviation + 1
+  }
+  return balanced
 }

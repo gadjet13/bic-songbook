@@ -54,3 +54,33 @@ test('stage fit agrees with exhaustive partitions for small charts', () => {
     assert.equal(result ? result.reduce((sum, row) => sum + row.width, 0) + 2 * (count - 1) : Infinity, expected)
   }
 })
+
+const { balanceStageColumns } = api
+const counts = columns => Array.from(columns, ({ start, end }) => end - start)
+
+test('balances a width-optimal singleton column when there is room to move rows', () => {
+  const rows = [100, 40, 40, 40, 40, 40, 40, 40].map(width => ({ width, height: 10 }))
+  const fitted = fitStageColumns(rows, 148, 100, 8, 2)
+  assert.deepEqual(counts(fitted), [1, 7])
+  assert.deepEqual(counts(balanceStageColumns(rows, 148, 100, 8, fitted)), [4, 4])
+})
+
+test('allows uneven columns if spreading wide rows would exceed the page width', () => {
+  const rows = [100, 100, 100, 100, 100, 100, 40, 40].map(width => ({ width, height: 10 }))
+  const fitted = fitStageColumns(rows, 148, 100, 8, 2)
+  assert.deepEqual(counts(balanceStageColumns(rows, 148, 100, 8, fitted)), [6, 2])
+})
+
+test('counts grouped headings and rows together when looking for an even split', () => {
+  const rows = [3, 1, 1, 1, 1, 1].map(lines => ({ width: 40, height: 10 * lines, lines }))
+  const fitted = fitStageColumns(rows, 88, 50, 8, 2)
+  assert.deepEqual(counts(balanceStageColumns(rows, 88, 50, 8, fitted)), [2, 4])
+})
+
+test('uses the closest feasible balance when widths rule out the ideal split', () => {
+  const rows = [100, 100, 100, 100, 100, 80, 60, 40, 40, 40].map(width => ({ width, height: 10 }))
+  const fitted = fitStageColumns(rows, 168, 100, 8, 2)
+  assert.deepEqual(counts(fitted), [7, 3])
+  assert.deepEqual(counts(balanceStageColumns(rows, 168, 100, 8, fitted)), [6, 4])
+  assert.deepEqual(counts(balanceStageColumns(rows, 148, 100, 8, fitted)), [7, 3])
+})
