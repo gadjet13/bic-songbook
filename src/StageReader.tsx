@@ -94,7 +94,7 @@ function FittedChart({chart, columns, paper = false, includePrivate = true, onSi
       if (!active || !viewport.clientWidth || !viewport.clientHeight) return
       const lineCounts = Array.from(measuring.children, unit =>
         unit.querySelectorAll('.stage-chart-heading, .song-section, .song-line, .setlist-cue').length || 1)
-      function at(size: number, scale = 1): (StageLayout & {rows: StageRow[]}) | null {
+      function at(size: number, scale = 1, columnCount = count): (StageLayout & {rows: StageRow[]}) | null {
         measuring.style.fontSize = size + 'px'
         const rows = Array.from(measuring.children, (row, index) => {
           const box = row.getBoundingClientRect()
@@ -103,7 +103,7 @@ function FittedChart({chart, columns, paper = false, includePrivate = true, onSi
         const gap = Math.max(8, Math.ceil(size * .75))
         const width = viewport.clientWidth / scale
         const height = viewport.clientHeight / scale
-        const columns = fitStageColumns(rows, width, height, gap, count)
+        const columns = fitStageColumns(rows, width, height, gap, columnCount)
         return columns ? { size, scale, gap, columns, rows } : null
       }
 
@@ -122,10 +122,29 @@ function FittedChart({chart, columns, paper = false, includePrivate = true, onSi
       }
       // Scale exceptionally large charts uniformly without wrapping any rows.
       for (let scale = .5; !fitted; scale /= 2) fitted = at(1, scale)
-      const { rows, size, scale, gap } = fitted
-      const balanced = balanceStageColumns(rows, viewport.clientWidth / scale, viewport.clientHeight / scale, gap, fitted.columns)
-      setLayout({ size, scale, gap, columns: balanced })
-      onSize?.(size * scale)
+      const totals = [0]
+      for (const lines of lineCounts) totals.push(totals[totals.length - 1] + lines)
+      const spread = (columns: StageColumn[]) => {
+        const counts = columns.map(({start, end}) => totals[end] - totals[start])
+        return Math.max(...counts) - Math.min(...counts)
+      }
+      function balance({rows, size, scale, gap, columns}: StageLayout & {rows: StageRow[]}): StageLayout {
+        return {
+          size, scale, gap, columns: balanceStageColumns(rows, viewport.clientWidth / scale, viewport.clientHeight / scale, gap, columns),
+        }
+      }
+
+      let best = balance(fitted)
+      // A small reduction in text size can give wide rows enough room to share a column.
+      const smallest = Math.max(12, fitted.size - 3, Math.floor(fitted.size * .85))
+      for (let size = fitted.size - 1; size >= smallest && spread(best.columns) > 2; size--) {
+        const candidate = at(size, fitted.scale, fitted.columns.length)
+        if (!candidate) continue
+        const balanced = balance(candidate)
+        if (spread(balanced.columns) < spread(best.columns)) best = balanced
+      }
+      setLayout(best)
+      onSize?.(best.size * best.scale)
     }
     fit()
     const observer = new ResizeObserver(fit)
