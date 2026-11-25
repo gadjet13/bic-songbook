@@ -58,11 +58,13 @@ type StageColumns = typeof columnOptions[number]
 type Orientation = 'portrait' | 'landscape'
 type StageLayout = { size: number; scale: number; gap: number; columns: StageColumn[] }
 
-function FittedChart({chart, columns, paper = false, includePrivate = true, onSize}: {
-  chart: StageChart; columns: StageColumns; paper?: boolean; includePrivate?: boolean; onSize?: (size: number) => void
+function FittedChart({chart, columns, paper = false, includePrivate = true, onSize, onSwipe}: {
+  chart: StageChart; columns: StageColumns; paper?: boolean; includePrivate?: boolean
+  onSize?: (size: number) => void; onSwipe?: (direction: -1 | 1) => void
 }) {
   const frame = useRef<HTMLDivElement>(null)
   const measure = useRef<HTMLDivElement>(null)
+  const touchStart = useRef<{id: number; x: number; y: number} | null>(null)
   const [layout, setLayout] = useState<StageLayout | null>(null)
   const { title, content, key, soundingKey, transpose = 0, capo } = chart
   const cues = (chart.cues ?? []).filter(cue => includePrivate || cue.scope === 'team')
@@ -153,7 +155,23 @@ function FittedChart({chart, columns, paper = false, includePrivate = true, onSi
     return () => { active = false; observer.disconnect() }
   }, [title, content, key, soundingKey, transpose, capo, cueSignature, columns, paper, onSize])
 
-  return <div className="stage-chart-frame" ref={frame}>
+  return <div className="stage-chart-frame" ref={frame} data-swipe={!!onSwipe || undefined}
+    onTouchStart={onSwipe && (event => {
+      const touch = event.touches[0]
+      touchStart.current = event.touches.length === 1
+        ? {id: touch.identifier, x: touch.clientX, y: touch.clientY} : null
+    })}
+    onTouchCancel={() => { touchStart.current = null }}
+    onTouchEnd={onSwipe && (event => {
+      const start = touchStart.current
+      touchStart.current = null
+      if (!start || event.touches.length) return
+      const touch = Array.from(event.changedTouches).find(point => point.identifier === start.id)
+      if (!touch) return
+      const x = touch.clientX - start.x
+      const y = touch.clientY - start.y
+      if (Math.abs(x) >= 50 && Math.abs(x) > Math.abs(y) * 1.5) onSwipe(x < 0 ? 1 : -1)
+    })}>
     <div className="stage-chart stage-measure" ref={measure} aria-hidden="true">
       {units.map((unit, i) => <div className="stage-unit" key={i}>{unit}</div>)}
     </div>
@@ -250,9 +268,9 @@ export default function StageReader({charts, index, select, exit, setlist = fals
       <div className="stage-reader-layout">
         <div className="stage-toolbar">
           {setlist && <nav aria-label="Stage song navigation">
-            <button disabled={index <= 0} onClick={() => select?.(index - 1)}>Previous</button>
+            <button disabled={index <= 0} aria-keyshortcuts="k" onClick={() => select?.(index - 1)}>Previous (k)</button>
             <span aria-live="polite">{current ? `${index + 1} / ${charts.length}` : 'No songs'}</span>
-            <button disabled={index + 1 >= charts.length} onClick={() => select?.(index + 1)}>Next</button>
+            <button disabled={index + 1 >= charts.length} aria-keyshortcuts="j" onClick={() => select?.(index + 1)}>Next (j)</button>
           </nav>}
           <label className="reading-columns">Columns
             <select value={columns} onChange={event => setColumns(event.target.value as StageColumns)}>
@@ -275,7 +293,10 @@ export default function StageReader({charts, index, select, exit, setlist = fals
           </details>
           <button onClick={exit}>Exit one-page view</button>
         </div>
-        {current ? <FittedChart chart={current} columns={columns} onSize={setFittedSize}/>
+        {current ? <FittedChart chart={current} columns={columns} onSize={setFittedSize}
+          onSwipe={setlist && select && !print ? direction => {
+            if (!options.current?.open && charts[index + direction]) select(index + direction)
+          } : undefined}/>
           : <p>No songs available.</p>}
         {current && fittedSize < 12 && <p className="stage-fit-note" role="status">Small text in this chart. <button onClick={exit}>Open standard reader</button></p>}
       </div>
