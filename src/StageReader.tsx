@@ -94,7 +94,7 @@ function FittedChart({chart, columns, paper = false, includePrivate = true, onSi
       if (!active || !viewport.clientWidth || !viewport.clientHeight) return
       const lineCounts = Array.from(measuring.children, unit =>
         unit.querySelectorAll('.stage-chart-heading, .song-section, .song-line, .setlist-cue').length || 1)
-      function at(size: number, scale = 1, columnCount = count): (StageLayout & {rows: StageRow[]}) | null {
+      function at(size: number, scale = 1, columnCount: number | 'auto' = count): (StageLayout & {rows: StageRow[]}) | null {
         measuring.style.fontSize = size + 'px'
         const rows = Array.from(measuring.children, (row, index) => {
           const box = row.getBoundingClientRect()
