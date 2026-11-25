@@ -56,6 +56,8 @@ export function useStageView(enabled: boolean) {
 const columnOptions = ['auto', 'one', 'two', 'three', 'four', 'five', 'six'] as const
 type StageColumns = typeof columnOptions[number]
 type Orientation = 'portrait' | 'landscape'
+const previousKeys = ['j', 'ArrowLeft', 'PageUp']
+const nextKeys = ['k', 'ArrowRight', 'PageDown']
 type StageLayout = { size: number; scale: number; gap: number; columns: StageColumn[] }
 
 function FittedChart({chart, columns, paper = false, includePrivate = true, onSize, onSwipe}: {
@@ -229,15 +231,15 @@ export default function StageReader({charts, index, select, exit, setlist = fals
       if (event.defaultPrevented || event.repeat || event.ctrlKey || event.altKey || event.metaKey ||
           event.shiftKey || print || options.current?.open ||
           (event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable]'))) return
-      const direction = event.key === 'j' ? -1 : event.key === 'k' ? 1 : 0
-      if (select && direction && charts[index + direction]) {
+      const direction = previousKeys.includes(event.key) ? -1 : nextKeys.includes(event.key) ? 1 : 0
+      if (setlist && select && direction) {
         event.preventDefault()
-        select(index + direction)
+        if (charts[index + direction]) select(index + direction)
       }
     }
     window.addEventListener('keydown', keys, true)
     return () => window.removeEventListener('keydown', keys, true)
-  }, [charts, index, select, exit, print])
+  }, [charts, index, select, exit, print, setlist])
 
   useEffect(() => {
     if (!print) return
@@ -268,9 +270,9 @@ export default function StageReader({charts, index, select, exit, setlist = fals
       <div className="stage-reader-layout">
         <div className="stage-toolbar">
           {setlist && <nav aria-label="Stage song navigation">
-            <button disabled={index <= 0} aria-keyshortcuts="j" onClick={() => select?.(index - 1)}>Previous (j)</button>
+            <button disabled={index <= 0} aria-keyshortcuts={previousKeys.join(' ')} onClick={() => select?.(index - 1)}>Previous (j)</button>
             <span aria-live="polite">{current ? `${index + 1} / ${charts.length}` : 'No songs'}</span>
-            <button disabled={index + 1 >= charts.length} aria-keyshortcuts="k" onClick={() => select?.(index + 1)}>Next (k)</button>
+            <button disabled={index + 1 >= charts.length} aria-keyshortcuts={nextKeys.join(' ')} onClick={() => select?.(index + 1)}>Next (k)</button>
           </nav>}
           <label className="reading-columns">Columns
             <select value={columns} onChange={event => setColumns(event.target.value as StageColumns)}>
