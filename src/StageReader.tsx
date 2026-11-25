@@ -229,7 +229,7 @@ export default function StageReader({charts, index, select, exit, setlist = fals
       if (event.defaultPrevented || event.repeat || event.ctrlKey || event.altKey || event.metaKey ||
           event.shiftKey || print || options.current?.open ||
           (event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable]'))) return
-      const direction = event.key === 'j' ? 1 : event.key === 'k' ? -1 : 0
+      const direction = event.key === 'j' ? -1 : event.key === 'k' ? 1 : 0
       if (select && direction && charts[index + direction]) {
         event.preventDefault()
         select(index + direction)
@@ -268,9 +268,9 @@ export default function StageReader({charts, index, select, exit, setlist = fals
       <div className="stage-reader-layout">
         <div className="stage-toolbar">
           {setlist && <nav aria-label="Stage song navigation">
-            <button disabled={index <= 0} aria-keyshortcuts="k" onClick={() => select?.(index - 1)}>Previous (k)</button>
+            <button disabled={index <= 0} aria-keyshortcuts="j" onClick={() => select?.(index - 1)}>Previous (j)</button>
             <span aria-live="polite">{current ? `${index + 1} / ${charts.length}` : 'No songs'}</span>
-            <button disabled={index + 1 >= charts.length} aria-keyshortcuts="j" onClick={() => select?.(index + 1)}>Next (j)</button>
+            <button disabled={index + 1 >= charts.length} aria-keyshortcuts="k" onClick={() => select?.(index + 1)}>Next (k)</button>
           </nav>}
           <label className="reading-columns">Columns
             <select value={columns} onChange={event => setColumns(event.target.value as StageColumns)}>
